@@ -1,0 +1,1336 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ai SAY 控制台</title>
+  <style>
+    :root { color-scheme: light; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Segoe UI', 'Microsoft YaHei', system-ui, sans-serif; background: #f6f7f9; color: #1f2328; }
+    header { background: #ffffff; border-bottom: 1px solid #e6e8eb; padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; }
+    header h1 { font-size: 18px; margin: 0; }
+    .row { display: flex; gap: 8px; align-items: center; }
+    .badge { font-size: 11px; background: #eef4ff; color: #4062bb; padding: 2px 8px; border-radius: 999px; }
+    button { font: inherit; background: #4062bb; color: #fff; border: 0; border-radius: 6px; padding: 8px 12px; cursor: pointer; }
+    button.secondary { background: #f2f4f7; color: #344054; border: 1px solid #d0d5dd; }
+    button:hover { filter: brightness(1.05); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    main { display: grid; grid-template-columns: 460px 1fr; gap: 16px; padding: 16px 24px; max-width: 1400px; margin: 0 auto; }
+    .card { background: #fff; border: 1px solid #e6e8eb; border-radius: 8px; padding: 16px; }
+    .card h2 { font-size: 14px; margin: 0 0 10px; color: #344054; }
+    input, select { font: inherit; padding: 8px 10px; border: 1px solid #d0d5dd; border-radius: 6px; background: #fff; }
+    input[type=checkbox] { accent-color: #4062bb; }
+    .search-row { display: flex; gap: 6px; margin-bottom: 10px; }
+    .search-row input { flex: 1; min-width: 0; }
+    .browser-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 6px; max-height: 360px; overflow: auto; }
+    .win-cell {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      border: 1px solid #d0d5dd; border-radius: 6px; padding: 6px 4px; cursor: pointer;
+      background: #fff; user-select: none; position: relative;
+    }
+    .win-cell .seq { font-size: 14px; font-weight: 600; color: #1f2328; }
+    .win-cell .pick { font-size: 10px; color: #98a2b3; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .win-cell.selected { border-color: #4062bb; background: #f5f8ff; }
+    .win-cell.in-group { background: #eef4ff; border-color: #a5b8e6; }
+    .platform-groups { display: flex; flex-direction: column; gap: 10px; }
+    .group-block { border: 1px solid #eaecf0; border-radius: 8px; padding: 10px; }
+    .group-block h3 { font-size: 13px; margin: 0 0 8px; color: #344054; display: flex; justify-content: space-between; align-items: center; }
+    .group-block h3 .actions { display: flex; gap: 6px; }
+    .group-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .chip {
+      display: inline-flex; align-items: center; gap: 4px;
+      background: #f2f4f7; border: 1px solid #d0d5dd; border-radius: 999px;
+      padding: 3px 8px; font-size: 12px; color: #344054;
+    }
+    .chip button { border: 0; background: transparent; color: #475467; font-size: 14px; padding: 0; line-height: 1; cursor: pointer; }
+    .chip button:hover { color: #d92d20; }
+    .no-group-hint { font-size: 12px; color: #98a2b3; }
+    .row.controls { margin-bottom: 10px; flex-wrap: wrap; }
+    .messages { max-height: 480px; overflow: auto; display: flex; flex-direction: column; gap: 10px; }
+    .msg { border: 1px solid #eaecf0; border-radius: 8px; padding: 10px; }
+    .msg .original { color: #475467; font-size: 13px; margin-bottom: 6px; }
+    .msg .translation { font-weight: 600; margin-bottom: 6px; }
+    .msg .recommendation { background: #f9fafb; padding: 8px; border-radius: 6px; font-size: 13px; color: #344054; }
+    .phrases { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 12px; }
+    .phrase { border: 1px solid #eaecf0; border-radius: 6px; padding: 8px; font-size: 12px; color: #475467; cursor: pointer; }
+    .phrase:hover { border-color: #4062bb; }
+    .empty { color: #98a2b3; font-size: 13px; text-align: center; padding: 24px 0; }
+    .hint { font-size: 12px; color: #667085; margin-top: 8px; }
+    .status { font-size: 12px; color: #667085; }
+    .dialog-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: none; align-items: center; justify-content: center; z-index: 10; }
+    .dialog-backdrop.open { display: flex; }
+    .dialog { background: #fff; border-radius: 8px; width: 420px; max-width: calc(100vw - 32px); padding: 20px; box-shadow: 0 8px 32px rgba(0,0,0,0.2); }
+    .dialog h3 { margin: 0 0 12px; font-size: 16px; }
+    .field { margin-bottom: 12px; }
+    .field label { display: block; font-size: 13px; color: #344054; margin-bottom: 4px; }
+    .field input { width: 100%; }
+    .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+    .toast { position: fixed; bottom: 24px; right: 24px; background: #1f2328; color: #fff; padding: 10px 14px; border-radius: 6px; font-size: 13px; display: none; z-index: 20; }
+    .toast.show { display: block; }
+    .profile-toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; align-items: center; }
+    .profile-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 10px; }
+    .profile-summary .item { border: 1px solid #eaecf0; border-radius: 8px; padding: 10px; background: #f9fafb; }
+    .profile-summary .item strong { display: block; font-size: 16px; color: #1f2328; margin-bottom: 4px; }
+    .profile-summary .item span { font-size: 12px; color: #667085; }
+    .profile-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; max-height: 360px; overflow: auto; }
+    .profile-field { border: 1px solid #eaecf0; border-radius: 8px; padding: 10px; background: #fff; }
+    .profile-field header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+    .profile-field .label { font-size: 12px; color: #667085; }
+    .profile-field .value { font-size: 14px; font-weight: 600; color: #1f2328; min-height: 20px; word-break: break-word; }
+    .pill { font-size: 11px; border-radius: 999px; padding: 2px 8px; background: #f2f4f7; color: #475467; white-space: nowrap; }
+    .pill.filled { background: #eef7ee; color: #216e21; }
+    .pill.unfilled { background: #fff3e5; color: #a85b00; }
+    .pill.select { background: #eef4ff; color: #4062bb; }
+    .next-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .next-actions .chip { margin: 0; }
+    .patch-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+    .patch-plan { margin-top: 10px; border: 1px solid #eaecf0; border-radius: 8px; padding: 10px; background: #f9fafb; }
+    .patch-plan ul { margin: 0; padding-left: 18px; }
+    .patch-plan li { font-size: 13px; margin: 4px 0; }
+    .section-block { margin-top: 12px; }
+    .bottom-nav-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+    .bottom-nav-item { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border: 1px solid #e6e8eb; border-radius: 999px; font-size: 12px; color: #344054; background: #f9fafb; }
+    .bottom-nav-item.active { background: #eef4ff; border-color: #a5b8e6; color: #4062bb; font-weight: 600; }
+    .bottom-nav-badge { font-size: 10px; background: #d92d20; color: #fff; border-radius: 999px; padding: 1px 5px; min-width: 16px; text-align: center; }
+    .bottom-nav-badge:empty { display: none; }
+    .bottom-nav-zh { color: #98a2b3; font-size: 11px; margin-left: 2px; }
+    .section-block h3 { font-size: 13px; margin: 0 0 8px; color: #344054; }
+    .msg-page { border: 1px solid #eaecf0; border-radius: 8px; padding: 10px; margin-top: 8px; background: #f9fafb; min-height: 32px; }
+    .msg-page-detail { margin-top: 10px; }
+    .msg-peer { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+    .msg-peer .name { font-size: 16px; font-weight: 700; color: #1f2328; }
+    .msg-peer .badge { font-size: 11px; background: #eef4ff; color: #4062bb; padding: 2px 8px; border-radius: 999px; }
+    .msg-profile { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+    .msg-profile .item { display: inline-flex; align-items: center; gap: 4px; background: #f2f4f7; border: 1px solid #d0d5dd; border-radius: 6px; padding: 3px 8px; font-size: 12px; color: #344054; }
+    .msg-profile .item .label { color: #667085; }
+    .msg-history { display: flex; flex-direction: column; gap: 6px; max-height: 320px; overflow: auto; }
+    .account-panel { display: grid; grid-template-columns: 220px 1fr; gap: 12px; }
+    .account-tree { border: 1px solid #eaecf0; border-radius: 8px; padding: 10px; background: #f9fafb; }
+    .account-tree h4 { margin: 0 0 8px; font-size: 13px; color: #344054; }
+    .account-platform { margin-bottom: 10px; }
+    .account-platform > h5 { margin: 0 0 6px; font-size: 12px; color: #667085; font-weight: 600; }
+    .account-list { display: flex; flex-direction: column; gap: 4px; }
+    .account-item {
+      display: flex; align-items: center; justify-content: space-between;
+      border: 1px solid #eaecf0; border-radius: 6px; padding: 6px 8px;
+      background: #fff; cursor: pointer; font-size: 13px;
+    }
+    .account-item.selected { border-color: #4062bb; background: #eef4ff; }
+    .account-meta { font-size: 11px; color: #667085; }
+    .conversation-panel { border: 1px solid #eaecf0; border-radius: 8px; padding: 12px; background: #fff; }
+    .conversation-panel h4 { margin: 0 0 8px; font-size: 13px; color: #344054; }
+    .conversation-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 10px; }
+    .conversation-summary .item { border: 1px solid #eaecf0; border-radius: 8px; padding: 8px; background: #f9fafb; }
+    .conversation-summary .item strong { display: block; font-size: 14px; color: #1f2328; margin-bottom: 4px; }
+    .conversation-summary .item span { font-size: 12px; color: #667085; }
+    .contact-card { border: 1px solid #eaecf0; border-radius: 8px; padding: 10px; background: #f9fafb; margin-bottom: 10px; }
+    .contact-card .title-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+    .contact-card .title-row .name { font-size: 14px; font-weight: 600; color: #1f2328; }
+    .contact-card .title-row .id { font-size: 12px; color: #667085; }
+    .contact-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+    .contact-fields .field { font-size: 12px; color: #344054; }
+    .contact-fields .field span { color: #667085; margin-right: 6px; }
+    .conversation-toolbar { display: flex; gap: 8px; margin-bottom: 10px; }
+    .conversation-toolbar .status { margin-left: auto; }
+
+    .msg-bubble { display: flex; flex-direction: column; gap: 2px; border: 1px solid #eaecf0; border-radius: 8px; padding: 8px; background: #fff; }
+    .msg-bubble .row1 { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #667085; }
+    .msg-bubble .row1 .role { font-weight: 700; }
+    .msg-bubble .row1 .role.self { color: #4062bb; }
+    .msg-bubble .row1 .role.other { color: #216e21; }
+    .msg-bubble .row1 .role.unknown { color: #98a2b3; }
+    .msg-bubble .row1 .time { margin-left: auto; }
+    .msg-bubble .original { font-size: 13px; color: #344054; }
+    .msg-bubble .translation { font-size: 13px; color: #1f2328; font-weight: 600; }
+    .msg-bubble .translation:empty { display: none; }
+
+    /* === 应用主布局：顶部导航 + 左侧账号树 + 右侧工作区 === */
+    .app-shell { display: grid; grid-template-rows: auto 1fr; min-height: 100vh; background: #f6f7f9; }
+    .app-nav {
+      display: flex; align-items: center; gap: 4px; padding: 10px 20px;
+      background: #fff; border-bottom: 1px solid #e6e8eb;
+    }
+    .app-nav .brand { font-weight: 700; font-size: 15px; color: #1f2328; margin-right: 18px; }
+    .app-nav .nav-item {
+      font-size: 13px; color: #475467; padding: 6px 12px; border-radius: 6px; cursor: pointer;
+      border: 0; background: transparent; font-family: inherit;
+    }
+    .app-nav .nav-item:hover { background: #f2f4f7; }
+    .app-nav .nav-item.active { background: #eef4ff; color: #4062bb; font-weight: 600; }
+    .app-nav .nav-item.disabled { color: #98a2b3; cursor: not-allowed; }
+    .app-nav .nav-sep { width: 1px; height: 18px; background: #e6e8eb; margin: 0 6px; }
+    .app-nav .nav-status { margin-left: auto; font-size: 12px; color: #667085; display: flex; align-items: center; gap: 8px; }
+    .app-nav .nav-status .badge { font-size: 11px; background: #eef4ff; color: #4062bb; padding: 2px 8px; border-radius: 999px; }
+
+    .app-body { display: grid; grid-template-columns: 280px 1fr; min-height: 0; }
+    .app-sidebar {
+      background: #fff; border-right: 1px solid #e6e8eb; padding: 14px; overflow: auto;
+      display: flex; flex-direction: column; gap: 12px;
+    }
+    .sidebar-section { border: 1px solid #eaecf0; border-radius: 8px; padding: 10px; background: #fafbfc; }
+    .sidebar-section h4 { margin: 0 0 8px; font-size: 12px; color: #667085; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+    .app-main { padding: 18px 22px; overflow: auto; }
+    .workbench { display: flex; flex-direction: column; gap: 14px; max-width: 1200px; }
+    .workbench-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+    .stat-card { border: 1px solid #eaecf0; border-radius: 8px; padding: 12px; background: #fff; }
+    .stat-card .num { font-size: 22px; font-weight: 700; color: #1f2328; }
+    .stat-card .lbl { font-size: 12px; color: #667085; margin-top: 2px; }
+    .work-card { border: 1px solid #eaecf0; border-radius: 8px; background: #fff; }
+    .work-card > header { padding: 10px 14px; border-bottom: 1px solid #eaecf0; display: flex; align-items: center; gap: 8px; }
+    .work-card > header h3 { margin: 0; font-size: 14px; color: #1f2328; }
+    .work-card > header .actions { margin-left: auto; display: flex; gap: 6px; }
+    .work-card .body { padding: 12px 14px; }
+    .work-card .body .empty { padding: 18px 0; }
+    .conv-list { display: flex; flex-direction: column; gap: 8px; max-height: 340px; overflow: auto; }
+    .conv-item { border: 1px solid #eaecf0; border-radius: 8px; padding: 10px; cursor: pointer; background: #fff; }
+    .conv-item.selected { border-color: #4062bb; background: #eef4ff; }
+    .conv-item .top { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .conv-item .top .who { font-weight: 600; font-size: 14px; color: #1f2328; }
+    .conv-item .top .path { font-size: 11px; color: #667085; }
+    .conv-item .preview { font-size: 13px; color: #475467; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .contact-detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .contact-detail-grid .kv { border: 1px solid #eaecf0; border-radius: 6px; padding: 8px; background: #f9fafb; font-size: 13px; }
+    .contact-detail-grid .kv span { display: block; font-size: 11px; color: #667085; margin-bottom: 2px; }
+    .ai-slot { border: 1px dashed #d0d5dd; border-radius: 8px; padding: 12px; background: #f9fafb; }
+    .ai-slot .hint { font-size: 12px; color: #667085; margin-top: 6px; }
+    .hidden { display: none !important; }
+
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <nav class="app-nav">
+      <span class="brand">Ai SAY</span>
+      <button class="nav-item active" data-view="workbench">工作台</button>
+      <button class="nav-item" data-view="conversations">会话管理</button>
+      <button class="nav-item" data-view="accounts">账号管理</button>
+      <button class="nav-item" data-view="platforms">平台管理</button>
+      <button class="nav-item" data-view="browsers">浏览器管理</button>
+      <button class="nav-item disabled" title="预留：接入 AI 后启用">Agent 管理</button>
+      <button class="nav-item disabled" title="预留：接入 AI 后启用">Persona 管理</button>
+      <button class="nav-item disabled" title="预留：接入 AI 后启用">私域运营</button>
+      <button class="nav-item disabled" title="预留：接入 AI 后启用">CRM 管理</button>
+      <button class="nav-item disabled" title="预留：接入 AI 后启用">数据洞察</button>
+      <button class="nav-item" id="openSettings" data-view="settings">设置</button>
+      <div class="nav-status">
+        <span class="badge" id="apiBaseBadge">比特浏览器 API</span>
+        <span id="status">未连接</span>
+      </div>
+    </nav>
+    <div class="app-body">
+      <aside class="app-sidebar">
+        <div class="sidebar-section">
+          <h4>当前账号</h4>
+          <div id="currentAccountBox"><div class="empty">未选择账号</div></div>
+        </div>
+        <div class="sidebar-section">
+          <h4>平台 / 账号</h4>
+          <div id="accountTree"><div class="empty">暂无数据</div></div>
+        </div>
+      </aside>
+      <main class="app-main">
+    <section class="card hidden" id="cardWorkbench" style="display:none;">
+      <div class="workbench">
+        <div class="workbench-grid">
+          <div class="stat-card"><div class="num" id="statWindows">0</div><div class="lbl">窗口总数</div></div>
+          <div class="stat-card"><div class="num" id="statPlatforms">0</div><div class="lbl">平台数</div></div>
+          <div class="stat-card"><div class="num" id="statConversations">0</div><div class="lbl">会话数</div></div>
+          <div class="stat-card"><div class="num" id="statContacts">0</div><div class="lbl">客户数</div></div>
+        </div>
+        <div class="work-card" id="cardConversations">
+          <header>
+            <h3>会话（平台 - 账号 - 发送人）</h3>
+            <div class="actions">
+              <button id="loadConversation" class="secondary">读取</button>
+              <button id="saveConversation" class="secondary">保存</button>
+            </div>
+          </header>
+          <div class="body">
+            <div class="conv-list" id="conversationList"><div class="empty">暂无会话</div></div>
+          </div>
+        </div>
+        <div class="work-card">
+          <header><h3>客户资料</h3></header>
+          <div class="body">
+            <div id="contactCard" class="contact-detail-grid"><div class="kv" style="grid-column:1/-1;">未选择会话</div></div>
+          </div>
+        </div>
+        <div class="work-card">
+          <header><h3>AI 助手 / 推荐回复（预留）</h3></header>
+          <div class="body">
+            <div class="ai-slot">
+              <strong>尚未接入</strong>
+              <div class="hint">预留位置：未来可在这里展示 Agent / Persona 生成的推荐回复、自动翻译、会话摘要等能力。</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card hidden" id="cardConversationsView" style="display:none;">
+      <div class="workbench">
+        <div class="work-card">
+          <header><h3>会话列表</h3><div class="actions"><button id="reloadConversations" class="secondary">刷新</button></div></header>
+          <div class="body"><div class="conv-list" id="conversationListFull"><div class="empty">暂无会话</div></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" id="cardWindowManage" style="display:none;">
+      <div class="workbench">
+        <div class="work-card">
+          <header><h3>平台控制 / 本地分组</h3></header>
+          <div class="body">
+            <div class="row controls" style="margin-bottom:8px;">
+              <input id="newGroupName" placeholder="新分组名称" style="width:180px;">
+              <button id="createGroup">新建分组</button>
+              <button id="assignGroup" class="secondary">将选中窗口加入指定分组</button>
+              <select id="targetGroup" style="min-width:180px;"></select>
+            </div>
+            <div class="platform-groups" id="platformGroups"><div class="no-group-hint">还没有分组，点击「新建分组」开始。</div></div>
+          </div>
+        </div>
+        <div class="work-card">
+          <header><h3>账号资料</h3>
+            <div class="actions">
+              <button id="viewProfile">查看当前资料</button>
+              <button id="previewPatch" class="secondary" disabled>预览修改</button>
+              <label style="font-size:12px;color:#475467;"><input type="checkbox" id="autoNavigate" checked /> 自动找资料入口</label>
+            </div>
+          </header>
+          <div class="body">
+            <div class="profile-summary">
+              <div class="item"><strong id="profileFieldCount">0</strong><span>识别字段</span></div>
+              <div class="item"><strong id="profileUnfilledCount">0</strong><span>未填写</span></div>
+              <div class="item"><strong id="profileNextCount">0</strong><span>可进入入口</span></div>
+            </div>
+            <span class="status" id="profileStatus">未读取</span>
+            <div class="profile-grid" id="profileGrid"><div class="empty">未读取资料</div></div>
+            <div class="patch-row">
+              <div class="field"><label for="patchField">字段（可留空自动匹配）</label><input id="patchField" type="text" placeholder="例如：血液型"></div>
+              <div class="field"><label for="patchValue">要改成的值</label><input id="patchValue" type="text" placeholder="例如：A型"></div>
+            </div>
+            <div class="patch-plan" id="patchPlan" style="display:none;"><h3>修改预览</h3><ul id="patchPlanList"></ul></div>
+            <div class="section-block"><h3>可进入的下一级 / 操作入口</h3><div class="next-actions" id="nextActions"><div class="empty">暂无入口</div></div></div>
+            <div class="section-block"><h3>底部导航条识别</h3><div class="next-actions" id="bottomNavBar"><div class="empty">暂无底部导航数据</div></div></div>
+            <div class="section-block"><h3>页面结构备注</h3><div class="next-actions" id="pageNotes"><div class="empty">暂无备注</div></div></div>
+          </div>
+        </div>
+        <div class="work-card">
+          <header><h3>查看消息页</h3>
+            <div class="actions"><button id="viewMessages">查看当前消息</button><span class="status" id="messagePageStatus">未读取</span></div>
+          </header>
+          <div class="body">
+            <div class="msg-page" id="msgPage"><div class="empty">未读取消息页</div></div>
+            <div class="msg-page-detail" id="msgPageDetail" style="display:none;">
+              <div class="msg-peer" id="msgPeer"></div>
+              <div class="msg-profile" id="msgProfile"></div>
+              <div class="msg-history" id="msgHistory"></div>
+            </div>
+          </div>
+        </div>
+        <div class="work-card">
+          <header><h3>账号资料与会话</h3>
+            <div class="actions">
+              <button id="saveAccountProfile" class="secondary">保存账号资料</button>
+              <button id="loadAccountProfile" class="secondary">读取账号资料</button>
+            </div>
+          </header>
+          <div class="body">
+            <span class="status" id="accountConversationStatus">未读取</span>
+            <div id="accountConversationEmpty" class="empty" style="padding:12px 0;">暂无账号资料或会话数据</div>
+            <div id="accountConversationView" style="display:none;">
+              <div class="conversation-summary" id="accountSummary"></div>
+              <div class="contact-card" id="contactCard"></div>
+              <div class="msg-history" id="accountConversationHistory"></div>
+            </div>
+          </div>
+        </div>
+        <div class="work-card">
+          <header><h3>客户消息与中文翻译</h3>
+            <div class="actions"><button id="connect" class="secondary">连接并监控</button></div>
+          </header>
+          <div class="body">
+            <div class="messages" id="messages"><div class="empty">暂无消息</div></div>
+            <h2 style="margin-top:12px;font-size:14px;">常用语</h2>
+            <div class="phrases" id="phrases"></div>
+          </div>
+        </div>
+        <div class="work-card">
+          <header><h3>比特浏览器窗口</h3><div class="actions"><button id="refresh">刷新</button></div></header>
+          <div class="body">
+            <div class="search-row">
+              <input id="searchBrowsers" type="text" placeholder="搜索序号或名称…">
+              <button id="clearSearch" class="secondary" style="padding:6px 10px;">清除</button>
+              <label style="font-size:12px;color:#475467;margin-left:auto;"><input type="checkbox" id="selectAll" /> 全选</label>
+            </div>
+            <div class="browser-grid" id="browsers"><div class="empty">加载中…</div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+    </div>
+  </div>
+  
+
+  <div class="dialog-backdrop" id="settingsBackdrop">
+    <div class="dialog">
+      <h3>比特浏览器 API 设置</h3>
+      <div class="field"><label for="settingHost">地址 (Host)</label><input id="settingHost" type="text" placeholder="127.0.0.1"></div>
+      <div class="field"><label for="settingPort">端口 (Port)</label><input id="settingPort" type="number" min="1" max="65535" placeholder="54345"></div>
+      <div class="field"><label for="settingApiBase">或 直接填写完整 API 地址</label><input id="settingApiBase" type="text" placeholder="http://127.0.0.1:54345"></div>
+      <div class="hint" style="margin-top:0;">保存后需要重启服务才生效。</div>
+      <div class="dialog-actions">
+        <button class="secondary" id="cancelSettings">取消</button>
+        <button id="saveSettings">保存</button>
+      </div>
+    </div>
+  </div>
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    let selectedIds = new Set();
+    let browsers = [];
+    let platformGroups = [];
+    let activeWindowId = null;
+    let searchTerm = '';
+    let currentMsgPage = null;
+    let currentProfile = null;
+    let currentProfileWindowId = null;
+
+    function showToast(msg) {
+      const t = $('toast'); t.textContent = msg; t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 3500);
+    }
+
+    async function fetchApi(path, options = {}) {
+      const res = await fetch(path, {
+        method: options.method || 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        body: options.body ? JSON.stringify(options.body) : undefined
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok && !data.success && !data.ok) throw new Error(data.msg || ('HTTP ' + res.status));
+      return data;
+    }
+
+    function renderStatus(text) { $('status').textContent = text; }
+
+    function escapeText(value) {
+      const div = document.createElement('div');
+      div.textContent = String(value == null ? '' : value);
+      return div.innerHTML;
+    }
+
+    async function loadSettings() {
+      try {
+        const res = await fetchApi('/api/settings');
+        const s = res.data;
+        $('settingHost').value = s.host || '';
+        $('settingPort').value = s.port || '';
+        $('settingApiBase').value = s.apiBase || '';
+        $('apiBaseBadge').textContent = '比特浏览器 API: ' + (s.host || '127.0.0.1') + ':' + (s.port || 54345);
+      } catch (e) { /* ignore */ }
+    }
+
+    async function saveSettings() {
+      const host = $('settingHost').value.trim();
+      const port = Number($('settingPort').value.trim());
+      const apiBase = $('settingApiBase').value.trim();
+      const body = {};
+      if (host) body.host = host;
+      if (port) body.port = port;
+      if (apiBase) body.apiBase = apiBase;
+      try {
+        await fetchApi('/api/settings', { method: 'POST', body });
+        $('settingsBackdrop').classList.remove('open');
+        showToast('设置已保存，重启服务后生效');
+        await loadSettings();
+      } catch (e) { showToast('保存失败：' + e.message); }
+    }
+
+    function groupedIds() {
+      const map = new Map();
+      for (const g of platformGroups) for (const id of (g.windows || [])) map.set(id, g.id);
+      return map;
+    }
+
+    function searchMatchableText(b) {
+      return String(b.seq != null ? b.seq : b.id) + ' ' + (b.name || '');
+    }
+
+    function filterBrowsers() {
+      const term = (searchTerm || '').trim().toLowerCase();
+      if (!term) return browsers;
+      return browsers.filter((b) => searchMatchableText(b).toLowerCase().includes(term));
+    }
+
+    function selectedProfileWindowId() {
+      if (currentProfileWindowId && selectedIds.has(currentProfileWindowId)) return currentProfileWindowId;
+      if (selectedIds.size === 1) return [...selectedIds][0];
+      if (activeWindowId && selectedIds.has(activeWindowId)) return activeWindowId;
+      if (selectedIds.size === 0 && activeWindowId) return activeWindowId;
+      return null;
+    }
+
+    function renderProfileSummary(profile) {
+      $('profileFieldCount').textContent = String(profile.fields ? profile.fields.length : 0);
+      $('profileUnfilledCount').textContent = String(profile.unfilled ? profile.unfilled.length : 0);
+      $('profileNextCount').textContent = String(profile.nextLevelPages ? profile.nextLevelPages.length : 0);
+    }
+
+    function renderProfileGrid(profile) {
+      const grid = $('profileGrid');
+      grid.innerHTML = '';
+      if (!profile.fields || !profile.fields.length) {
+        grid.innerHTML = '<div class="empty">未识别到资料字段</div>';
+        return;
+      }
+      for (const field of profile.fields.slice(0, 80)) {
+        const box = document.createElement('div');
+        box.className = 'profile-field';
+        const statusClass = field.filled ? 'filled' : 'unfilled';
+        const statusText = field.filled ? '已填写' : '未填写';
+        const controlText = field.controlType || field.type || '';
+        const valueText = field.displayValue || field.value || '';
+        box.innerHTML =
+          '<header><span class="label">' + escapeText(field.label || field.key || field.name || '字段') + '</span>' +
+          '<span class="pill ' + statusClass + '">' + statusText + '</span></header>' +
+          '<div class="value">' + (valueText ? escapeText(valueText) : '<span style="color:#98a2b3;">空</span>') + '</div>' +
+          (controlText ? '<div class="next-actions"><span class="pill select">' + escapeText(controlText) + '</span></div>' : '');
+        grid.appendChild(box);
+      }
+    }
+
+    function renderNextActions(profile) {
+      const box = $('nextActions');
+      box.innerHTML = '';
+      const pages = (profile.nextLevelPages || []).slice(0, 24);
+      if (!pages.length) {
+        box.innerHTML = '<div class="empty" style="padding:8px 0;">暂无入口</div>';
+        return;
+      }
+      for (const item of pages) {
+        const chip = document.createElement('span');
+        chip.className = 'chip';
+        chip.textContent = item.label || item.url || '入口';
+        if (item.url) chip.title = item.url;
+        box.appendChild(chip);
+      }
+    }
+
+    function renderPageNotes(profile) {
+      const box = $('pageNotes');
+      box.innerHTML = '';
+      const notes = [];
+      if (profile.detection && profile.detection.isLikelyProfile === false) notes.push('当前页可能不是资料页');
+      if (profile.navigation && profile.navigation.attempted) notes.push('已尝试进入资料入口');
+      if (profile.navigation && profile.navigation.succeeded === false) notes.push('资料入口进入未成功');
+      if (profile.page && profile.page.url) notes.push(profile.page.url);
+      if (!notes.length) notes.push('暂无可展示的结构备注');
+      for (const note of notes) {
+        const chip = document.createElement('span');
+        chip.className = 'chip';
+        chip.textContent = note;
+        box.appendChild(chip);
+      }
+    }
+
+    function renderBottomNav(profile) {
+      const box = $('bottomNavBar');
+      if (!box) return;
+      box.innerHTML = '';
+      const nav = profile.bottomNav;
+      if (!nav || !nav.length) {
+        box.innerHTML = '<div class="empty" style="padding:8px 0;">暂无底部导航数据</div>';
+        return;
+      }
+      for (const item of nav) {
+        const chip = document.createElement('span');
+        chip.className = 'bottom-nav-item' + (item.active ? ' active' : '');
+        const name = document.createElement('span');
+        name.textContent = item.label || '未命名';
+        chip.appendChild(name);
+        if (item.zh) {
+          const zh = document.createElement('span');
+          zh.className = 'bottom-nav-zh';
+          zh.textContent = item.zh;
+          chip.appendChild(zh);
+        }
+        if (item.hasBadge || (item.badge > 0)) {
+          const badge = document.createElement('span');
+          badge.className = 'bottom-nav-badge';
+          badge.textContent = String(item.badgeText || item.badge);
+          chip.appendChild(badge);
+        }
+        if (item.url) chip.title = item.url;
+        box.appendChild(chip);
+      }
+    }
+
+    function renderProfile(profile, windowId) {
+      currentProfile = profile;
+      currentProfileWindowId = windowId;
+      renderProfileSummary(profile);
+      renderProfileGrid(profile);
+      renderNextActions(profile);
+      renderPageNotes(profile);
+      renderBottomNav(profile);
+      $('previewPatch').disabled = !profile || !profile.fields || !profile.fields.length;
+      $('profileStatus').textContent = '已读取 ' + (windowId || '窗口');
+    }
+
+    function clearProfile() {
+      currentProfile = null;
+      currentProfileWindowId = null;
+      $('profileFieldCount').textContent = '0';
+      $('profileUnfilledCount').textContent = '0';
+      $('profileNextCount').textContent = '0';
+      $('profileGrid').innerHTML = '<div class="empty">未读取资料</div>';
+      $('nextActions').innerHTML = '<div class="empty" style="padding:8px 0;">暂无入口</div>';
+      $('pageNotes').innerHTML = '<div class="empty" style="padding:8px 0;">暂无备注</div>';
+      $('bottomNavBar').innerHTML = '<div class="empty" style="padding:8px 0;">暂无底部导航数据</div>';
+      $('patchPlan').style.display = 'none';
+      $('patchPlanList').innerHTML = '';
+      $('previewPatch').disabled = true;
+      $('profileStatus').textContent = '未读取';
+    }
+
+    async function viewProfile() {
+      const windowId = selectedProfileWindowId();
+      if (windowId) currentAccountWindowId = windowId;
+      if (!windowId) {
+        showToast('请先在窗口列表选中一个资料窗口');
+        return;
+      }
+      activeWindowId = windowId;
+      $('profileStatus').textContent = '读取中…';
+      $('viewProfile').disabled = true;
+      try {
+        const res = await fetchApi('/api/profile', {
+          method: 'POST',
+          body: { id: windowId, autoNavigate: $('autoNavigate').checked }
+        });
+        if (!res.ok) throw new Error(res.msg || '读取失败');
+        renderProfile(res.data, windowId);
+        showToast('已读取资料：' + (res.data.page && res.data.page.title ? res.data.page.title : windowId));
+      } catch (err) {
+        $('profileStatus').textContent = '读取失败';
+        showToast('读取资料失败：' + err.message);
+      } finally {
+        $('viewProfile').disabled = false;
+      }
+    }
+
+    async function previewPatch() {
+      const windowId = selectedProfileWindowId();
+      if (!windowId) {
+        showToast('请先选择要预览修改的窗口');
+        return;
+      }
+      if (!currentProfile || currentProfileWindowId !== windowId) {
+        await viewProfile();
+      }
+      if (!currentProfile || currentProfileWindowId !== windowId) return;
+      const fieldKey = $('patchField').value.trim();
+      const newValue = $('patchValue').value.trim();
+      if (!fieldKey && !newValue) {
+        showToast('请输入要预览的字段或新值');
+        return;
+      }
+      const patch = {};
+      if (fieldKey) patch[fieldKey] = newValue;
+      else {
+        const match = currentProfile.fields.find((f) => f.label === newValue || f.key === newValue || f.name === newValue);
+        if (!match) {
+          showToast('未找到匹配字段，请在「字段」里填写字段名，例如：血液型');
+          return;
+        }
+        patch[match.key || match.label] = match.value || match.displayValue || '';
+      }
+      try {
+        const res = await fetchApi('/api/profile/patch', {
+          method: 'POST',
+          body: { id: windowId, patch, autoNavigate: $('autoNavigate').checked }
+        });
+        if (!res.ok) throw new Error(res.msg || '预览失败');
+        const plan = res.data.plan || {};
+        const list = $('patchPlanList');
+        list.innerHTML = '';
+        if (plan.total === 0) {
+          const li = document.createElement('li');
+          li.textContent = '未匹配到可预览字段';
+          list.appendChild(li);
+        }
+        for (const change of (plan.changes || [])) {
+          const li = document.createElement('li');
+          li.textContent = change.label + ': ' + (change.from || '空') + ' -> ' + (change.to || '空') + (change.editable && !change.readonly ? '（可执行）' : '（仅预览）');
+          list.appendChild(li);
+        }
+        for (const warn of (plan.warnings || [])) {
+          const li = document.createElement('li');
+          li.textContent = warn;
+          list.appendChild(li);
+        }
+        $('patchPlan').style.display = '';
+      } catch (err) {
+        showToast('预览修改失败：' + err.message);
+      }
+    }
+
+    function renderBrowsers() {
+      const grid = $('browsers');
+      grid.innerHTML = '';
+      const visible = filterBrowsers();
+      if (!visible.length) {
+        grid.innerHTML = '<div class="empty">' + (browsers.length ? '没有匹配的窗口' : '没有窗口') + '</div>';
+        syncSelectAll();
+        return;
+      }
+      const gmap = groupedIds();
+      for (const b of visible) {
+        const cell = document.createElement('div');
+        cell.className = 'win-cell';
+        if (selectedIds.has(b.id)) cell.classList.add('selected');
+        if (gmap.has(b.id)) cell.classList.add('in-group');
+        cell.innerHTML = '<div class="seq">' + (b.seq != null ? b.seq : b.id) + '</div><div class="pick">' + escapeText(b.name || '') + '</div>';
+        cell.title = escapeText((b.name || b.id) + (b.lastCountry ? ' · ' + b.lastCountry : ''));
+        cell.onclick = () => {
+          if (selectedIds.has(b.id)) selectedIds.delete(b.id); else selectedIds.add(b.id);
+          cell.classList.toggle('selected');
+          if (selectedIds.size === 1) clearProfile();
+          syncSelectAll();
+        };
+        grid.appendChild(cell);
+      }
+      syncSelectAll();
+    }
+
+    function syncSelectAll() {
+      $('selectAll').checked = browsers.length > 0 && selectedIds.size === browsers.length;
+    }
+
+    async function refreshBrowsers() {
+      try {
+        const data = await fetchApi('/api/browsers', { method: 'POST', body: {} });
+        browsers = data.items || [];
+        selectedIds = new Set([...selectedIds].filter((id) => browsers.some((b) => b.id === id)));
+        renderBrowsers();
+      } catch (err) {
+        $('browsers').innerHTML = '<div class="empty">' + escapeText(err.message) + '</div>';
+      }
+    }
+
+    async function loadPlatformGroups() {
+      try {
+        const res = await fetchApi('/api/platform-groups');
+        platformGroups = res.data || [];
+      } catch (e) { platformGroups = []; }
+      renderPlatformGroups();
+      renderBrowsers();
+    }
+
+    function renderTargetGroupSelect() {
+      const sel = $('targetGroup');
+      sel.innerHTML = '';
+      if (!platformGroups.length) sel.innerHTML = '<option value="">（先新建分组）</option>';
+      for (const g of platformGroups) {
+        const opt = document.createElement('option');
+        opt.value = g.id; opt.textContent = g.name;
+        sel.appendChild(opt);
+      }
+    }
+
+    function renderPlatformGroups() {
+      renderTargetGroupSelect();
+      const wrap = $('platformGroups');
+      wrap.innerHTML = '';
+      if (!platformGroups.length) {
+        wrap.innerHTML = '<div class="no-group-hint">还没有分组，点击「新建分组」开始。</div>';
+        return;
+      }
+      const seqById = new Map(browsers.map((b) => [b.id, b.seq != null ? b.seq : b.id]));
+      for (const g of platformGroups) {
+        const block = document.createElement('div');
+        block.className = 'group-block';
+        const h3 = document.createElement('h3');
+        h3.textContent = g.name + '（' + (g.windows || []).length + '）';
+        const actions = document.createElement('div');
+        actions.className = 'actions';
+        const openBtn = document.createElement('button');
+        openBtn.className = 'secondary'; openBtn.textContent = '打开全部'; openBtn.style.padding = '4px 8px'; openBtn.style.fontSize = '12px';
+        openBtn.onclick = () => openGroupWindows(g);
+        actions.appendChild(openBtn);
+        h3.appendChild(actions);
+        block.appendChild(h3);
+        const chips = document.createElement('div');
+        chips.className = 'group-chips';
+        for (const id of (g.windows || [])) {
+          const chip = document.createElement('span');
+          chip.className = 'chip';
+          chip.textContent = seqById.get(id) || id;
+          const rm = document.createElement('button');
+          rm.innerHTML = '&times;';
+          rm.title = '从该分组移除';
+          rm.onclick = () => removeWindowFromGroup(g.id, id);
+          chip.appendChild(rm);
+          chips.appendChild(chip);
+        }
+        block.appendChild(chips);
+        wrap.appendChild(block);
+      }
+    }
+
+    async function createGroup() {
+      const name = $('newGroupName').value.trim();
+      if (!name) return;
+      try {
+        const res = await fetchApi('/api/platform-groups', { method: 'POST', body: { name } });
+        platformGroups = res.data || [];
+        $('newGroupName').value = '';
+        renderPlatformGroups();
+        renderBrowsers();
+      } catch (e) { showToast('新建分组失败：' + e.message); }
+    }
+
+    async function assignSelectedToGroup() {
+      const groupId = $('targetGroup').value;
+      if (!groupId) { showToast('请先选择目标分组'); return; }
+      if (!selectedIds.size) { showToast('请先在窗口列表里选中要分组的窗口'); return; }
+      const ids = [...selectedIds];
+      const groupName = (platformGroups.find((x) => x.id === groupId) || {}).name || groupId;
+      const count = ids.length;
+      try {
+        const res = await fetchApi('/api/platform-groups/move', {
+          method: 'POST',
+          body: { groupId, windowIds: ids }
+        });
+        platformGroups = res.data || [];
+        selectedIds.clear();
+        renderPlatformGroups();
+        renderBrowsers();
+        showToast('已将 ' + count + ' 个窗口加入「' + groupName + '」');
+      } catch (e) { showToast('加入分组失败：' + e.message); }
+    }
+
+    async function removeWindowFromGroup(groupId, windowId) {
+      const g = platformGroups.find((x) => x.id === groupId);
+      const remaining = ((g && g.windows) || []).filter((id) => id !== windowId);
+      try {
+        const res = await fetchApi('/api/platform-groups/move', {
+          method: 'POST',
+          body: { groupId, windowIds: remaining }
+        });
+        platformGroups = res.data || [];
+        renderPlatformGroups();
+        renderBrowsers();
+      } catch (e) { showToast('移除失败：' + e.message); }
+    }
+
+    async function openGroupWindows(group) {
+      for (const id of (group.windows || [])) {
+        try {
+          await fetchApi('/api/monitor', { method: 'POST', body: { id, pollInterval: 2000 } });
+        } catch (e) { /* ignore */ }
+      }
+      renderStatus('已尝试打开分组「' + group.name + '」下的窗口');
+    }
+
+    async function connect() {
+      if (!activeWindowId) {
+        if (selectedIds.size === 1) activeWindowId = [...selectedIds][0];
+        else { showToast('请先在窗口列表选中一个窗口再连接'); return; }
+      }
+      renderStatus('连接中…');
+      try {
+        const data = await fetchApi('/api/monitor', { method: 'POST', body: { id: activeWindowId, pollInterval: 2000 } });
+        if (!data.ok) throw new Error(data.msg || '连接失败');
+        renderStatus('已连接 ' + activeWindowId);
+        if (data.data && data.data.commonPhrases) renderPhrases(data.data.commonPhrases);
+      } catch (err) {
+        renderStatus('连接失败: ' + err.message);
+      }
+    }
+
+    function renderPhrases(phrases) {
+      const el = $('phrases');
+      el.innerHTML = '';
+      for (const p of phrases) {
+        const div = document.createElement('div');
+        div.className = 'phrase';
+        div.innerHTML = '<strong>' + escapeText(p.label) + '</strong><br>' + escapeText(p.text);
+        div.title = '点击复制到剪贴板';
+        div.onclick = () => navigator.clipboard && navigator.clipboard.writeText(p.text);
+        el.appendChild(div);
+      }
+    }
+
+    function addMessage(data) {
+      const list = $('messages');
+      const empty = list.querySelector('.empty');
+      if (empty) empty.remove();
+      const div = document.createElement('div');
+      div.className = 'msg';
+      div.innerHTML =
+        '<div class="original">客户：' + escapeText(data.original || '') + '</div>' +
+        '<div class="translation">中文：' + escapeText(data.translation || '') + '</div>' +
+        '<div class="recommendation">推荐回复：' + escapeText((data.recommendation && data.recommendation.message) || '') + '</div>';
+      list.prepend(div);
+      while (list.children.length > 50) list.lastChild.remove();
+    }
+
+    async function viewMessages() {
+      const windowId = selectedProfileWindowId();
+      if (!windowId) {
+        showToast('请先在窗口列表选中一个窗口');
+        return;
+      }
+      activeWindowId = windowId;
+      $('messagePageStatus').textContent = '读取中…';
+      $('viewMessages').disabled = true;
+      $('msgPageDetail').style.display = 'none';
+      $('msgPage').innerHTML = '<div class="empty" style="padding:8px 0;">读取中…</div>';
+      try {
+        const res = await fetchApi('/api/messages/inspect', {
+          method: 'POST',
+          body: { id: windowId }
+        });
+        if (!res.ok) throw new Error(res.msg || '读取失败');
+        renderMessagePage(res.data, windowId);
+        currentMsgPage = res.data;
+        currentAccountWindowId = windowId;
+        currentConversationKey = (res.data && res.data.peer && res.data.peer.name) || (res.data && res.data.contactKey) || currentAccountLabel();
+        $('messagePageStatus').textContent = '已读取 ' + (windowId);
+      } catch (err) {
+        $('messagePageStatus').textContent = '读取失败';
+        $('msgPage').innerHTML = '<div class="empty" style="padding:8px 0;">读取失败：' + escapeText(err.message) + '</div>';
+        showToast('读取消息页失败：' + err.message);
+      } finally {
+        $('viewMessages').disabled = false;
+      }
+    }
+
+    function renderMessagePage(data, windowId) {
+      currentMsgPage = data;
+      currentMsgPageWindowId = windowId;
+      $('msgPage').style.display = 'none';
+      $('msgPageDetail').style.display = '';
+
+      // Peer name
+      const peer = data.peer || {};
+      $('msgPeer').innerHTML = '';
+      if (peer.name) {
+        const nameEl = document.createElement('span');
+        nameEl.className = 'name';
+        nameEl.textContent = peer.name;
+        $('msgPeer').appendChild(nameEl);
+        if (peer.candidates && peer.candidates.length > 1) {
+          const badge = document.createElement('span');
+          badge.className = 'badge';
+          badge.textContent = peer.candidates.slice(0, 4).join(' / ');
+          $('msgPeer').appendChild(badge);
+        }
+      } else {
+        $('msgPeer').innerHTML = '<span class="status">未识别到对方名字</span>';
+      }
+
+      // Profile
+      const profile = data.profile || [];
+      $('msgProfile').innerHTML = '';
+      if (profile.length) {
+        for (const row of profile.slice(0, 30)) {
+          const item = document.createElement('span');
+          item.className = 'item';
+          item.innerHTML = '<span class="label">' + escapeText(row.label) + '</span><span>' + escapeText(row.value) + '</span>';
+          $('msgProfile').appendChild(item);
+        }
+      } else {
+        $('msgProfile').innerHTML = '<span class="status" style="font-size:12px;color:#667085;">未识别到对方资料</span>';
+      }
+
+      // Chat history
+      const messages = data.messages || [];
+      $('msgHistory').innerHTML = '';
+      if (!messages.length) {
+        $('msgHistory').innerHTML = '<div class="empty" style="padding:8px 0;">未识别到聊天记录</div>';
+      }
+      for (const msg of messages.slice(0, 60)) {
+        const bubble = document.createElement('div');
+        bubble.className = 'msg-bubble';
+        const roleLabel = msg.role === 'self' ? '我' : (msg.role === 'other' ? '对方' : '未知');
+        const roleClass = msg.role === 'self' ? 'self' : (msg.role === 'other' ? 'other' : 'unknown');
+        const timeText = (msg.time && msg.time.text) || (msg.time && msg.time.iso) || '';
+        bubble.innerHTML =
+          '<div class="row1">' +
+            '<span class="role ' + roleClass + '">' + escapeText(roleLabel) + '</span>' +
+            '<span>' + escapeText(msg.name || '') + '</span>' +
+            '<span class="time">' + escapeText(timeText) + '</span>' +
+          '</div>' +
+          '<div class="original">' + escapeText(msg.original || '') + '</div>' +
+          '<div class="translation">' + escapeText(msg.translation || '') + '</div>';
+        $('msgHistory').appendChild(bubble);
+      }
+    }
+
+    var currentMsgPageWindowId = null;
+
+    // 事件绑定
+    $('refresh').onclick = refreshBrowsers;
+    $('connect').onclick = connect;
+    $('viewProfile').onclick = viewProfile;
+    $('viewMessages').onclick = viewMessages;
+    let accountProfiles = [];
+    let platformAccounts = [];
+    let conversations = [];
+    let contacts = [];
+    let currentAccountWindowId = null;
+    let currentConversationKey = null;
+
+    function accountKey(platform, windowId, label) {
+      return [platform || "未分组", windowId || "", label || ""].join("/");
+    }
+
+    function currentAccountLabel() {
+      const profile = accountProfiles.find((p) => p.windowId === currentAccountWindowId) || {};
+      return profile.accountLabel || profile.nickname || profile.name || currentAccountWindowId || "";
+    }
+
+    function currentPlatformLabel() {
+      const group = platformGroups.find((g) => (g.windows || []).includes(currentAccountWindowId));
+      return group ? group.name : "未分组";
+    }
+
+
+    async function loadPlatformAccounts() {
+      try {
+        const res = await fetchApi('/api/platforms/accounts');
+        platformAccounts = res.data || [];
+        renderPlatformAccounts();
+      } catch (err) {
+        platformAccounts = [];
+        renderPlatformAccounts();
+      }
+    }
+
+    function renderPlatformAccounts() {
+      const tree = $('accountTree');
+      if (!tree) return;
+      if (!platformAccounts.length) {
+        tree.innerHTML = '<div class="empty" style="padding:8px 0;">暂无平台账号数据</div>';
+        return;
+      }
+      tree.innerHTML = '';
+      for (const group of platformAccounts) {
+        const block = document.createElement('div');
+        block.className = 'account-platform';
+        const h5 = document.createElement('h5');
+        h5.textContent = group.platform || '未分组';
+        block.appendChild(h5);
+        const list = document.createElement('div');
+        list.className = 'account-list';
+        for (const acc of (group.accounts || [])) {
+          const item = document.createElement('div');
+          item.className = 'account-item' + (acc.windowId === currentAccountWindowId ? ' selected' : '');
+          item.innerHTML = '<div><strong>' + escapeText(acc.profileName || acc.browserName || acc.windowId) + '</strong><div class="account-meta">' + escapeText(acc.windowId) + '</div></div><div class="account-meta">' + (acc.profileSaved ? '已存档' : '未存档') + ' · 会话 ' + (acc.conversationCount || 0) + '</div>';
+          item.onclick = () => {
+            currentAccountWindowId = acc.windowId;
+            selectedIds.add(acc.windowId);
+            renderBrowsers();
+            loadConversationForAccount(acc.windowId);
+            renderPlatformAccounts();
+          };
+          list.appendChild(item);
+        }
+        block.appendChild(list);
+        tree.appendChild(block);
+      }
+    }
+
+
+    function renderAccountTree() {
+      const tree = $('accountTree');
+      if (!tree) return;
+      if (!accountProfiles.length) {
+        tree.innerHTML = '<div class="empty" style="padding:8px 0;">暂无保存的账号资料，可先读取并保存</div>';
+        return;
+      }
+      const byPlatform = {};
+      for (const p of accountProfiles) {
+        const key = p.platform || "未分组";
+        if (!byPlatform[key]) byPlatform[key] = [];
+        byPlatform[key].push(p);
+      }
+      tree.innerHTML = "";
+      Object.keys(byPlatform).sort().forEach((platform) => {
+        const block = document.createElement("div");
+        block.className = "account-platform";
+        const title = document.createElement("h5");
+        title.textContent = platform;
+        block.appendChild(title);
+        const list = document.createElement("div");
+        list.className = "account-list";
+        byPlatform[platform].forEach((p) => {
+          const item = document.createElement("div");
+          item.className = "account-item" + (p.windowId === currentAccountWindowId ? " selected" : "");
+          item.innerHTML = "<div><strong>" + escapeText(p.accountLabel || p.nickname || p.name || p.windowId) + "</strong><div class='account-meta'>" + escapeText(p.windowId) + "</div></div><div class='account-meta'>" + escapeText(p.updatedAt || "") + "</div>";
+          item.onclick = () => {
+            currentAccountWindowId = p.windowId;
+            currentConversationKey = null;
+            renderAccountTree();
+            loadConversationForAccount(p.windowId);
+          };
+          list.appendChild(item);
+        });
+        block.appendChild(list);
+        tree.appendChild(block);
+      });
+    }
+
+    async function loadAccountProfiles() {
+      try {
+        const res = await fetchApi('/api/accounts/profiles');
+        accountProfiles = res.data || [];
+        renderAccountTree();
+      } catch (err) {
+        showToast('读取账号资料失败：' + err.message);
+      }
+    }
+
+    async function saveAccountProfile() {
+      if (!currentAccountWindowId) { showToast('请先选择一个账号'); return; }
+      const platform = currentPlatformLabel();
+      try {
+        const res = await fetchApi('/api/accounts/save-profile', {
+          method: 'POST',
+          body: {
+            id: currentAccountWindowId,
+            windowId: currentAccountWindowId,
+            platform,
+            accountLabel: currentAccountLabel(),
+            profile: currentProfile || {}
+          }
+        });
+        if (!res.ok) throw new Error(res.msg || '保存失败');
+        await loadAccountProfiles();
+    loadPlatformAccounts();
+        showToast('账号资料已保存');
+      } catch (err) {
+        showToast('保存账号资料失败：' + err.message);
+      }
+    }
+
+    async function loadConversationForAccount(windowId) {
+      const platform = currentPlatformLabel();
+      try {
+        const res = await fetchApi('/api/conversations?windowId=' + encodeURIComponent(windowId) + '&platform=' + encodeURIComponent(platform));
+        conversations = res.data || [];
+        const conv = conversations[0] || null;
+        $('accountConversationView').style.display = conv ? '' : 'none';
+        $('accountConversationEmpty').style.display = conv ? 'none' : '';
+        if (!conv) {
+          $('accountConversationStatus').textContent = '未读取';
+          return;
+        }
+        renderConversationView(conv);
+        $('accountConversationStatus').textContent = '已读取 ' + conv.key;
+      } catch (err) {
+        showToast('读取会话失败：' + err.message);
+      }
+    }
+
+    function renderConversationView(conv) {
+      $('accountSummary').innerHTML =
+        '<div class="item"><strong>' + escapeText(conv.platform || "未分组") + '</strong><span>平台</span></div>' +
+        '<div class="item"><strong>' + escapeText(conv.contactName || conv.contactKey || "未知") + '</strong><span>发送人</span></div>' +
+        '<div class="item"><strong>' + String((conv.messages || []).length) + '</strong><span>消息数</span></div>' +
+        '<div class="item"><strong>' + escapeText(conv.updatedAt || "") + '</strong><span>更新时间</span></div>';
+
+      const contact = conv.contact || {};
+      const contactFields = [
+        ['名字', contact.name || contact.nameCn || ""],
+        ['年龄', contact.age || ""],
+        ['地区', contact.region || contact.area || ""],
+        ['身高', contact.height || ""],
+        ['自我介绍', contact.intro || contact.selfIntro || ""],
+        ['登录方式', contact.loginMethod || contact.login || ""]
+      ];
+      $('contactCard').innerHTML =
+        '<div class="title-row"><span class="name">' + escapeText(conv.contactName || conv.contactKey || "未知") + '</span><span class="id">' + escapeText(conv.contactKey || "") + '</span></div>' +
+        '<div class="contact-fields">' +
+        contactFields.map((f) => '<div class="field"><span>' + f[0] + '</span>' + escapeText(f[1] || "") + '</div>').join("") +
+        '</div>';
+
+      const history = $('accountConversationHistory');
+      history.innerHTML = "";
+      (conv.messages || []).slice(0, 100).forEach((msg) => {
+        const roleLabel = msg.role === 'self' ? '我' : (msg.role === 'other' ? '对方' : '未知');
+        const timeText = (msg.time && (msg.time.text || msg.time.iso)) || '';
+        const bubble = document.createElement('div');
+        bubble.className = 'msg-bubble';
+        bubble.innerHTML =
+          '<div class="row1"><span class="role ' + (msg.role === 'self' ? 'self' : msg.role === 'other' ? 'other' : 'unknown') + '">' + escapeText(roleLabel) + '</span>' +
+          '<span>' + escapeText(msg.name || "") + '</span>' +
+          '<span class="time">' + escapeText(timeText) + '</span></div>' +
+          '<div class="original">' + escapeText(msg.original || msg.text || "") + '</div>' +
+          '<div class="translation">' + escapeText(msg.translation || "") + '</div>';
+        history.appendChild(bubble);
+      });
+    }
+
+    async function saveConversation() {
+      if (!currentAccountWindowId) { showToast('请先选择一个账号'); return; }
+      const platform = currentPlatformLabel();
+      try {
+        const res = await fetchApi('/api/conversations/save', {
+          method: 'POST',
+          body: {
+            windowId: currentAccountWindowId,
+            platform,
+            contactKey: currentConversationKey || currentAccountLabel(),
+            contactName: currentConversationKey || currentAccountLabel(),
+            contact: {},
+            messages: (currentMsgPage && currentMsgPage.messages) || []
+          }
+        });
+        if (!res.ok) throw new Error(res.msg || '保存失败');
+        await loadConversationForAccount(currentAccountWindowId);
+        showToast('会话已保存');
+      } catch (err) {
+        showToast('保存会话失败：' + err.message);
+      }
+    }
+
+    $('saveAccountProfile').onclick = saveAccountProfile;
+    $('loadAccountProfile').onclick = () => { if (currentAccountWindowId) loadConversationForAccount(currentAccountWindowId); };
+    $('saveConversation').onclick = saveConversation;
+    $('loadConversation').onclick = () => { if (currentAccountWindowId) loadConversationForAccount(currentAccountWindowId); };
+
+    $('previewPatch').onclick = previewPatch;
+    $('autoNavigate').onchange = () => { clearProfile(); };
+    $('selectAll').onchange = () => {
+      selectedIds = $('selectAll').checked ? new Set(browsers.map((b) => b.id)) : new Set();
+      renderBrowsers();
+      clearProfile();
+    };
+    $('searchBrowsers').oninput = () => {
+      searchTerm = $('searchBrowsers').value;
+      renderBrowsers();
+    };
+    $('clearSearch').onclick = () => {
+      $('searchBrowsers').value = '';
+      searchTerm = '';
+      renderBrowsers();
+    };
+    $('createGroup').onclick = createGroup;
+    $('assignGroup').onclick = assignSelectedToGroup;
+    $('openSettings').onclick = () => loadSettings().then(() => $('settingsBackdrop').classList.add('open'));
+    $('cancelSettings').onclick = () => $('settingsBackdrop').classList.remove('open');
+    $('saveSettings').onclick = saveSettings;
+    $('settingsBackdrop').addEventListener('click', (e) => {
+      if (e.target === $('settingsBackdrop')) $('settingsBackdrop').classList.remove('open');
+    });
+
+    
+    // === View switching ===
+    const viewButtons = Array.from(document.querySelectorAll('.nav-item[data-view]'));
+    viewButtons.forEach((btn) => {
+      btn.onclick = () => switchView(btn.dataset.view);
+    });
+
+    function switchView(view) {
+      viewButtons.forEach((b) => b.classList.toggle('active', b.dataset.view === view));
+      $('cardWorkbench').style.display = view === 'workbench' ? '' : 'none';
+      $('cardConversationsView').style.display = view === 'conversations' ? '' : 'none';
+      $('cardWindowManage').style.display = view === 'browsers' || view === 'accounts' || view === 'platforms' || view === 'settings' ? '' : 'none';
+      if (view === 'conversations') loadAllConversations();
+      if (view === 'browsers' || view === 'accounts' || view === 'platforms' || view === 'settings') {
+        refreshBrowsers();
+        loadPlatformGroups();
+    loadAccountProfiles();
+      }
+      if (view === 'workbench') loadWorkbench();
+    }
+
+    async function loadWorkbench() {
+      try {
+        await Promise.all([loadPlatformAccounts(), loadAllConversations(), loadAllContacts()]);
+        renderWorkbenchStats();
+      } catch (err) { console.log('workbench load err:', err.message); }
+    }
+
+    function renderWorkbenchStats() {
+      const windows = new Set();
+      const platforms = new Set();
+      let convoCount = 0, contactCount = 0;
+      for (const g of platformGroups) {
+        platforms.add(g.name);
+        for (const w of (g.windows || [])) windows.add(w);
+      }
+      for (const c of conversations) convoCount += 1;
+      for (const c of contacts) contactCount += 1;
+      $('statWindows').textContent = String(windows.size);
+      $('statPlatforms').textContent = String(platforms.size);
+      $('statConversations').textContent = String(convoCount);
+      $('statContacts').textContent = String(contactCount);
+    }
+
+
+    async function loadAllContacts() {
+      try {
+        const res = await fetchApi('/api/contacts');
+        contacts = res.data || [];
+      } catch (err) { contacts = []; }
+      return contacts;
+    }
+
+    async function loadAllConversations() {
+      try {
+        const res = await fetchApi('/api/conversations');
+        conversations = res.data || [];
+        renderConversationList($('conversationList'));
+        renderConversationList($('conversationListFull'));
+      } catch (err) { conversations = []; }
+      return conversations;
+    }
+
+    function renderConversationList(container) {
+      if (!container) return;
+      if (!conversations.length) {
+        container.innerHTML = '<div class="empty">暂无会话</div>';
+        return;
+      }
+      container.innerHTML = '';
+      for (const conv of conversations.slice(0, 100)) {
+        const item = document.createElement('div');
+        item.className = 'conv-item' + (conv.key === currentConversationKey ? ' selected' : '');
+        const lastMsg = (conv.messages || []).slice(-1)[0] || {};
+        const path = [conv.platform, conv.windowId, conv.contactKey].join(' - ');
+        item.innerHTML =
+          '<div class="top"><span class="who">' + escapeText(conv.contactName || conv.contactKey || '未知') + '</span>' +
+          '<span class="path">' + escapeText(path) + '</span></div>' +
+          '<div class="preview">' + escapeText(lastMsg.original || lastMsg.text || lastMsg.translation || '（空）') + '</div>';
+        item.onclick = () => {
+          currentAccountWindowId = conv.windowId;
+          currentConversationKey = conv.key;
+          selectedIds.add(conv.windowId);
+          loadConversationForAccount(conv.windowId);
+          renderConversationList($('conversationList'));
+          renderConversationList($('conversationListFull'));
+        };
+        container.appendChild(item);
+      }
+    }
+
+    // Show workbench by default on load
+    switchView('workbench');
+
+    refreshBrowsers();
+    loadPlatformGroups();
+    loadSettings();
+    fetch('/health').then((r) => r.json()).then((d) => renderStatus(d.ok ? '比特浏览器已连接' : '比特浏览器未连接')).catch(() => renderStatus('服务异常'));
+  </script>
+</body>
+</html>

@@ -1,0 +1,1956 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Ai SAY · 出会 17098</title>
+<style>
+/* ============ 主题变量 ============ */
+:root,[data-theme="dark"]{
+  /* 基础 */
+  --bg:#0f1117;--bg2:#161822;--card:#1c1f2e;--card2:#222538;
+  --border:#2a2d3e;--text:#e0e0e0;--muted:#888;--accent:#4a9eff;
+  --hot:#ff6b6b;--warm:#ffa94d;--cool:#69db7c;--pending:#ffd43b;
+  --on-accent:#fff;
+  /* 状态 */
+  --ok-fg:#4caf50;--ok-bg:#16301a;--ok-border:#2e5c33;
+  --warn-fg:#ffb74d;--warn-bg:#332c17;--warn-strong:#ffa726;
+  --err-fg:#ef5350;--err-bg:#331b1b;--err-border:#5c2f2c;
+  --gray-bg:#252838;--gray-bg2:#20232f;--gray-fg:#9e9e9e;--gray-fg2:#8a8a8a;
+  /* 其他 */
+  --dot-none:#3a3d4e;
+  --toast-bg:#37474f;--toast-fg:#fff;
+  --shadow:rgba(0,0,0,.35);
+  --shadow-sm:rgba(0,0,0,.28);
+  --modal-mask:rgba(0,0,0,.55);
+  --accent-ring:rgba(74,158,255,.20);
+  /* 译文 */
+  --zh-peer-bg:#16283a;--zh-peer-fg:#90caf9;--zh-peer-border:#2980d9;
+  --zh-self-bg:#33261a;--zh-self-fg:#ffb74d;--zh-self-border:#e64a19;
+  /* 推荐回复 / 翻译框 */
+  --rec-hover-bg:#1b2a3d;--rec-hover-shadow:rgba(74,158,255,.16);
+  --qt-to-bg:#16283a;--qt-to-border:#2a4a6a;--qt-out-bg:#181b26;
+  --blue-text:#90caf9;
+  color-scheme:dark;
+}
+[data-theme="light"]{
+  --bg:#f4f6f9;--bg2:#ffffff;--card:#ffffff;--card2:#f2f5f9;
+  --border:#e1e6ed;--text:#1f2733;--muted:#7b8794;--accent:#1a73e8;
+  --hot:#e53935;--warm:#f57c00;--cool:#2e7d32;--pending:#f9a825;
+  --on-accent:#fff;
+  --ok-fg:#2e7d32;--ok-bg:#e8f5e9;--ok-border:#c8e6c9;
+  --warn-fg:#ef6c00;--warn-bg:#fff8e1;--warn-strong:#ef6c00;
+  --err-fg:#c62828;--err-bg:#fdecea;--err-border:#efc6c2;
+  --gray-bg:#f5f5f5;--gray-bg2:#eeeeee;--gray-fg:#757575;--gray-fg2:#9e9e9e;
+  --dot-none:#d5d9e0;
+  --toast-bg:#263238;--toast-fg:#fff;
+  --shadow:rgba(15,23,42,.16);
+  --shadow-sm:rgba(15,23,42,.08);
+  --modal-mask:rgba(15,23,42,.38);
+  --accent-ring:rgba(26,115,232,.14);
+  --zh-peer-bg:#eef3f6;--zh-peer-fg:#0d47a1;--zh-peer-border:#1565c0;
+  --zh-self-bg:#fff6e8;--zh-self-fg:#bf360c;--zh-self-border:#e64a19;
+  --rec-hover-bg:#f3f8fe;--rec-hover-shadow:rgba(21,101,192,.12);
+  --qt-to-bg:#e8f0fe;--qt-to-border:#bbdefb;--qt-out-bg:#f8fafc;
+  --blue-text:#1565c0;
+  color-scheme:light;
+}
+/* 主题切换时的过渡（只在切换瞬间生效，避免影响性能） */
+html.theme-anim,html.theme-anim *{transition:background-color .22s ease,color .22s ease,border-color .22s ease !important}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);height:100vh;overflow:hidden}
+/* Top bar */
+.topbar{height:48px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 16px;gap:12px}
+.topbar .brand{font-size:18px;font-weight:700;letter-spacing:1px}
+.topbar .brand span{font-size:11px;color:var(--muted);margin-left:6px}
+.topbar .conn{margin-left:12px;font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.topbar .conn .dot{width:8px;height:8px;border-radius:50%;background:var(--hot)}
+.topbar .conn.connected .dot{background:var(--cool)}
+.topbar .conn.connected{color:var(--cool)}
+.theme-toggle{margin-left:auto;display:flex;align-items:center;gap:5px;font-size:12px;padding:5px 13px;border-radius:14px;border:1px solid var(--border);background:var(--card);color:var(--text);cursor:pointer;font-family:inherit;transition:all .15s;line-height:1}
+.theme-toggle:hover{border-color:var(--accent);color:var(--accent);background:var(--card2)}
+.theme-toggle:active{transform:scale(.96)}
+.theme-toggle .tt-icon{font-size:13px}
+/* Layout: 5 columns */
+.layout{display:grid;grid-template-columns:160px 220px 1fr 280px 252px 1fr;height:calc(100vh - 48px);overflow:hidden}
+/* Column 1: Left nav */
+.col-nav{background:var(--bg2);border-right:1px solid var(--border);overflow-y:auto}
+.col-nav .nav-item{padding:10px 14px;font-size:13px;cursor:pointer;border-left:3px solid transparent;transition:all .15s}
+.col-nav .nav-item:hover{background:var(--card)}
+.col-nav .nav-item.active{background:var(--card);border-left-color:var(--accent);color:var(--accent)}
+.col-nav .nav-item .badge{float:right;font-size:10px;background:var(--card2);padding:1px 6px;border-radius:8px;color:var(--muted)}
+.col-nav .nav-section{padding:8px 14px 4px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-top:8px}
+/* Column 2: Customer list */
+.col-customers{background:var(--card);border-right:1px solid var(--border);overflow-y:auto}
+.cust-header{padding:10px 12px;font-size:11px;color:var(--muted);border-bottom:1px solid var(--border);display:flex;justify-content:space-between}
+.cust-item{padding:10px 12px;cursor:pointer;border-bottom:1px solid var(--border);transition:background .15s}
+.cust-item:hover{background:var(--card2)}
+.cust-item.active{background:var(--card2);border-left:3px solid var(--accent)}
+.cust-item .name{font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px}
+.cust-item .name .av{width:32px;height:32px;border-radius:50%;background:var(--card2);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.cust-item .meta{font-size:11px;color:var(--muted);margin-top:2px;padding-left:40px}
+.cust-item .lastmsg{font-size:11px;color:var(--muted);margin-top:2px;padding-left:40px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cust-item .tag{display:inline-block;font-size:9px;padding:1px 5px;border-radius:3px;margin-left:4px}
+.cust-item .tag.hot{background:rgba(255,107,107,.15);color:var(--hot)}
+.cust-item .tag.warm{background:rgba(255,169,77,.15);color:var(--warm)}
+.cust-item .tag.online{background:rgba(105,219,124,.15);color:var(--cool)}
+/* Column 3: Message area */
+.col-messages{background:var(--bg);display:flex;flex-direction:column;overflow:hidden}
+.msg-header{padding:10px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.msg-header .name{font-size:15px;font-weight:600}
+.msg-header .status{font-size:11px;color:var(--muted)}
+.msg-header .actions{margin-left:auto;display:flex;gap:6px}
+.msg-header .actions button{font-size:11px;padding:4px 10px;background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:4px;cursor:pointer}
+.msg-header .actions button:hover{background:var(--card2)}
+.msg-list{flex:1;overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;gap:8px}
+.msg-bubble{max-width:80%;padding:8px 12px;border-radius:8px;font-size:13px;line-height:1.5;position:relative}
+.msg-bubble.peer{background:var(--card);align-self:flex-start;border-bottom-left-radius:2px}
+.msg-bubble.self{background:var(--accent);color:var(--on-accent);align-self:flex-end;border-bottom-right-radius:2px}
+.msg-bubble .ts{font-size:10px;color:var(--muted);margin-top:3px}
+.msg-bubble.self .ts{color:rgba(255,255,255,.6)}
+.msg-bubble .trans{font-size:11px;color:var(--muted);border-top:1px dashed var(--border);margin-top:5px;padding-top:4px}
+.msg-bubble.self .trans{color:rgba(255,255,255,.5);border-top-color:rgba(255,255,255,.2)}
+.msg-input{border-top:1px solid var(--border);padding:10px 16px;background:var(--bg2)}
+.msg-input textarea{width:100%;height:60px;background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:8px;font-size:13px;resize:none}
+.msg-input .input-actions{display:flex;gap:6px;margin-top:6px}
+.msg-input .input-actions button{font-size:11px;padding:4px 10px;background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:4px;cursor:pointer}
+.msg-input .input-actions button.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.msg-input .input-actions button:hover{opacity:.8}
+.msg-input .input-actions button:disabled{opacity:.4;cursor:not-allowed}
+.msg-input .pending-note{font-size:10px;color:var(--pending);margin-top:4px}
+/* Column 4: Analysis + Recommended replies */
+.col-analysis{background:var(--card);border-left:1px solid var(--border);border-right:1px solid var(--border);overflow-y:auto}
+.col-analysis .section{padding:10px 14px;border-bottom:1px solid var(--border)}
+.col-analysis .section-title{font-size:11px;font-weight:600;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px}
+.col-analysis .analysis-item{font-size:12px;padding:4px 0;line-height:1.5}
+.col-analysis .analysis-item .num{display:inline-block;width:18px;height:18px;border-radius:50%;background:var(--accent);color:var(--on-accent);text-align:center;line-height:18px;font-size:10px;margin-right:6px}
+.rec-reply{font-size:12px;padding:8px 10px;background:var(--card2);border-radius:6px;margin-bottom:6px;position:relative;line-height:1.5}
+.rec-reply .copy-btn{position:absolute;top:6px;right:6px;font-size:10px;padding:2px 8px;background:var(--bg2);border:1px solid var(--border);color:var(--muted);border-radius:3px;cursor:pointer}
+.rec-reply .copy-btn:hover{color:var(--accent);border-color:var(--accent)}
+.rec-reply .pending-tag{font-size:9px;color:var(--pending);margin-top:4px}
+/* Column 5: AI session */
+.col-ai{background:var(--bg);display:flex;flex-direction:column;overflow:hidden}
+.col-ai .ai-header{padding:10px 14px;border-bottom:1px solid var(--border);font-size:13px;font-weight:600}
+.col-ai .ai-list{flex:1;overflow-y:auto;padding:10px 14px;display:flex;flex-direction:column;gap:8px}
+.ai-msg{font-size:12px;line-height:1.5;padding:8px 10px;border-radius:6px}
+.ai-msg.bot{background:var(--card)}
+.ai-msg.user{background:var(--accent);color:var(--on-accent);align-self:flex-end}
+.ai-input{border-top:1px solid var(--border);padding:8px 14px;background:var(--bg2)}
+.ai-input textarea{width:100%;height:48px;background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px;font-size:12px;resize:none}
+.ai-input .send-ai{margin-top:4px;font-size:11px;padding:4px 12px;background:var(--accent);border:none;color:var(--on-accent);border-radius:4px;cursor:pointer;float:right}
+/* Scrollbar */
+::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+
+/* Collapsible nav */
+.nav-group > .nav-children { overflow: hidden; }
+.nav-group:not([data-open="true"]) > .nav-children { display: none; }
+.nav-item .chev { margin-left: auto; font-size: 10px; color: var(--muted); transition: transform .2s; }
+.nav-item.has-children { display: flex; }
+.nav-group > .nav-item.has-children { cursor: pointer; }
+.nav-group:not([data-open="true"]) > .nav-item .chev { transform: rotate(-90deg); }
+.nav-children { padding-left: 14px; }
+.nav-children .nav-children { padding-left: 10px; }
+.nav-children .nav-item { font-size: 12px; }
+
+#custCount{font-weight:600}
+#toast{position:fixed;bottom:16px;right:16px;background:var(--toast-bg);color:var(--toast-fg);padding:8px 14px;border-radius:6px;font-size:12px;opacity:0;transition:opacity .3s;pointer-events:none;z-index:999}
+#toast.show{opacity:1}
+
+.conn .dot{width:8px;height:8px;border-radius:50%;background:var(--hot);display:inline-block;margin-right:6px;vertical-align:middle}
+.conn .dot.on{background:var(--cool)}
+.conn{font-size:12px}
+.conn.on{color:var(--cool)}
+
+/* 第8项：在线状态 4 级 */
+.tag.on1{background:var(--ok-bg);color:var(--ok-fg)}
+.tag.on2{background:var(--warn-bg);color:var(--warn-fg)}
+.tag.on3{background:var(--gray-bg);color:var(--gray-fg)}
+.tag.on4{background:var(--gray-bg2);color:var(--gray-fg2)}
+/* 第2项：消息下方简中译文 */
+.text-zh{font-size:11px;color:var(--muted);margin-top:4px;padding:4px 8px;background:var(--bg2);border-radius:4px;line-height:1.4}
+.text-zh.translated{color:var(--text);background:var(--card2)}
+.text-zh.dict{border-left:2px dashed var(--warn-fg)}
+/* 第5项：快捷翻译框 */
+/* 第6项：模型面板 */
+.modal{position:fixed;inset:0;background:var(--modal-mask);display:flex;align-items:center;justify-content:center;z-index:1000}
+.modal-card{background:var(--card);border-radius:8px;padding:20px;max-width:480px;width:90%}
+.modal-title{font-size:14px;font-weight:600;margin-bottom:12px}
+.model-form{display:flex;flex-direction:column;gap:8px}
+.model-form label{font-size:11px;color:var(--muted);display:flex;flex-direction:column;gap:4px}
+.model-form input{padding:6px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px}
+.modal-actions{display:flex;gap:8px;margin-top:16px}
+.modal-actions button{padding:6px 14px;border-radius:4px;border:1px solid var(--border);background:var(--card2);font-size:12px;cursor:pointer}
+.modal-actions button:hover{background:var(--bg2)}
+
+/* ==== 在线状态 4 色圆点（只圆点，无文字） ==== */
+.od{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;flex:0 0 auto;vertical-align:middle}
+.od-online{background:#43a047;box-shadow:0 0 0 2px rgba(67,160,71,.18)}
+.od-recent{background:#fdd835;box-shadow:0 0 0 2px rgba(253,216,53,.20)}
+.od-away{background:#fb8c00;box-shadow:0 0 0 2px rgba(251,140,0,.18)}
+.od-long{background:#9e9e9e;box-shadow:0 0 0 2px rgba(158,158,158,.16)}
+.od-none{background:var(--dot-none)}
+
+/* ==== 客户列表项 ==== */
+.cust-item{padding:9px 12px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s}
+.cust-item:hover{background:var(--bg2)}
+.cust-item.active{background:var(--card2);border-left:3px solid var(--accent);padding-left:9px}
+.cust-item.unread .ci-name{font-weight:700}
+.ci-top{display:flex;gap:9px;align-items:flex-start}
+.ci-av{width:34px;height:34px;border-radius:50%;background:var(--card2);flex:0 0 34px;overflow:hidden;display:flex;align-items:center;justify-content:center}
+.ci-av img{width:100%;height:100%;object-fit:cover;display:block}
+.ci-av .av-txt{font-size:14px;color:var(--muted)}
+.ci-main{flex:1;min-width:0}
+.ci-name{font-size:13px;display:flex;align-items:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ci-last{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.ci-right{flex:0 0 auto;text-align:right}
+.ci-time{font-size:10px;color:var(--muted);white-space:nowrap}
+.ci-unread{margin-top:3px;font-size:10px;background:var(--accent);color:var(--on-accent);border-radius:8px;padding:0 5px;display:inline-block}
+
+
+
+/* ==== 分析项 ==== */
+.analysis-item{padding:5px 0;font-size:12px;line-height:1.5}
+.analysis-item .hint{font-size:11px;color:var(--muted);margin-top:2px}
+.empty{color:var(--muted);font-size:12px;padding:14px 4px}
+
+
+/* ==== Toast ==== */
+#toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%) translateY(10px);background:var(--toast-bg);color:var(--toast-fg);padding:9px 20px;border-radius:6px;font-size:12.5px;opacity:0;transition:all .25s;pointer-events:none;z-index:2000}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ==== 模型面板 ==== */
+.modal{position:fixed;inset:0;background:var(--modal-mask);display:flex;align-items:center;justify-content:center;z-index:1500}
+.modal-card{background:var(--card);border-radius:8px;padding:20px;max-width:480px;width:90%;box-shadow:0 8px 30px var(--shadow)}
+.modal-title{font-size:14px;font-weight:600;margin-bottom:10px}
+.model-form{display:flex;flex-direction:column;gap:9px}
+.model-form label{font-size:11px;color:var(--muted);display:flex;flex-direction:column;gap:4px}
+.model-form input{padding:7px 9px;border:1px solid var(--border);border-radius:4px;font-size:12px;font-family:inherit}
+.modal-actions{display:flex;gap:8px;margin-top:16px}
+.modal-actions button{padding:7px 15px;border-radius:4px;border:1px solid var(--border);background:var(--card2);font-size:12px;cursor:pointer}
+.modal-actions button:hover{background:var(--bg2)}
+
+/* ==== 模型管理页 ==== */
+.model-page{grid-column:2 / -1;background:var(--bg);overflow-y:auto;padding:20px 24px}
+.mp-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:18px;flex-wrap:wrap}
+.mp-title{font-size:16px;font-weight:600}
+.mp-sub{font-size:12px;color:var(--muted);margin-top:4px}
+.mp-add{padding:8px 18px;border-radius:6px;border:none;background:var(--accent);color:var(--on-accent);font-size:13px;cursor:pointer;white-space:nowrap}
+.mp-add:hover{filter:brightness(1.08)}
+.mp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+
+.mcard{background:var(--card);border:1px solid var(--border);border-radius:9px;padding:14px 15px;display:flex;flex-direction:column;transition:box-shadow .15s,border-color .15s}
+.mcard:hover{box-shadow:0 3px 14px var(--shadow-sm)}
+.mcard.active{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-ring)}
+.mcard.nokey{border-style:dashed}
+.mc-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
+.mc-name{font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mc-badge{font-size:10px;background:var(--accent);color:var(--on-accent);border-radius:9px;padding:2px 8px;white-space:nowrap;flex:0 0 auto}
+.mc-rows{display:flex;flex-direction:column;gap:5px;margin-bottom:10px}
+.mc-row{display:flex;gap:8px;font-size:11.5px;line-height:1.4}
+.mc-row .k{color:var(--muted);flex:0 0 62px}
+.mc-row .v{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mc-ok{color:var(--ok-fg)}
+.mc-warn{color:var(--warn-strong)}
+.mc-test{font-size:11px;padding:5px 8px;border-radius:4px;margin-bottom:9px;min-height:0;display:none;line-height:1.45;word-break:break-all}
+.mc-test.testing,.mc-test.ok,.mc-test.fail{display:block}
+.mc-test.testing{background:var(--gray-bg);color:var(--muted)}
+.mc-test.ok{background:var(--ok-bg);color:var(--ok-fg)}
+.mc-test.fail{background:var(--err-bg);color:var(--err-fg)}
+.mc-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:auto}
+.mc-actions button{font-size:11.5px;padding:5px 11px;border-radius:5px;border:1px solid var(--border);background:var(--card2);cursor:pointer;font-family:inherit}
+.mc-actions button:hover{background:var(--bg2)}
+.mc-actions button.primary{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.mc-actions button.primary:hover{filter:brightness(1.08)}
+.mc-actions button.danger{color:var(--err-fg);border-color:var(--err-border)}
+.mc-actions button.danger:hover{background:var(--err-bg)}
+.mp-empty{color:var(--muted);font-size:13px;padding:40px 0;text-align:center}
+.key-hint{font-size:10px;color:var(--muted);font-weight:400}
+.mf-result{font-size:12px;margin-top:12px;line-height:1.5;word-break:break-all}
+.modal-actions button.primary{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+
+/* ==== ④ 译文配色：我方/客户明显区分 ==== */
+.text-zh{font-size:12px;line-height:1.55;margin-top:5px;padding:6px 9px;border-radius:5px;white-space:pre-wrap;border-left:3px solid transparent}
+/* 客户消息译文：冷灰底 + 深青字 */
+.msg-bubble.peer .text-zh{background:var(--zh-peer-bg);color:var(--zh-peer-fg);border-left-color:var(--zh-peer-border)}
+/* 我方消息译文：暖米底 + 深橙字（与客户明显不同） */
+.msg-bubble.self .text-zh{background:var(--zh-self-bg);color:var(--zh-self-fg);border-left-color:var(--zh-self-border);font-weight:500}
+.text-zh.dict{border-left-style:dashed}
+
+/* ==== ⑤ 推荐回复：整卡即复制按钮 ==== */
+.rec-reply{padding:9px 11px;margin:7px 0;border:1px solid var(--border);border-radius:7px;cursor:pointer;transition:all .13s;background:var(--card)}
+.rec-reply:hover{border-color:var(--accent);background:var(--rec-hover-bg);transform:translateY(-1px);box-shadow:0 2px 8px var(--rec-hover-shadow)}
+.rec-reply:active{transform:translateY(0)}
+.rec-reply .text{font-size:12.5px;line-height:1.6;white-space:pre-wrap;color:var(--text)}
+.rec-reply .text-zh{background:var(--zh-peer-bg);color:var(--blue-text);border-left-color:var(--zh-peer-border)}
+.rec-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:7px;padding-top:6px;border-top:1px dashed var(--border)}
+.rec-copy-hint{font-size:10.5px;color:var(--accent);font-weight:600}
+.rec-foot .pending-tag{font-size:10px;color:var(--muted)}
+
+/* ==== ⑥ 快捷翻译（方向固定：上输入 / 下译文）==== */
+.qt{display:flex;flex-direction:column;gap:7px}
+.qt-bar{display:flex;align-items:center;gap:7px;font-size:11.5px}
+.qt-lang{background:var(--card2);border:1px solid var(--border);border-radius:11px;padding:2px 10px;font-weight:600}
+.qt-lang-to{background:var(--qt-to-bg);border-color:var(--qt-to-border);color:var(--blue-text)}
+.qt-arrow{color:var(--muted);font-size:13px}
+.qt-swap{margin-left:auto;font-size:11px;padding:3px 10px;border-radius:11px;border:1px solid var(--border);background:var(--card2);cursor:pointer;font-family:inherit}
+.qt-swap:hover{background:var(--bg2);border-color:var(--accent);color:var(--accent)}
+.qt-input,.qt-output{width:100%;box-sizing:border-box;font-size:12.5px;padding:8px;border:1px solid var(--border);border-radius:5px;min-height:56px;resize:vertical;font-family:inherit;line-height:1.5}
+.qt-input:focus{outline:none;border-color:var(--accent)}
+.qt-output{background:var(--qt-out-bg);color:var(--zh-peer-fg);min-height:64px}
+.qt-go{align-self:flex-start;font-size:11.5px;padding:5px 14px;border-radius:5px;border:none;background:var(--accent);color:var(--on-accent);cursor:pointer;font-family:inherit}
+.qt-go:hover{filter:brightness(1.08)}
+.qt-out-label{font-size:10.5px;color:var(--muted);margin-top:2px}
+
+/* ==================== 账号信息 / 见面地址 / 常用语 ==================== */
+.col-account{background:var(--card);border-left:1px solid var(--border);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+
+.acct-block{padding:10px 12px;border-bottom:1px solid var(--border);flex:0 0 auto}
+.acct-block.phrase-block{flex:1 1 auto;display:flex;flex-direction:column;overflow:hidden;border-bottom:none;padding-bottom:0}
+.acct-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+.acct-head>span{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.6px}
+.mini-btn{font-size:10.5px;padding:2px 9px;border-radius:11px;border:1px solid var(--border);background:var(--card2);color:var(--text);cursor:pointer;font-family:inherit;line-height:1.6}
+.mini-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--bg2)}
+
+/* 账号信息行 */
+.acct-rows{display:flex;flex-direction:column;gap:6px}
+.acct-row{display:flex;gap:8px;font-size:12px;line-height:1.45;align-items:baseline}
+.acct-row .k{color:var(--muted);flex:0 0 44px;font-size:11px}
+.acct-row .v{flex:1;min-width:0;word-break:break-all;font-weight:500}
+.acct-row .v.auto{font-weight:400}
+.acct-row .v .auto-tag{font-size:9.5px;color:var(--muted);border:1px solid var(--border);border-radius:7px;padding:0 5px;margin-left:5px;font-weight:400;vertical-align:1px}
+.acct-win{display:inline-flex;align-items:center;gap:5px;background:var(--card2);border:1px solid var(--border);border-radius:5px;padding:2px 8px;font-size:12px;font-weight:600}
+
+/* 见面地址 */
+.place-list{display:flex;flex-direction:column;gap:6px}
+.place-card{border:1px solid var(--border);border-radius:6px;padding:7px 9px;background:var(--card2);cursor:pointer;transition:all .13s;position:relative}
+.place-card:hover{border-color:var(--accent);background:var(--rec-hover-bg)}
+.place-card .pl-label{font-size:10.5px;color:var(--accent);font-weight:600;margin-bottom:2px}
+.place-card .pl-addr{font-size:12px;line-height:1.45;word-break:break-all}
+.place-card .pl-note{font-size:10.5px;color:var(--muted);margin-top:3px}
+.place-card .pl-acts{position:absolute;top:5px;right:6px;display:none;gap:3px}
+.place-card:hover .pl-acts{display:flex}
+.pl-acts button{font-size:10px;padding:1px 6px;border-radius:4px;border:1px solid var(--border);background:var(--card);cursor:pointer;font-family:inherit;line-height:1.5}
+.pl-acts button:hover{border-color:var(--accent);color:var(--accent)}
+
+/* 常用语 */
+.phrase-tabs{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:7px}
+.phrase-tabs .ptab{font-size:10.5px;padding:2px 9px;border-radius:10px;border:1px solid var(--border);background:var(--card2);cursor:pointer;color:var(--muted);font-family:inherit;line-height:1.7}
+.phrase-tabs .ptab:hover{border-color:var(--accent);color:var(--accent)}
+.phrase-tabs .ptab.on{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.phrase-list{flex:1 1 auto;overflow-y:auto;display:flex;flex-direction:column;gap:5px;padding-right:2px;padding-bottom:8px}
+.phrase-card{border:1px solid var(--border);border-radius:6px;padding:6px 8px;background:var(--card2);cursor:pointer;transition:all .13s;position:relative}
+.phrase-card:hover{border-color:var(--accent);background:var(--rec-hover-bg);transform:translateX(-1px)}
+.phrase-card:active{transform:translateX(0)}
+.phrase-card .pc-group{font-size:9.5px;color:var(--muted);margin-bottom:2px}
+.phrase-card .pc-text{font-size:11.5px;line-height:1.5;word-break:break-all;padding-right:26px}
+.phrase-card .pc-acts{position:absolute;top:5px;right:5px;display:none;gap:3px}
+.phrase-card:hover .pc-acts{display:flex}
+.pc-acts button{font-size:10px;padding:0 5px;border-radius:4px;border:1px solid var(--border);background:var(--card);cursor:pointer;font-family:inherit;line-height:1.5}
+.pc-acts button:hover{border-color:var(--accent);color:var(--accent)}
+.phrase-hint{font-size:10px;color:var(--muted);padding:5px 0 8px;text-align:center;border-top:1px dashed var(--border);flex:0 0 auto}
+
+.modal-card.narrow{max-width:400px}
+.modal-actions button.danger{color:var(--err-fg);border-color:var(--err-border);margin-right:auto}
+.modal-actions button.danger:hover{background:var(--err-bg)}
+
+/* 常用语的中文译文 */
+.phrase-card .pc-text{padding-right:0;margin-bottom:1px}
+.phrase-card .pc-zh{
+  font-size:10.5px;line-height:1.5;
+  margin-top:4px;padding:4px 6px;border-radius:4px;
+  background:var(--zh-peer-bg);color:var(--zh-peer-fg);
+  border-left:3px solid var(--zh-peer-border);
+  white-space:pre-wrap;word-break:break-all;
+}
+.phrase-card .pc-zh.dict{border-left-style:dashed}
+/* 卡片被压缩时避免译文挤压操作按钮 */
+.phrase-card{padding-right:8px}
+.phrase-card .pc-acts{background:linear-gradient(90deg,transparent,var(--card2) 40%);padding-left:10px}
+
+/* ==================== 客户画像（现居/出身/分组） ==================== */
+.pf-top{background:var(--card2);border:1px solid var(--border);border-radius:6px;padding:8px 10px;margin-bottom:10px;display:flex;flex-direction:column;gap:5px}
+.pf-top-row{display:flex;gap:8px;font-size:11.5px;line-height:1.45}
+.pf-top-row .pk{color:var(--muted);flex:0 0 32px}
+.pf-top-row .pv{flex:1;min-width:0;word-break:break-all}
+.pf-top-row.hl .pv{font-weight:600;color:var(--accent)}
+.pf-group{margin-bottom:10px}
+.pf-group-title{font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-bottom:5px;padding-bottom:3px;border-bottom:1px solid var(--border)}
+.pf-row{display:flex;gap:8px;font-size:11.5px;line-height:1.5;padding:2.5px 0}
+.pf-row .pk{color:var(--muted);flex:0 0 76px;word-break:break-all}
+.pf-row .pv{flex:1;min-width:0;word-break:break-all}
+</style>
+<script>
+// 防闪烁：首屏渲染前就确定主题（localStorage → 系统偏好 → 黑夜）
+(function(){
+  try {
+    var t = localStorage.getItem('aisay-theme');
+    if (t !== 'light' && t !== 'dark') {
+      t = (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark';
+    }
+    document.documentElement.setAttribute('data-theme', t);
+  } catch (e) { document.documentElement.setAttribute('data-theme', 'dark'); }
+})();
+</script>
+</head>
+
+<body>
+<div class="topbar">
+  <div class="brand">Ai SAY<span>出会 · 17098</span></div>
+  <button class="theme-toggle" id="themeToggle" title="切换白天 / 黑夜主题">
+    <span class="tt-icon" id="themeIcon">🌙</span><span class="tt-label" id="themeLabel">黑夜</span>
+  </button>
+  <div class="conn" id="connBadge"><div class="dot"></div>比特浏览器未连接</div>
+</div>
+<div id="toast"></div>
+
+<div class="layout">
+  <div class="col-nav" id="colNav">
+    <div class="nav-section">导航</div>
+    <div class="nav-item active" data-view="kanban">📊 看板</div>
+    <div class="nav-group" data-open="true">
+      <div class="nav-item has-children" data-view="sessions">💬 会话管理<span class="chev">▾</span></div>
+      <div class="nav-children">
+        <div class="nav-group" data-open="true">
+          <div class="nav-item has-children" data-view="ichigo">出会<span class="chev">▾</span></div>
+          <div class="nav-children">
+            <div class="nav-item" data-view="17098">17098<span class="badge" id="navBadge">0</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="nav-item" data-view="agents">🤖 代理</div>
+    <div class="nav-item" data-view="models">🧠 模型</div>
+  </div>
+
+  <div class="col-customers" id="colCustomers">
+    <div class="cust-header">
+      <span>客户 (<span id="custCount">0</span>)</span>
+      <span id="lastPoll" style="font-size:10px"></span>
+    </div>
+    <div id="customerList"></div>
+  </div>
+
+  <div class="col-messages" id="colMessages">
+    <div class="msg-header">
+      <div>
+        <div class="name" id="msgCustName">选择客户</div>
+        <div class="status" id="msgCustMeta"></div>
+      </div>
+      <div class="actions">
+        <button id="btnRefresh" title="强制重抓该客户的历史+资料">↻ 刷新</button>
+        <button id="btnBbs">招募帖</button>
+      </div>
+    </div>
+    <div class="msg-list" id="msgList">
+      <div class="empty">← 从左侧选择客户查看消息</div>
+    </div>
+    <div class="msg-input">
+      <textarea id="msgInput" placeholder="输入消息（日文）… 发送需确认"></textarea>
+      <div class="input-actions">
+        <button id="btnSend" disabled>发送消息</button>
+        <button id="btnConfirm">确认发送</button>
+        <button id="btnTranslate">翻译</button>
+      </div>
+      <div class="pending-note" id="pendingNote"></div>
+    </div>
+  </div>
+
+  <div class="col-analysis" id="colAnalysis">
+    <div class="section" id="analysisSection">
+      <div class="section-title">客户画像分析</div>
+      <div id="analysisList"><div class="empty">选择客户后显示</div></div>
+    </div>
+    <div class="section">
+      <div class="section-title">推荐回复</div>
+      <div id="recReplies"><div class="empty">选择客户后生成</div></div>
+    </div>
+    <div class="section">
+      <div class="section-title">快捷翻译（日 ⇄ 简中）</div>
+      <div class="qt">
+        <div class="qt-bar">
+          <span class="qt-lang" id="qtFromLang">日语</span>
+          <span class="qt-arrow">→</span>
+          <span class="qt-lang qt-lang-to" id="qtToLang">简体中文</span>
+          <button class="qt-swap" id="qtSwap" title="交换翻译方向">⇄ 切换方向</button>
+        </div>
+        <textarea id="qtSource" class="qt-input" placeholder="在这里输入要翻译的文字…"></textarea>
+        <button class="qt-go" id="btnQtGo">翻译 ↓</button>
+        <div class="qt-out-label" id="qtOutLabel">简体中文（译文）</div>
+        <textarea id="qtTarget" class="qt-output" readonly placeholder="译文会显示在这里"></textarea>
+        <div class="t-meta" id="qtMeta"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 模型管理页（点"模型"导航时显示，跨列） -->
+  <div class="model-page" id="modelPage" style="display:none">
+    <div class="mp-head">
+      <div>
+        <div class="mp-title">🧠 模型管理</div>
+        <div class="mp-sub" id="mpSub">加载中…</div>
+      </div>
+      <button class="mp-add" id="btnAddModel">＋ 新增模型</button>
+    </div>
+    <div class="mp-grid" id="modelGrid"></div>
+    <div class="mp-empty" id="modelEmpty" style="display:none">
+      还没有模型配置。点右上角「＋ 新增模型」添加第一个。
+    </div>
+  </div>
+
+  <!-- 模型编辑表单 -->
+  <div class="modal" id="modelForm" style="display:none">
+    <div class="modal-card">
+      <div class="modal-title" id="mfTitle">新增模型</div>
+      <div class="model-form">
+        <label>名称（自定义，便于识别）
+          <input type="text" id="mfName" placeholder="例如：DeepSeek Chat">
+        </label>
+        <label>Provider
+          <input type="text" id="mfProvider" placeholder="deepseek / openai / moonshot / ollama">
+        </label>
+        <label>Base URL
+          <input type="text" id="mfBaseUrl" placeholder="https://api.deepseek.com/v1">
+        </label>
+        <label>模型名
+          <input type="text" id="mfModel" placeholder="deepseek-chat">
+        </label>
+        <label>API Key <span id="mfKeyHint" class="key-hint"></span>
+          <input type="password" id="mfApiKey" placeholder="sk-...">
+        </label>
+      </div>
+      <div class="modal-actions">
+        <button id="btnMfSave" class="primary">保存</button>
+        <button id="btnMfTest">测试连接</button>
+        <button id="btnMfCancel">取消</button>
+      </div>
+      <div class="mf-result" id="mfResult"></div>
+    </div>
+  </div>
+
+  <!-- 账号信息 + 见面地址 + 常用语 -->
+  <div class="col-account" id="colAccount">
+    <div class="acct-block">
+      <div class="acct-head">
+        <span>👤 账号信息</span>
+        <span style="display:flex;gap:4px">
+          <button class="mini-btn" id="btnAccountCard" title="查看完整资料卡">资料</button>
+          <button class="mini-btn" id="btnEditAccount" title="编辑昵称 / 资料">编辑</button>
+        </span>
+      </div>
+      <div class="acct-rows" id="acctRows"><div class="empty">加载中…</div></div>
+    </div>
+
+    <div class="acct-block">
+      <div class="acct-head">
+        <span>📍 见面地址</span>
+        <button class="mini-btn" id="btnAddPlace" title="新增见面地址">＋</button>
+      </div>
+      <div class="place-list" id="placeList"><div class="empty">还没有地址，点 ＋ 添加</div></div>
+    </div>
+
+    <div class="acct-block phrase-block">
+      <div class="acct-head">
+        <span>💬 常用语</span>
+        <button class="mini-btn" id="btnAddPhrase" title="新增常用语">＋</button>
+      </div>
+      <div class="phrase-tabs" id="phraseTabs"></div>
+      <div class="phrase-list" id="phraseList"><div class="empty">加载中…</div></div>
+      <div class="phrase-hint">点击 → 填入消息输入框</div>
+    </div>
+  </div>
+
+  <div class="col-ai" id="colAi">
+    <div class="ai-header">Ai SAY · 会话</div>
+    <div class="ai-list" id="aiList">
+      <div class="ai-msg bot">你好，我是 Ai SAY 助手。选择客户后我可以帮你分析客户画像、生成推荐话术、翻译消息。所有发送给客户的消息需要你确认后才发出。</div>
+    </div>
+    <div class="ai-input">
+      <textarea id="aiInput" placeholder="向 Ai SAY 提问…"></textarea>
+      <button class="send-ai" id="btnAiSend">发送</button>
+    </div>
+  </div>
+</div>
+
+
+
+<!-- 账号编辑 -->
+<div class="modal" id="acctModal" style="display:none">
+  <div class="modal-card narrow">
+    <div class="modal-title">👤 编辑账号信息</div>
+    <div class="model-form">
+      <label>昵称（留空 = 用自动识别的「<span id="acctAutoNick"></span>」）
+        <input type="text" id="acctNickInput" placeholder="ともね">
+      </label>
+      <label>资料（留空 = 用自动识别的「<span id="acctAutoProf"></span>」）
+        <input type="text" id="acctProfInput" placeholder="38歳 埼玉">
+      </label>
+    </div>
+    <div class="modal-actions">
+      <button class="primary" id="btnAcctSave">保存</button>
+      <button id="btnAcctCancel">取消</button>
+    </div>
+  </div>
+</div>
+
+<!-- 账号完整资料卡 -->
+<div class="modal" id="acctCardModal" style="display:none">
+  <div class="modal-card">
+    <div class="modal-title">👤 账号资料卡 <span id="acctCardSub" style="font-size:11px;color:var(--muted);font-weight:400"></span></div>
+    <div id="acctCardBody" class="acct-card-body"><div class="empty">加载中…</div></div>
+    <div class="modal-actions">
+      <button id="btnAcctCardRefresh">↻ 重新抓取</button>
+      <button id="btnAcctCardClose">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- 见面地址编辑 -->
+<div class="modal" id="placeModal" style="display:none">
+  <div class="modal-card narrow">
+    <div class="modal-title" id="placeModalTitle">📍 新增见面地址</div>
+    <div class="model-form">
+      <label>名称（便于识别，如「常用」「备用」）
+        <input type="text" id="placeLabel" placeholder="常用">
+      </label>
+      <label>地址
+        <input type="text" id="placeAddress" placeholder="埼玉県戸田市 ○○駅 東口">
+      </label>
+      <label>备注（可选，如「駅から3分」）
+        <input type="text" id="placeNote" placeholder="">
+      </label>
+    </div>
+    <div class="modal-actions">
+      <button class="primary" id="btnPlaceSave">保存</button>
+      <button id="btnPlaceDelete" class="danger" style="display:none">删除</button>
+      <button id="btnPlaceCancel">取消</button>
+    </div>
+  </div>
+</div>
+
+<!-- 常用语编辑 -->
+<div class="modal" id="phraseModal" style="display:none">
+  <div class="modal-card narrow">
+    <div class="modal-title" id="phraseModalTitle">💬 新增常用语</div>
+    <div class="model-form">
+      <label>分组（如 开场 / 邀约 / 条件）
+        <input type="text" id="phGroup" placeholder="开场" list="phGroupList">
+        <datalist id="phGroupList"></datalist>
+      </label>
+      <label>内容
+        <textarea id="phText" rows="4" style="padding:7px 9px;border:1px solid var(--border);border-radius:4px;font-size:12px;font-family:inherit;resize:vertical"></textarea>
+      </label>
+    </div>
+    <div class="modal-actions">
+      <button class="primary" id="btnPhraseSave">保存</button>
+      <button id="btnPhraseDelete" class="danger" style="display:none">删除</button>
+      <button id="btnPhraseCancel">取消</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ==================== 主题切换 ====================
+var THEME_KEY = 'aisay-theme';
+function getTheme() {
+  try { var t = localStorage.getItem(THEME_KEY); if (t === 'light' || t === 'dark') return t; } catch (e) {}
+  return document.documentElement.getAttribute('data-theme') || 'dark';
+}
+function applyTheme(t, animate) {
+  var theme = (t === 'light') ? 'light' : 'dark';
+  var root = document.documentElement;
+  if (animate) {
+    root.classList.add('theme-anim');
+    setTimeout(function() { root.classList.remove('theme-anim'); }, 260);
+  }
+  root.setAttribute('data-theme', theme);
+  var ic = document.getElementById('themeIcon');
+  var lb = document.getElementById('themeLabel');
+  if (ic) ic.textContent = (theme === 'light') ? '☀️' : '🌙';
+  if (lb) lb.textContent = (theme === 'light') ? '白天' : '黑夜';
+  var btn = document.getElementById('themeToggle');
+  if (btn) btn.title = (theme === 'light') ? '当前：白天（点击切到黑夜）' : '当前：黑夜（点击切到白天）';
+}
+function toggleTheme() {
+  var next = (getTheme() === 'light') ? 'dark' : 'light';
+  try { localStorage.setItem(THEME_KEY, next); } catch (e) {}
+  applyTheme(next, true);
+}
+
+var API = {
+  mailbox:   '/api/console/mailbox',
+  list:      '/api/console/live/customers',
+  detail:    '/api/console/live/customer',
+  refresh:   '/api/console/live/customer/refresh',
+  translate: '/api/console/translate',
+  accountRefresh: '/api/console/account/refresh',
+  model:     '/api/console/model-status',
+  models:    '/api/console/models',
+  mCreate:   '/api/console/models/create',
+  mUpdate:   '/api/console/models/update',
+  mDelete:   '/api/console/models/delete',
+  mActivate: '/api/console/models/activate',
+  mTest:     '/api/console/models/test',
+  sendLive:  '/api/console/send-live'
+};
+var POLL_MS = 1800000; // 30分钟轮询一次
+
+var state = { contacts: [], details: {}, selectedId: null, unread: 0, lastPollAt: null };
+
+// ⑥ 快捷翻译方向：qtDir = 'ja2zh'（日→中）或 'zh2ja'（中→日）
+// 上方 textarea 永远是"输入"，下方永远是"译文"，切换只改语言对
+// ⚠ 必须在这里声明：bindEvents() 里会调用 renderQtDir()，var 提升会让后面的声明变成 undefined
+var qtDir = 'ja2zh';
+var QT_LANG = {
+  'ja2zh': { from: 'ja', to: 'zh-CN', fromName: '日语', toName: '简体中文' },
+  'zh2ja': { from: 'zh-CN', to: 'ja', fromName: '简体中文', toName: '日语' }
+};
+
+var ONLINE = {
+  online: { cls: 'od-online', tip: '在线（1小时内）' },
+  recent: { cls: 'od-recent', tip: '最近在线（24小时内）' },
+  away:   { cls: 'od-away',   tip: '有段时间没在线' },
+  long:   { cls: 'od-long',   tip: '很久没上线' }
+};
+
+// 初始化加保护网：单段失败不拖垮整页
+function safeInit(name, fn) {
+  try { fn(); } catch (e) {
+    console.error('[init:' + name + ']', e);
+    if (typeof toast === 'function') { try { toast('初始化失败(' + name + '): ' + e.message, false); } catch (_) {} }
+  }
+}
+var navBadgeEl = document.getElementById('navBadge');
+if (navBadgeEl) navBadgeEl.textContent = '0';
+safeInit('theme', function() { applyTheme(getTheme(), false); });
+safeInit('account', function() { loadAccount(); });
+safeInit('phrases', function() { loadPhrases(); });
+safeInit('bindEvents', function() { bindEvents(); });
+safeInit('pollMailbox', function() { pollMailbox(true); });
+safeInit('timer', function() { setInterval(function() { pollMailbox(false); }, POLL_MS); });
+
+function onInboxPage() {
+  try { return /show_mailbox\.html/i.test(window.location.href); } catch (e) { return false; }
+}
+
+function pollMailbox(initial) {
+  // 30分钟轮询保护：非收件箱页 → 不刷新（防止中断当前操作，如发消息/看详情）；首次加载允许
+  if (!initial && !onInboxPage()) {
+    var lp0 = document.getElementById('lastPoll');
+    if (lp0) lp0.textContent = '非收件箱页，本次跳过刷新';
+    return Promise.resolve();
+  }
+  return fetch(API.mailbox + (initial ? '?force=1' : ''))
+    .then(function(r) { return r.json(); })
+    .then(function(j) {
+      if (!j.ok) { setConn(false); return; }
+      setConn(true);
+      state.contacts = j.contacts || [];
+      state.unread = j.unread || 0;
+      state.lastPollAt = new Date();
+      renderList();
+      updateBadge();
+      var lp = document.getElementById('lastPoll');
+      if (lp) lp.textContent = fmtClock(state.lastPollAt);
+      if (state.selectedId) { var c = findContact(state.selectedId); if (c) renderHeader(c); }
+    })
+    .catch(function() { setConn(false); });
+}
+
+function setConn(ok) {
+  var b = document.getElementById('connBadge');
+  if (!b) return;
+  while (b.firstChild) b.removeChild(b.firstChild);
+  var d = document.createElement('div');
+  d.className = 'dot' + (ok ? ' on' : '');
+  b.appendChild(d);
+  b.appendChild(document.createTextNode(ok ? ' 会出窗口已连接' : ' 比特浏览器未连接'));
+  b.classList.toggle('on', ok);
+}
+
+function fmtClock(d) {
+  function p(n) { return n < 10 ? '0' + n : '' + n; }
+  return p(d.getHours()) + ':' + p(d.getMinutes()) + ' 已刷新';
+}
+
+function updateBadge() {
+  var b = document.getElementById('navBadge');
+  if (!b) return;
+  var n = state.contacts.filter(function(c) { return c.unread > 0; }).length;
+  b.textContent = n;
+  b.style.display = n > 0 ? '' : 'none';
+}
+
+function findContact(id) {
+  for (var i = 0; i < state.contacts.length; i++) if (state.contacts[i].contactId === id) return state.contacts[i];
+  return null;
+}
+
+function renderList() {
+  var host = document.getElementById('customerList');
+  document.getElementById('custCount').textContent = state.contacts.length;
+  if (!state.contacts.length) {
+    host.innerHTML = '<div class="empty" style="padding:20px;text-align:center">加载中…</div>';
+    return;
+  }
+  // ② 固定按"最近聊天时间"倒序（越晚在最上），不再按未读重排以免位置乱跳
+  var list = state.contacts.slice().sort(function(a, b) {
+    var d = timeRank(b.lastMsgTime) - timeRank(a.lastMsgTime);
+    if (d !== 0) return d;
+    return String(a.name || '').localeCompare(String(b.name || ''));
+  });
+  var html = '';
+  list.forEach(function(c) {
+    var active = state.selectedId === c.contactId ? ' active' : '';
+    var od = ONLINE[c.onlineTier];
+    var dot = od ? '<span class="od ' + od.cls + '" title="' + od.tip + '"></span>' : '<span class="od od-none" title="未知"></span>';
+    var av = (c.avatarUrl && !c.avatarIsDefault)
+      ? '<img src="' + esc(c.avatarUrl) + '" alt="">'
+      : '<span class="av-txt">' + esc(firstChar(c.name)) + '</span>';
+    html += '<div class="cust-item' + active + (c.unread > 0 ? ' unread' : '') + '" data-id="' + esc(c.contactId) + '">';
+    html +=   '<div class="ci-top">';
+    html +=     '<div class="ci-av">' + av + '</div>';
+    html +=     '<div class="ci-main">';
+    html +=       '<div class="ci-name">' + dot + esc(c.name) + '</div>';
+    html +=       '<div class="ci-last">' + esc((c.lastMsg || '').slice(0, 42)) + '</div>';
+    html +=     '</div>';
+    html +=     '<div class="ci-right">';
+    html +=       '<div class="ci-time">' + esc(c.lastMsgTime || '') + '</div>';
+    if (c.unread > 0) html += '<div class="ci-unread">新</div>';
+    html +=     '</div>';
+    html +=   '</div>';
+    html += '</div>';
+  });
+  host.innerHTML = html;
+  Array.prototype.forEach.call(host.querySelectorAll('.cust-item'), function(el) {
+    el.addEventListener('click', function() { selectCustomer(el.getAttribute('data-id')); });
+  });
+}
+
+function firstChar(name) {
+  var s = String(name || '').replace(/^[\u2642\u2640\s]+/, '');
+  return s.charAt(0) || '?';
+}
+
+function timeRank(t) {
+  var m = String(t || '').match(/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})/);
+  if (!m) return 0;
+  return ((+m[1]) * 31 + (+m[2])) * 10000 + (+m[3]) * 100 + (+m[4]);
+}
+
+function selectCustomer(id) {
+  state.selectedId = id;
+  var c = findContact(id);
+  if (!c) return;
+  renderList();
+  renderHeader(c);
+  var d = state.details[id];
+  if (d && d.messages) { renderMessages(d.messages); renderAnalysis(d.profile); renderRecs(d); }
+  else {
+    document.getElementById('msgList').innerHTML = '<div class="empty">加载中…</div>';
+    document.getElementById('analysisList').innerHTML = '<div class="empty">加载中…</div>';
+    document.getElementById('recReplies').innerHTML = '<div class="empty">加载中…</div>';
+  }
+  fetch(API.detail + '?id=' + encodeURIComponent(id) + '&read=1')
+    .then(function(r) { return r.json(); })
+    .then(function(j) {
+      if (!j.ok || !j.contact) return;
+      var ct = j.contact;
+      state.details[id] = ct;
+      var lc = findContact(id);
+      if (lc) lc.unread = 0;
+      renderList(); updateBadge(); renderHeader(ct);
+      renderMessages(ct.messages || []);
+      renderAnalysis(ct.profile);
+      renderRecs(ct);
+    })
+    .catch(function(e) { console.warn('detail failed', e); });
+}
+
+function renderHeader(c) {
+  document.getElementById('msgCustName').textContent = c.name || '';
+  var od = ONLINE[c.onlineTier];
+  var bits = [];
+  if (c.age) bits.push(c.age);
+  if (od) bits.push(od.tip);
+  if (c.lastMsgTime) bits.push('最近聊天 ' + c.lastMsgTime);
+  document.getElementById('msgCustMeta').textContent = bits.join(' · ');
+}
+
+function hasJa(s) { return /[\u3040-\u309f\u30a0-\u30ff]/.test(String(s || '')); }
+
+function renderMessages(msgs) {
+  var host = document.getElementById('msgList');
+  if (!msgs || !msgs.length) { host.innerHTML = '<div class="empty">暂无消息记录</div>'; return; }
+  var html = '';
+  msgs.forEach(function(m) {
+    var cls = m.from === 'self' ? 'self' : 'peer';
+    var who = m.from === 'self' ? '我方' : '客户';
+    html += '<div class="msg-bubble ' + cls + '">';
+    html +=   '<div class="who">' + who + '</div>';
+    html +=   '<div class="text">' + esc(m.text).replace(/\n/g, '<br>') + '</div>';
+    if (m.quote) html += '<div class="quote">引用：' + esc(m.quote).replace(/\n/g, ' ').slice(0, 80) + '</div>';
+    if (hasJa(m.text)) html += '<div class="text-zh" data-src="' + esc(m.text) + '">译文加载中…</div>';
+    html +=   '<div class="ts">' + esc(m.time || '') + (m.read ? ' · 已读' : '') + '</div>';
+    html += '</div>';
+  });
+  host.innerHTML = html;
+  host.scrollTop = host.scrollHeight;
+  translateAll(host.querySelectorAll('.text-zh'));
+}
+
+// ③ 翻译本地备忘（localStorage）→ 切换客户零等待
+var TMEMO = (function() {
+  try { return JSON.parse(localStorage.getItem('aisay-tmemo') || '{}'); } catch (e) { return {}; }
+})();
+var tmemoTimer = null;
+function tmemoSave() {
+  if (tmemoTimer) return;
+  tmemoTimer = setTimeout(function() {
+    tmemoTimer = null;
+    try {
+      var ks = Object.keys(TMEMO);
+      if (ks.length > 4000) { var n = {}; ks.slice(-3000).forEach(function(k) { n[k] = TMEMO[k]; }); TMEMO = n; }
+      localStorage.setItem('aisay-tmemo', JSON.stringify(TMEMO));
+    } catch (e) {}
+  }, 1200);
+}
+function paintZh(el, entry) {
+  if (!entry) return;
+  el.textContent = entry.translated;
+  // 保留元素上其它自定义 class（如 pc-zh / rec-zh），只刷新状态类
+  var keep = String(el.className || '').split(/\s+/).filter(function(c) {
+    return c && c !== 'text-zh' && c !== 'translated' && c !== 'dict';
+  });
+  keep.unshift('text-zh', 'translated');
+  if (entry.source === 'dict-fallback') keep.push('dict');
+  el.className = keep.join(' ');
+}
+// 补漏：把仍停在"翻译中…"的节点单独重试（模型偶发超时时用）
+function retryMissing(allNodes) {
+  var pending = allNodes.filter(function(el) {
+    var t = el.textContent || '';
+    return t === '翻译中…' || t === '' || t === '译文加载中…';
+  });
+  if (!pending.length) return;
+  var i = 0;
+  function worker() {
+    if (i >= pending.length) return Promise.resolve();
+    var el = pending[i++];
+    var src = el.getAttribute('data-src') || '';
+    if (!src) { el.textContent = ''; return worker(); }
+    if (TMEMO[src]) { paintZh(el, TMEMO[src]); return worker(); }
+    return translate(src, 'ja', 'zh-CN').then(function(j) {
+      if (j && j.ok) { TMEMO[src] = { translated: j.translated, source: j.source }; paintZh(el, TMEMO[src]); }
+      else el.textContent = '（翻译失败）';
+    }).catch(function() { el.textContent = '（翻译失败）'; }).then(worker);
+  }
+  var ws = [];
+  for (var k = 0; k < 2; k++) ws.push(worker());
+  return Promise.all(ws).then(function() { tmemoSave(); });
+}
+
+// 批量翻译：先本地 memo 秒填，再一次性请求未命中的
+function translateAll(nodes) {
+  var arr = Array.prototype.slice.call(nodes);
+  if (!arr.length) return Promise.resolve();
+  var miss = [];
+  var missSeen = {};
+  arr.forEach(function(el) {
+    var src = el.getAttribute('data-src') || '';
+    var m = TMEMO[src];
+    if (m) paintZh(el, m);
+    else {
+      el.textContent = '翻译中…';
+      if (!missSeen[src]) { missSeen[src] = []; miss.push(src); }
+      missSeen[src].push(el);
+    }
+  });
+  if (!miss.length) return Promise.resolve();
+  return fetch('/api/console/translate/batch', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ items: miss.map(function(t) { return { text: t, from: 'ja', to: 'zh-CN' }; }) })
+  }).then(function(r) { return r.json(); }).then(function(j) {
+    if (j && j.ok && j.results) {
+      Object.keys(j.results).forEach(function(t) {
+        var e = j.results[t];
+        if (!e || !e.ok) return;
+        TMEMO[t] = { translated: e.translated, source: e.source };
+        (missSeen[t] || []).forEach(function(el) { paintZh(el, TMEMO[t]); });
+      });
+      tmemoSave();
+    }
+    // 补漏：批次里没回来的 / 仍显示"翻译中…"的，逐个重试一次
+    retryMissing(arr);
+  }).catch(function() { retryMissing(arr); });
+}
+
+function translate(text, from, to) {
+  var qs = new URLSearchParams({ text: text, from: from || 'ja', to: to || 'zh-CN' });
+  return fetch(API.translate + '?' + qs.toString()).then(function(r) { return r.json(); });
+}
+
+var FIELD_LABEL = [
+  ['birthplace', '出身地', { '東京': '东京', '埼玉': '埼玉', '神奈川': '神奈川', '千葉': '千叶', '大阪': '大阪', '愛知': '爱知', '北海道': '北海道', '福岡': '福冈' }],
+  ['marital', '交際ステータス', { '未婚': '未婚', '既婚': '已婚', '離婚': '离异', '死別': '丧偶' }],
+  ['children', '子供', {}],
+  ['occupation', '職業', { '会社員': '公司职员', 'サービス業': '服务业', '自営業': '个体经营', '公務員': '公务员', '医療関係': '医疗', '学生': '学生', '主婦': '主妇' }],
+  ['income', '年収', {}],
+  ['bloodType', '血液型', {}],
+  ['zodiac', '星座', {}],
+  ['height', '身長', {}],
+  ['build', '体型', { '普通': '普通', 'ややぽっちゃり': '微胖', 'ぽっちゃり': '偏胖', 'スリム': '苗条', 'やせ型': '偏瘦', '筋肉質': '肌肉型' }],
+  ['type', 'タイプ', { 'さわやか系': '清爽型', 'その他': '其他' }],
+  ['eyes', '目', { '二重': '双眼皮', '一重': '单眼皮' }],
+  ['smoking', '喫煙', { '吸わない': '不吸烟', 'ときどき吸う': '偶尔抽', '吸う': '吸烟' }],
+  ['drinking', '飲酒', { '飲まない': '不饮酒', 'ときどき飲む': '偶尔喝', '飲む': '饮酒' }],
+  ['car', '車', { 'あり': '有车', 'なし': '没车' }],
+  ['meetingIntent', '目的', { '目的が合えば会いたい': '目标合得来就想见', 'デートしたい': '想约会', '大人の関係': '成人关系' }],
+  ['adultDating', '大人の交際', { '相手に合わせる': '配合对方', 'デートでその他': '约会其他' }],
+  ['holiday', '休日', {}],
+  ['personality', '性格', {}]
+];
+
+// 字段中文对照（日 → 简中）
+var FIELD_ZH = {
+  birthplace: { '東京': '东京', '埼玉': '埼玉', '神奈川': '神奈川', '千葉': '千叶', '大阪': '大阪', '愛知': '爱知', '北海道': '北海道', '福岡': '福冈' },
+  marital: { '未婚': '未婚', '既婚': '已婚', '離婚': '离异', '死別': '丧偶' },
+  children: { 'いない': '没有', 'いる': '有' },
+  occupation: { '会社員': '公司职员', 'サービス業': '服务业', '自営業': '个体经营', '公務員': '公务员', '医療関係': '医疗', '学生': '学生', '主婦': '主妇', '無職': '无业' },
+  carrier: { 'スマートフォン': '智能手机', 'ガラケー': '功能机', 'その他': '其他' },
+  build: { '普通': '普通', 'ややぽっちゃり': '微胖', 'ぽっちゃり': '偏胖', 'スリム': '苗条', 'やせ型': '偏瘦', '筋肉質': '肌肉型' },
+  type: { 'さわやか系': '清爽型', 'その他': '其他', 'いやし系': '治愈系' },
+  eyes: { '二重': '双眼皮', '一重': '单眼皮' },
+  dateWant: { '相手に合わせる': '配合对方', 'その他': '其他' },
+  meetingIntent: { '目的が合えば会いたい': '目标合得来就想见', 'デートしたい': '想约会', '大人の関係': '成人关系' },
+  smoking: { '吸わない': '不吸烟', 'ときどき吸う': '偶尔抽', '吸う': '吸烟' },
+  drinking: { '飲まない': '不饮酒', 'ときどき飲む': '偶尔喝', '飲む': '饮酒' },
+  car: { 'あり': '有车', 'なし': '没车' },
+  zodiac: { 'おひつじ座': '白羊座', 'おうし座': '金牛座', 'ふたご座': '双子座', 'かに座': '巨蟹座', 'しし座': '狮子座', 'おとめ座': '处女座', 'てんびん座': '天秤座', 'さそり座': '天蝎座', 'いて座': '射手座', 'やぎ座': '摩羯座', 'みずがめ座': '水瓶座', 'うお座': '双鱼座' }
+};
+function zhOf(key, val) {
+  var m = FIELD_ZH[key];
+  if (!m) return '';
+  return m[val] || '';
+}
+function prettyFields(key, val) {
+  var zh = zhOf(key, val);
+  return esc(val) + (zh && zh !== val ? '（' + zh + '）' : '');
+}
+
+function renderAnalysis(profile) {
+  var host = document.getElementById('analysisList');
+  if (!profile) { host.innerHTML = '<div class="empty">资料卡未抓取</div>'; return; }
+  var html = '';
+  var n = 1;
+
+  // —— 顶部：现居 / 出身 / 在线（分开显示）——
+  var top = [];
+  top.push({ k: '现居', v: profile.region ? (profile.region) : '—', hl: true });
+  top.push({ k: '出身', v: (profile.birthplace || (profile.fields && profile.fields.birthplace)) || '—', hl: true });
+  if (profile.ageNum) top.unshift({ k: '年龄', v: profile.ageNum + '岁', hl: false });
+  if (profile.onlineText) top.push({ k: '在线', v: profile.onlineText, hl: false });
+  html += '<div class="pf-top">' + top.map(function(t) {
+    return '<div class="pf-top-row' + (t.hl ? ' hl' : '') + '"><span class="pk">' + t.k + '</span><span class="pv">' + esc(t.v) + '</span></div>';
+  }).join('') + '</div>';
+
+  // —— 分组字段 ——
+  var byGroup = profile.byGroup;
+  var groups = [];
+  if (byGroup && typeof byGroup === 'object' && Object.keys(byGroup).length) {
+    var ORDER = ['基本情報', '見た目', '大人の交際', '生活', 'お相手に望むこと'];
+    groups = ORDER.filter(function(g) { return byGroup[g] && byGroup[g].length; })
+      .map(function(g) { return { title: g, items: byGroup[g] }; });
+    // 未在 ORDER 里的分组补在后面
+    Object.keys(byGroup).forEach(function(g) { if (ORDER.indexOf(g) === -1 && byGroup[g].length) groups.push({ title: g, items: byGroup[g] }); });
+  } else if (profile.fields) {
+    // 兼容旧缓存：用扁平 fields
+    var LABELMAP = { birthplace: '出身地', marital: '交際ステータス', children: '子供', occupation: '職業', income: '年収', bloodType: '血液型', zodiac: '星座', carrier: 'キャリア', height: '身長', build: 'スタイル', type: 'タイプ', eyes: '目', dateWant: 'デートでしたいこと', meetingIntent: '出会うまでの希望', smoking: 'タバコ', drinking: 'お酒', car: '車', prefAge: '希望年齢', prefHeight: '希望身長', prefBuild: '希望スタイル', prefPersonality: '希望の見た目・性格' };
+    var items = Object.keys(LABELMAP).filter(function(k) { return profile.fields[k]; }).map(function(k) {
+      return { key: k, label: LABELMAP[k], value: profile.fields[k] };
+    });
+    if (items.length) groups = [{ title: '基本情報', items: items }];
+  }
+
+  html += groups.map(function(g) {
+    return '<div class="pf-group">' +
+        '<div class="pf-group-title">' + esc(g.title) + '</div>' +
+        g.items.map(function(f) {
+          return '<div class="pf-row"><span class="pk">' + esc(f.label) + '</span><span class="pv">' + prettyFields(f.key, f.value) + '</span></div>';
+        }).join('') +
+      '</div>';
+  }).join('');
+
+  // —— 兴趣 ——
+  var icons = profile.interestIcons || [];
+  if (icons.length) {
+    var labels = icons.map(function(i) {
+      if (i && typeof i === 'object') return i.label || (i.icon ? ('未知(' + i.icon + ')') : '未知');
+      return '未知(' + String(i) + ')';
+    });
+    html += '<div class="pf-group"><div class="pf-group-title">兴趣（' + icons.length + '）</div><div class="pf-row"><span class="pv">' + esc(labels.join('、')) + '</span></div></div>';
+  }
+  // —— 招募帖 ——
+  if (profile.bbsPosts && profile.bbsPosts.length) {
+    html += '<div class="pf-group"><div class="pf-group-title">招募帖（' + profile.bbsPosts.length + '）</div>' +
+      profile.bbsPosts.map(function(p) {
+        return '<div class="pf-row"><span class="pv">' + esc((p.time || '') + ' ' + (p.content || '')) + '</span></div>';
+      }).join('') + '</div>';
+  }
+
+  var empty = !top.length && !groups.length && !icons.length;
+  host.innerHTML = empty ? '<div class="empty">资料解析为空</div>' : html;
+}
+
+function renderRecs(cust) {
+  var host = document.getElementById('recReplies');
+  var msgs = (cust && cust.messages) || [];
+  if (!msgs.length) { host.innerHTML = '<div class="empty">无消息，无法生成推荐</div>'; return; }
+  var lastPeer = null;
+  for (var i = msgs.length - 1; i >= 0; i--) if (msgs[i].from === 'peer') { lastPeer = msgs[i]; break; }
+  var lt = lastPeer ? (lastPeer.text || '') : '';
+  var recs = [];
+  if (/胸|カップ/.test(lt)) {
+    recs.push('Dカップです。大きいですか？よかったら一度お会いしませんか？✨');
+    recs.push('胸は大事ですよね！ゆっくりお話ししながら確認しましょう。よろしかったら近くで会いませんか？');
+  } else if (/出会|会え/.test(lt)) {
+    recs.push('まだいい出会いは見つかっていないです。よかったら一度お会いしませんか？');
+    recs.push('出会いってタイミングですよね。ゆっくりお話ししながら、よかったらお会いしましょう。');
+  } else if (/予算|いくら|金額/.test(lt)) {
+    recs.push('ご予算はどのくらいでお考えですか？よかったら一度お会いしてお話ししましょう😊');
+  } else {
+    recs.push('ありがとうございます！ゆっくりお話しできたら嬉しいです。よかったらお会いしませんか？');
+    recs.push('メッセージありがとうございます！もしよければ、一度お会いしませんか？');
+  }
+  if (cust.profile && cust.profile.interestIcons && cust.profile.interestIcons.length) {
+    var i0 = cust.profile.interestIcons[0];
+    if (i0 && i0.label) recs.push('「' + i0.label + '」お好きなんですね！私も興味あります😊 よかったらお話ししましょう。');
+  }
+  // ⑤ 整张小卡片就是一个复制按钮，不再用独立按钮压住文字
+  host.innerHTML = recs.map(function(r, i) {
+    return '<div class="rec-reply" data-copy="' + i + '" title="点击复制到输入框">' +
+      '<div class="text">' + esc(r) + '</div>' +
+      '<div class="text-zh" data-src="' + esc(r) + '">翻译中…</div>' +
+      '<div class="rec-foot"><span class="rec-copy-hint">📋 点击复制</span><span class="pending-tag">待确认 · 需点"确认发送"</span></div>' +
+    '</div>';
+  }).join('');
+  translateAll(host.querySelectorAll('.text-zh'));
+  Array.prototype.forEach.call(host.querySelectorAll('.rec-reply'), function(card) {
+    card.addEventListener('click', function() {
+      var t = recs[+card.getAttribute('data-copy')];
+      document.getElementById('msgInput').value = t;
+      document.getElementById('btnSend').disabled = false;
+      document.getElementById('pendingNote').textContent = '已填入输入框，点"确认发送"发出';
+      toast('已复制到输入框，请点「确认发送」');
+    });
+  });
+}
+
+function switchView(view) {
+  var cols = {
+    customers: document.getElementById('colCustomers'),
+    messages: document.getElementById('colMessages'),
+    analysis: document.getElementById('colAnalysis'),
+    account: document.getElementById('colAccount'),
+    ai: document.getElementById('colAi')
+  };
+  var mp = document.getElementById('modelPage');
+  if (view === 'models') {
+    cols.customers.style.display = 'none';
+    cols.messages.style.display = 'none';
+    cols.analysis.style.display = 'none';
+    if (cols.account) cols.account.style.display = 'none';
+    cols.ai.style.display = 'none';
+    mp.style.display = '';
+    Array.prototype.forEach.call(document.querySelectorAll('.nav-item'), function(i) {
+      i.classList.toggle('active', i.getAttribute('data-view') === view);
+    });
+    renderModelPage();
+    return;
+  }
+  mp.style.display = 'none';
+  cols.analysis.style.display = '';
+  if (cols.account) cols.account.style.display = '';
+  cols.ai.style.display = '';
+  var showAll = ['kanban', 'sessions', 'ichigo', '17098'].indexOf(view) !== -1;
+  cols.customers.style.display = showAll ? '' : 'none';
+  cols.messages.style.display = showAll ? '' : 'none';
+  Array.prototype.forEach.call(document.querySelectorAll('.nav-item'), function(i) {
+    i.classList.toggle('active', i.getAttribute('data-view') === view);
+  });
+}
+
+// ==================== 模型管理页 ====================
+var mfState = { editingId: null };
+
+function renderModelPage() {
+  fetch(API.models).then(function(r) { return r.json(); }).then(function(j) {
+    if (!j.ok) { document.getElementById('mpSub').textContent = j.msg || '加载失败'; return; }
+    var models = j.models || [];
+    var active = models.filter(function(m) { return m.active; })[0];
+    document.getElementById('mpSub').textContent = active
+      ? ('当前使用：' + active.name + '（' + active.model + '）' + (active.hasKey ? '' : ' ⚠ 未配置 Key'))
+      : '尚未选择当前模型';
+    document.getElementById('modelEmpty').style.display = models.length ? 'none' : '';
+    var grid = document.getElementById('modelGrid');
+    grid.innerHTML = models.map(cardHtml).join('');
+    Array.prototype.forEach.call(grid.querySelectorAll('[data-act]'), function(btn) {
+      btn.addEventListener('click', function() {
+        var act = btn.getAttribute('data-act');
+        var id = btn.getAttribute('data-id');
+        if (act === 'activate') doActivate(id);
+        else if (act === 'edit') openModelForm(id);
+        else if (act === 'test') doTest(id, btn);
+        else if (act === 'delete') doDelete(id, btn.getAttribute('data-name'));
+      });
+    });
+  }).catch(function(e) {
+    document.getElementById('mpSub').textContent = '加载失败: ' + e.message;
+  });
+}
+
+function cardHtml(m) {
+  var cls = 'mcard' + (m.active ? ' active' : '') + (m.hasKey ? '' : ' nokey');
+  var badge = m.active ? '<span class="mc-badge">✓ 当前使用</span>' : '';
+  var keyLine = m.hasKey
+    ? '<span class="mc-ok">🔑 ' + esc(m.apiKeyMasked) + '</span>'
+    : '<span class="mc-warn">⚠ 未配置 API Key</span>';
+  return '' +
+    '<div class="' + cls + '">' +
+      '<div class="mc-head">' +
+        '<div class="mc-name">' + esc(m.name || '(未命名)') + '</div>' + badge +
+      '</div>' +
+      '<div class="mc-rows">' +
+        '<div class="mc-row"><span class="k">Provider</span><span class="v">' + esc(m.provider || '—') + '</span></div>' +
+        '<div class="mc-row"><span class="k">模型</span><span class="v">' + esc(m.model || '—') + '</span></div>' +
+        '<div class="mc-row"><span class="k">Base URL</span><span class="v" title="' + esc(m.baseUrl) + '">' + esc(m.baseUrl || '—') + '</span></div>' +
+        '<div class="mc-row"><span class="k">Key</span><span class="v">' + keyLine + '</span></div>' +
+      '</div>' +
+      '<div class="mc-test" data-test-for="' + esc(m.id) + '"></div>' +
+      '<div class="mc-actions">' +
+        (m.active ? '' : '<button class="primary" data-act="activate" data-id="' + esc(m.id) + '">设为当前</button>') +
+        '<button data-act="test" data-id="' + esc(m.id) + '">测试</button>' +
+        '<button data-act="edit" data-id="' + esc(m.id) + '">编辑</button>' +
+        '<button class="danger" data-act="delete" data-id="' + esc(m.id) + '" data-name="' + esc(m.name) + '">删除</button>' +
+      '</div>' +
+    '</div>';
+}
+
+function doActivate(id) {
+  fetch(API.mActivate + '?id=' + encodeURIComponent(id), { method: 'POST' })
+    .then(function(r) { return r.json(); })
+    .then(function(j) {
+      toast(j.ok ? '已设为当前模型：' + (j.model && j.model.name) : (j.msg || '设置失败'), !!j.ok);
+      renderModelPage();
+    }).catch(function() { toast('设置失败', false); });
+}
+
+function doDelete(id, name) {
+  if (!confirm('确定删除模型「' + (name || '') + '」？')) return;
+  fetch(API.mDelete + '?id=' + encodeURIComponent(id), { method: 'POST' })
+    .then(function(r) { return r.json(); })
+    .then(function(j) {
+      toast(j.ok ? '已删除' : (j.msg || '删除失败'), !!j.ok);
+      renderModelPage();
+    }).catch(function() { toast('删除失败', false); });
+}
+
+function doTest(id, btn) {
+  var box = document.querySelector('[data-test-for="' + id + '"]');
+  if (box) { box.className = 'mc-test testing'; box.textContent = '测试中…'; }
+  if (btn) btn.disabled = true;
+  fetch(API.mTest + '?id=' + encodeURIComponent(id), { method: 'POST' })
+    .then(function(r) { return r.json(); })
+    .then(function(j) {
+      if (btn) btn.disabled = false;
+      if (!box) return;
+      if (j.ok) {
+        box.className = 'mc-test ok';
+        box.textContent = '✅ 连通正常 · ' + j.latency + 'ms · 返回「' + (j.sample || '').slice(0, 20) + '」';
+      } else {
+        box.className = 'mc-test fail';
+        box.textContent = '❌ ' + (j.latency ? j.latency + 'ms · ' : '') + (j.msg || '失败').slice(0, 140);
+      }
+    }).catch(function(e) {
+      if (btn) btn.disabled = false;
+      if (box) { box.className = 'mc-test fail'; box.textContent = '❌ ' + e.message; }
+    });
+}
+
+function openModelForm(id) {
+  mfState.editingId = id || null;
+  document.getElementById('mfTitle').textContent = id ? '编辑模型' : '新增模型';
+  document.getElementById('mfResult').textContent = '';
+  var g = function(x) { return document.getElementById(x); };
+  if (id) {
+    // 拉当前值（从列表页拿）
+    fetch(API.models).then(function(r) { return r.json(); }).then(function(j) {
+      var m = (j.models || []).filter(function(x) { return x.id === id; })[0];
+      if (!m) return;
+      g('mfName').value = m.name || '';
+      g('mfProvider').value = m.provider || '';
+      g('mfBaseUrl').value = m.baseUrl || '';
+      g('mfModel').value = m.model || '';
+      g('mfApiKey').value = '';
+      g('mfApiKey').placeholder = m.hasKey ? '留空 = 不修改（当前 ' + m.apiKeyMasked + '）' : 'sk-...';
+      g('mfKeyHint').textContent = m.hasKey ? '已保存 Key，留空表示不修改' : '';
+    });
+  } else {
+    g('mfName').value = '';
+    g('mfProvider').value = 'deepseek';
+    g('mfBaseUrl').value = 'https://api.deepseek.com/v1';
+    g('mfModel').value = 'deepseek-chat';
+    g('mfApiKey').value = '';
+    g('mfApiKey').placeholder = 'sk-...';
+    g('mfKeyHint').textContent = '';
+  }
+  document.getElementById('modelForm').style.display = 'flex';
+}
+function closeModelForm() { document.getElementById('modelForm').style.display = 'none'; }
+
+function collectForm() {
+  var g = function(x) { return document.getElementById(x).value; };
+  return {
+    name: g('mfName').trim(),
+    provider: g('mfProvider').trim(),
+    baseUrl: g('mfBaseUrl').trim(),
+    model: g('mfModel').trim(),
+    apiKey: g('mfApiKey')
+  };
+}
+
+function saveModelForm() {
+  var cfg = collectForm();
+  var res = document.getElementById('mfResult');
+  if (!cfg.baseUrl) { res.textContent = '请填写 Base URL'; return; }
+  var isEdit = !!mfState.editingId;
+  var url = isEdit ? (API.mUpdate + '?id=' + encodeURIComponent(mfState.editingId)) : API.mCreate;
+  if (!isEdit && !cfg.apiKey) { res.textContent = '请填写 API Key'; return; }
+  fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cfg) })
+    .then(function(r) { return r.json(); })
+    .then(function(j) {
+      if (j.ok) {
+        toast(isEdit ? '已保存' : '已新增模型', true);
+        closeModelForm();
+        renderModelPage();
+      } else {
+        res.textContent = j.msg || '保存失败';
+      }
+    }).catch(function(e) { res.textContent = '保存失败: ' + e.message; });
+}
+
+function testModelForm() {
+  var cfg = collectForm();
+  var res = document.getElementById('mfResult');
+  res.textContent = '测试中…';
+  var body = { baseUrl: cfg.baseUrl, model: cfg.model, apiKey: cfg.apiKey };
+  var url = API.mTest;
+  if (mfState.editingId) {
+    url += '?id=' + encodeURIComponent(mfState.editingId);
+    if (!cfg.apiKey) body.apiKey = '';
+  }
+  fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    .then(function(r) { return r.json(); })
+    .then(function(j) {
+      res.textContent = j.ok
+        ? ('✅ 连通正常 · ' + j.latency + 'ms · 返回「' + (j.sample || '').slice(0, 30) + '」')
+        : ('❌ ' + (j.latency ? j.latency + 'ms · ' : '') + (j.msg || '失败'));
+    }).catch(function(e) { res.textContent = '❌ ' + e.message; });
+}
+
+
+// ==================== 账号信息 / 见面地址 / 常用语 ====================
+var acctState = { account: null, places: [], editingPlaceId: null, phrases: [], groups: [], activeGroup: '__all__', editingPhraseId: null };
+
+function loadAccount() {
+  return fetch('/api/console/account').then(function(r) { return r.json(); }).then(function(j) {
+    if (!j.ok || !j.account) return;
+    acctState.account = j.account;
+    acctState.places = j.account.places || [];
+    renderAccount(j.account);
+    // 没抓过账号资料卡 → 后台补抓一次（不阻塞界面）
+    if (!j.account.profileCard) refreshAccountCard(true);
+  }).catch(function(e) { console.warn('account load failed', e); });
+}
+
+// 抓账号自己的资料卡（snsmypage/show_profile.html）
+function refreshAccountCard(silent) {
+  if (!silent) toast('正在抓取账号资料卡…');
+  return fetch('/api/console/account/refresh', { method: 'POST' })
+    .then(function(r) { return r.json(); })
+    .then(function(j) {
+      if (j.ok && j.account) {
+        acctState.account = j.account;
+        acctState.places = j.account.places || [];
+        renderAccount(j.account);
+        renderAcctCard(j.account.profileCard);
+        if (!silent) toast('资料卡已更新', true);
+      } else {
+        if (!silent) toast('抓取失败：' + (j.err || '窗口可能未打开'), false);
+        renderAcctCard(null, j.err);
+      }
+    }).catch(function(e) {
+      if (!silent) toast('抓取失败：' + e.message, false);
+      renderAcctCard(null, e.message);
+    });
+}
+
+// 渲染账号完整资料卡
+function renderAcctCard(card, err) {
+  var body = document.getElementById('acctCardBody');
+  var sub = document.getElementById('acctCardSub');
+  if (!body) return;
+  if (!card) {
+    body.innerHTML = '<div class="empty">' + esc(err || '暂无资料卡（比特浏览器窗口未打开时无法抓取）') + '</div>';
+    if (sub) sub.textContent = '';
+    return;
+  }
+  if (sub) sub.textContent = card.fetchedAt ? ('抓取于 ' + String(card.fetchedAt).slice(0, 19).replace('T', ' ')) : '';
+  var html = '';
+  var top = [];
+  if (card.nickname) top.push({ k: '昵称', v: card.nickname, hl: true });
+  if (card.ageNum) top.push({ k: '年龄', v: card.ageNum + '岁', hl: false });
+  if (card.region) top.push({ k: '现居', v: card.region, hl: true });
+  if (card.birthplace) top.push({ k: '出身', v: card.birthplace, hl: true });
+  if (card.onlineText) top.push({ k: '在线', v: card.onlineText, hl: false });
+  if (top.length) html += '<div class="pf-top">' + top.map(function(t) {
+    return '<div class="pf-top-row' + (t.hl ? ' hl' : '') + '"><span class="pk">' + t.k + '</span><span class="pv">' + esc(t.v) + '</span></div>';
+  }).join('') + '</div>';
+  var byGroup = card.byGroup || {};
+  var ORDER = ['基本情報', '見た目', '大人の交際', '生活', 'お相手に望むこと'];
+  var gs = ORDER.filter(function(g) { return byGroup[g] && byGroup[g].length; })
+    .concat(Object.keys(byGroup).filter(function(g) { return ORDER.indexOf(g) === -1 && byGroup[g].length; }));
+  html += gs.map(function(g) {
+    return '<div class="pf-group"><div class="pf-group-title">' + esc(g) + '</div>' +
+      byGroup[g].map(function(f) {
+        return '<div class="pf-row"><span class="pk">' + esc(f.label) + '</span><span class="pv">' + prettyFields(f.key, f.value) + '</span></div>';
+      }).join('') + '</div>';
+  }).join('');
+  if (!html) html = '<div class="empty">资料卡为空（字段未解析到）</div>';
+  body.innerHTML = html;
+}
+
+function openAcctCard() {
+  document.getElementById('acctCardModal').style.display = 'flex';
+  var card = acctState.account && acctState.account.profileCard;
+  if (card) renderAcctCard(card);
+  else { renderAcctCard(null); refreshAccountCard(false); }
+}
+
+function renderAccount(a) {
+  var host = document.getElementById('acctRows');
+  if (!host) return;
+  var autoTag = function(isAuto) { return isAuto ? '<span class="auto-tag">自动</span>' : '<span class="auto-tag">已改</span>'; };
+  var rows = [];
+  rows.push('<div class="acct-row"><span class="k">窗口</span><span class="v"><span class="acct-win">🪟 ' + esc(a.window || '—') + '</span></span></div>');
+  rows.push('<div class="acct-row"><span class="k">平台</span><span class="v">' + esc(a.platform || '—') + '</span></div>');
+  rows.push('<div class="acct-row"><span class="k">昵称</span><span class="v' + (a.nicknameIsAuto ? ' auto' : '') + '">' + (esc(a.nickname) || '—') + autoTag(a.nicknameIsAuto) + '</span></div>');
+  rows.push('<div class="acct-row"><span class="k">资料</span><span class="v' + (a.profileIsAuto ? ' auto' : '') + '">' + (esc(a.profile) || '—') + autoTag(a.profileIsAuto) + '</span></div>');
+  // 账号资料卡抓到的现居/出身
+  var card = a.profileCard;
+  if (card) {
+    if (card.region) rows.push('<div class="acct-row"><span class="k">现居</span><span class="v">' + esc(card.region) + '</span></div>');
+    if (card.birthplace) rows.push('<div class="acct-row"><span class="k">出身</span><span class="v">' + esc(card.birthplace) + '</span></div>');
+  }
+  host.innerHTML = rows.join('');
+  renderPlaces(acctState.places);
+}
+
+function renderPlaces(places) {
+  var host = document.getElementById('placeList');
+  if (!host) return;
+  if (!places || !places.length) { host.innerHTML = '<div class="empty">还没有地址，点 ＋ 添加</div>'; return; }
+  host.innerHTML = places.map(function(p, i) {
+    return '<div class="place-card" data-idx="' + i + '" title="点击复制地址">' +
+      '<div class="pl-acts">' +
+        '<button data-pact="edit" data-idx="' + i + '">改</button>' +
+        '<button data-pact="del" data-idx="' + i + '">删</button>' +
+      '</div>' +
+      (p.label ? '<div class="pl-label">' + esc(p.label) + '</div>' : '') +
+      '<div class="pl-addr">' + esc(p.address || '') + '</div>' +
+      (p.note ? '<div class="pl-note">' + esc(p.note) + '</div>' : '') +
+    '</div>';
+  }).join('');
+  Array.prototype.forEach.call(host.querySelectorAll('.place-card'), function(card) {
+    card.addEventListener('click', function(e) {
+      var act = e.target.getAttribute && e.target.getAttribute('data-pact');
+      var idx = +card.getAttribute('data-idx');
+      if (act === 'edit') { e.stopPropagation(); openPlaceModal(idx); return; }
+      if (act === 'del') { e.stopPropagation(); deletePlace(idx); return; }
+      copyText(acctState.places[idx].address || '', '地址已复制');
+    });
+  });
+}
+
+function savePlaces(places, okMsg) {
+  return fetch('/api/console/account/update', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ places: places })
+  }).then(function(r) { return r.json(); }).then(function(j) {
+    if (j.ok && j.account) {
+      acctState.account = j.account;
+      acctState.places = j.account.places || [];
+      renderPlaces(acctState.places);
+      toast(okMsg || '已保存', true);
+    } else toast(j.msg || '保存失败', false);
+  }).catch(function() { toast('保存失败', false); });
+}
+
+function deletePlace(idx) {
+  var p = acctState.places[idx];
+  if (!p) return;
+  if (!confirm('删除地址「' + (p.label || p.address || '') + '」？')) return;
+  var next = acctState.places.slice();
+  next.splice(idx, 1);
+  savePlaces(next, '地址已删除');
+}
+
+function openPlaceModal(idx) {
+  acctState.editingPlaceId = (idx == null) ? null : idx;
+  var p = (idx == null) ? { label: '', address: '', note: '' } : acctState.places[idx];
+  document.getElementById('placeModalTitle').textContent = (idx == null) ? '📍 新增见面地址' : '📍 编辑见面地址';
+  document.getElementById('placeLabel').value = p.label || '';
+  document.getElementById('placeAddress').value = p.address || '';
+  document.getElementById('placeNote').value = p.note || '';
+  document.getElementById('btnPlaceDelete').style.display = (idx == null) ? 'none' : '';
+  document.getElementById('placeModal').style.display = 'flex';
+}
+function closePlaceModal() { document.getElementById('placeModal').style.display = 'none'; }
+
+function savePlaceForm() {
+  var label = document.getElementById('placeLabel').value.trim();
+  var address = document.getElementById('placeAddress').value.trim();
+  var note = document.getElementById('placeNote').value.trim();
+  if (!address) { toast('请填写地址', false); return; }
+  var next = acctState.places.slice();
+  if (acctState.editingPlaceId == null) next.push({ label: label, address: address, note: note });
+  else next[acctState.editingPlaceId] = Object.assign({}, next[acctState.editingPlaceId], { label: label, address: address, note: note });
+  closePlaceModal();
+  savePlaces(next, '地址已保存');
+}
+
+// ---------- 账号信息编辑 ----------
+function openAcctModal() {
+  var a = acctState.account || {};
+  document.getElementById('acctAutoNick').textContent = a.nickname || '—';
+  document.getElementById('acctAutoProf').textContent = a.profile || '—';
+  document.getElementById('acctNickInput').value = a.nicknameIsAuto ? '' : (a.nickname || '');
+  document.getElementById('acctProfInput').value = a.profileIsAuto ? '' : (a.profile || '');
+  document.getElementById('acctModal').style.display = 'flex';
+}
+function closeAcctModal() { document.getElementById('acctModal').style.display = 'none'; }
+
+function saveAcctForm() {
+  var nick = document.getElementById('acctNickInput').value.trim();
+  var prof = document.getElementById('acctProfInput').value.trim();
+  fetch('/api/console/account/update', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nicknameOverride: nick, profileOverride: prof })
+  }).then(function(r) { return r.json(); }).then(function(j) {
+    if (j.ok && j.account) {
+      acctState.account = j.account;
+      acctState.places = j.account.places || [];
+      renderAccount(j.account);
+      closeAcctModal();
+      toast('账号信息已保存', true);
+    } else toast(j.msg || '保存失败', false);
+  }).catch(function() { toast('保存失败', false); });
+}
+
+// ---------- 常用语 ----------
+function loadPhrases() {
+  return fetch('/api/console/phrases').then(function(r) { return r.json(); }).then(function(j) {
+    if (!j.ok) return;
+    acctState.phrases = j.phrases || [];
+    acctState.groups = j.groups || [];
+    renderPhraseTabs();
+    renderPhrases();
+  }).catch(function(e) { console.warn('phrases load failed', e); });
+}
+
+function renderPhraseTabs() {
+  var host = document.getElementById('phraseTabs');
+  if (!host) return;
+  var counts = {};
+  acctState.phrases.forEach(function(p) { var g = p.group || '未分组'; counts[g] = (counts[g] || 0) + 1; });
+  var tabs = ['<button class="ptab' + (acctState.activeGroup === '__all__' ? ' on' : '') + '" data-g="__all__">全部 ' + acctState.phrases.length + '</button>'];
+  acctState.groups.forEach(function(g) {
+    tabs.push('<button class="ptab' + (acctState.activeGroup === g ? ' on' : '') + '" data-g="' + esc(g) + '">' + esc(g) + ' ' + (counts[g] || 0) + '</button>');
+  });
+  host.innerHTML = tabs.join('');
+  Array.prototype.forEach.call(host.querySelectorAll('.ptab'), function(b) {
+    b.addEventListener('click', function() {
+      acctState.activeGroup = b.getAttribute('data-g');
+      renderPhraseTabs(); renderPhrases();
+    });
+  });
+  // datalist
+  var dl = document.getElementById('phGroupList');
+  if (dl) dl.innerHTML = acctState.groups.map(function(g) { return '<option value="' + esc(g) + '">'; }).join('');
+}
+
+function renderPhrases() {
+  var host = document.getElementById('phraseList');
+  if (!host) return;
+  var list = acctState.phrases.filter(function(p) {
+    return acctState.activeGroup === '__all__' || (p.group || '未分组') === acctState.activeGroup;
+  });
+  if (!list.length) { host.innerHTML = '<div class="empty">该分组下没有常用语</div>'; return; }
+  host.innerHTML = list.map(function(p) {
+    return '<div class="phrase-card" data-id="' + esc(p.id) + '" title="点击填入消息输入框">' +
+      '<div class="pc-acts">' +
+        '<button data-pact="edit" data-id="' + esc(p.id) + '">改</button>' +
+        '<button data-pact="del" data-id="' + esc(p.id) + '">删</button>' +
+      '</div>' +
+      '<div class="pc-group">' + esc(p.group || '') + '</div>' +
+      '<div class="pc-text">' + esc(p.text || '') + '</div>' +
+      '<div class="text-zh pc-zh" data-src="' + esc(p.text || '') + '">翻译中…</div>' +
+    '</div>';
+  }).join('');
+  Array.prototype.forEach.call(host.querySelectorAll('.phrase-card'), function(card) {
+    card.addEventListener('click', function(e) {
+      var act = e.target.getAttribute && e.target.getAttribute('data-pact');
+      var id = card.getAttribute('data-id');
+      if (act === 'edit') { e.stopPropagation(); openPhraseModal(id); return; }
+      if (act === 'del') { e.stopPropagation(); deletePhrase(id); return; }
+      var ph = acctState.phrases.filter(function(x) { return x.id === id; })[0];
+      if (!ph) return;
+      var inp = document.getElementById('msgInput');
+      inp.value = (inp.value ? inp.value.replace(/\s+$/, '') + ' ' : '') + ph.text;
+      inp.focus();
+      var sb = document.getElementById('btnSend');
+      if (sb) sb.disabled = false;
+      toast('已填入输入框');
+      fetch('/api/console/phrases/use?id=' + encodeURIComponent(id), { method: 'POST' }).catch(function() {});
+    });
+  });
+  // 日语下方补中文译文（批量 + 本地/服务端缓存，第二次起秒出）
+  translateAll(host.querySelectorAll('.pc-zh'));
+}
+
+function openPhraseModal(id) {
+  acctState.editingPhraseId = id || null;
+  var ph = id ? acctState.phrases.filter(function(x) { return x.id === id; })[0] : null;
+  document.getElementById('phraseModalTitle').textContent = id ? '💬 编辑常用语' : '💬 新增常用语';
+  document.getElementById('phGroup').value = ph ? (ph.group || '') : (acctState.activeGroup !== '__all__' ? acctState.activeGroup : '');
+  document.getElementById('phText').value = ph ? (ph.text || '') : '';
+  document.getElementById('btnPhraseDelete').style.display = id ? '' : 'none';
+  document.getElementById('phraseModal').style.display = 'flex';
+  setTimeout(function() { document.getElementById('phText').focus(); }, 50);
+}
+function closePhraseModal() { document.getElementById('phraseModal').style.display = 'none'; }
+
+function savePhraseForm() {
+  var g = document.getElementById('phGroup').value.trim() || '未分组';
+  var t = document.getElementById('phText').value.trim();
+  if (!t) { toast('内容不能为空', false); return; }
+  fetch('/api/console/phrases/save', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: acctState.editingPhraseId || undefined, group: g, text: t })
+  }).then(function(r) { return r.json(); }).then(function(j) {
+    if (j.ok) {
+      acctState.phrases = j.phrases || [];
+      acctState.groups = j.groups || [];
+      closePhraseModal();
+      renderPhraseTabs(); renderPhrases();
+      toast(acctState.editingPhraseId ? '已保存' : '已新增常用语', true);
+    } else toast(j.msg || '保存失败', false);
+  }).catch(function() { toast('保存失败', false); });
+}
+
+function deletePhrase(id) {
+  var ph = acctState.phrases.filter(function(x) { return x.id === id; })[0];
+  if (!ph) return;
+  if (!confirm('删除常用语？\n\n' + (ph.text || '').slice(0, 60))) return;
+  fetch('/api/console/phrases/delete?id=' + encodeURIComponent(id), { method: 'POST' })
+    .then(function(r) { return r.json(); }).then(function(j) {
+      if (j.ok) {
+        acctState.phrases = j.phrases || [];
+        acctState.groups = j.groups || [];
+        renderPhraseTabs(); renderPhrases();
+        toast('已删除', true);
+      }
+    }).catch(function() { toast('删除失败', false); });
+}
+
+// 复制到剪贴板（带降级）
+function copyText(text, okMsg) {
+  if (!text) return;
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function() { toast(okMsg || '已复制'); },
+        function() { fallbackCopy(text, okMsg); });
+      return;
+    }
+  } catch (e) {}
+  fallbackCopy(text, okMsg);
+}
+function fallbackCopy(text, okMsg) {
+  try {
+    var ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    toast(okMsg || '已复制');
+  } catch (e) { toast('复制失败', false); }
+}
+
+function bindAccountEvents() {
+  var g = function(id) { return document.getElementById(id); };
+  if (g('btnEditAccount')) g('btnEditAccount').addEventListener('click', openAcctModal);
+  if (g('btnAccountCard')) g('btnAccountCard').addEventListener('click', openAcctCard);
+  if (g('btnAcctCardClose')) g('btnAcctCardClose').addEventListener('click', function() { g('acctCardModal').style.display = 'none'; });
+  if (g('btnAcctCardRefresh')) g('btnAcctCardRefresh').addEventListener('click', function() { refreshAccountCard(false); });
+  if (g('btnAcctSave')) g('btnAcctSave').addEventListener('click', saveAcctForm);
+  if (g('btnAcctCancel')) g('btnAcctCancel').addEventListener('click', closeAcctModal);
+
+  if (g('btnAddPlace')) g('btnAddPlace').addEventListener('click', function() { openPlaceModal(null); });
+  if (g('btnPlaceSave')) g('btnPlaceSave').addEventListener('click', savePlaceForm);
+  if (g('btnPlaceCancel')) g('btnPlaceCancel').addEventListener('click', closePlaceModal);
+  if (g('btnPlaceDelete')) g('btnPlaceDelete').addEventListener('click', function() {
+    var i = acctState.editingPlaceId;
+    closePlaceModal();
+    if (i != null) deletePlace(i);
+  });
+
+  if (g('btnAddPhrase')) g('btnAddPhrase').addEventListener('click', function() { openPhraseModal(null); });
+  if (g('btnPhraseSave')) g('btnPhraseSave').addEventListener('click', savePhraseForm);
+  if (g('btnPhraseCancel')) g('btnPhraseCancel').addEventListener('click', closePhraseModal);
+  if (g('btnPhraseDelete')) g('btnPhraseDelete').addEventListener('click', function() {
+    var id = acctState.editingPhraseId;
+    closePhraseModal();
+    if (id) deletePhrase(id);
+  });
+
+  // 弹窗点击遮罩关闭
+  ['acctModal', 'placeModal', 'phraseModal', 'acctCardModal'].forEach(function(id) {
+    var m = g(id);
+    if (m) m.addEventListener('click', function(e) { if (e.target === m) m.style.display = 'none'; });
+  });
+}
+
+function bindEvents() {
+  document.getElementById('btnSend').addEventListener('click', function() {
+    var t = document.getElementById('msgInput').value.trim();
+    if (!t) return;
+    document.getElementById('btnSend').disabled = true;
+    document.getElementById('pendingNote').textContent = '待确认：' + t.slice(0, 30) + '…';
+    toast('已填入，点"确认发送"才真正发出');
+  });
+
+  document.getElementById('btnConfirm').addEventListener('click', function() {
+    var t = document.getElementById('msgInput').value.trim();
+    if (!t) { toast('没有可发送的内容', false); return; }
+    if (!state.selectedId) { toast('请先选择客户', false); return; }
+    var c = findContact(state.selectedId);
+    if (!c || !c.contactId) { toast('客户数据缺失，无法发送', false); return; }
+    document.getElementById('pendingNote').textContent = '正在真发 → ' + (c.name || c.contactId) + ' …';
+    document.getElementById('btnConfirm').disabled = true;
+    fetch(API.sendLive, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contactId: c.contactId, name: c.name, text: t })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(j) {
+      document.getElementById('btnConfirm').disabled = false;
+      if (j.ok && j.data && j.data.sent) {
+        document.getElementById('pendingNote').textContent = '已发送给 ' + (c.name || c.contactId) + ' · ' + new Date().toLocaleTimeString();
+        document.getElementById('msgInput').value = '';
+        document.getElementById('btnSend').disabled = true;
+        toast('已发送 ✓（已返回收件箱）', true);
+        // 立即重抓该客户历史（force=1），让消息列表显示刚发出的消息
+        fetch(API.detail + '?id=' + encodeURIComponent(c.contactId) + '&read=1&force=1')
+          .then(function(r2) { return r2.json(); })
+          .then(function(j2) {
+            if (j2.ok && j2.contact) {
+              state.details[c.contactId] = j2.contact;
+              var lc = findContact(c.contactId);
+              if (lc) { lc.unread = 0; lc.lastMsg = j2.contact.lastMsg || lc.lastMsg; }
+              renderMessages(j2.contact.messages || []);
+              renderHeader(j2.contact);
+              updateBadge();
+            }
+          })
+          .catch(function() { /* 刷新失败不影响发送结果 */ });
+      } else {
+        document.getElementById('pendingNote').textContent = '发送失败：' + ((j.data && (j.data.reason || j.data.msg)) || j.msg || '未知');
+        toast('发送失败：' + ((j.data && (j.data.reason || j.data.msg)) || j.msg || '未知'), false);
+      }
+    })
+    .catch(function(e) {
+      document.getElementById('btnConfirm').disabled = false;
+      document.getElementById('pendingNote').textContent = '发送请求失败：' + e.message;
+      toast('发送请求失败', false);
+    });
+  });
+
+  document.getElementById('btnRefresh').addEventListener('click', function() {
+    if (!state.selectedId) { toast('请先选择客户'); return; }
+    toast('正在重抓历史 + 资料…');
+    fetch(API.refresh + '?id=' + encodeURIComponent(state.selectedId), { method: 'POST' })
+      .then(function(r) { return r.json(); })
+      .then(function(j) {
+        if (j.ok && j.contact) {
+          state.details[state.selectedId] = j.contact;
+          renderMessages(j.contact.messages || []);
+          renderAnalysis(j.contact.profile);
+          renderRecs(j.contact);
+          toast('已刷新：' + (j.fetched || []).join(' + '), true);
+        } else toast('刷新失败', false);
+      }).catch(function() { toast('刷新失败', false); });
+  });
+
+  document.getElementById('btnBbs').addEventListener('click', function() {
+    var d = state.details[state.selectedId];
+    var bbs = d && d.profile && d.profile.bbsPosts;
+    if (bbs && bbs.length) {
+      alert('招募帖：\n' + bbs.map(function(p) { return (p.time || '') + ' ' + (p.content || ''); }).join('\n'));
+    } else toast('该客户暂无招募帖');
+  });
+
+  document.getElementById('btnTranslate').addEventListener('click', function() {
+    var t = document.getElementById('msgInput').value.trim();
+    if (!t) return;
+    document.getElementById('qtSource').value = t;
+    doQt();
+  });
+
+  document.getElementById('btnQtGo').addEventListener('click', doQt);
+  document.getElementById('qtSwap').addEventListener('click', function() {
+    qtDir = (qtDir === 'ja2zh') ? 'zh2ja' : 'ja2zh';
+    renderQtDir();
+  });
+  // 输入自动翻译（防抖 600ms）
+  var qtTimer = null;
+  document.getElementById('qtSource').addEventListener('input', function() {
+    clearTimeout(qtTimer);
+    qtTimer = setTimeout(function() {
+      if (document.getElementById('qtSource').value.trim().length >= 2) doQt();
+    }, 600);
+  });
+  renderQtDir();
+
+  document.getElementById('btnAiSend').addEventListener('click', function() {
+    var t = document.getElementById('aiInput').value.trim();
+    if (!t) return;
+    var host = document.getElementById('aiList');
+    host.innerHTML += '<div class="ai-msg user">' + esc(t) + '</div>';
+    document.getElementById('aiInput').value = '';
+    setTimeout(function() {
+      host.innerHTML += '<div class="ai-msg bot">' + esc(aiReply()) + '</div>';
+      host.scrollTop = host.scrollHeight;
+    }, 300);
+  });
+
+  bindAccountEvents();
+
+  var tbtn = document.getElementById('themeToggle');
+  if (tbtn) tbtn.addEventListener('click', toggleTheme);
+
+  document.getElementById('btnAddModel').addEventListener('click', function() { openModelForm(null); });
+  document.getElementById('btnMfSave').addEventListener('click', saveModelForm);
+  document.getElementById('btnMfTest').addEventListener('click', testModelForm);
+  document.getElementById('btnMfCancel').addEventListener('click', closeModelForm);
+
+  // 快捷键：Ctrl/Cmd + Shift + L 切换主题
+  document.addEventListener('keydown', function(e) {
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'L' || e.key === 'l')) {
+      e.preventDefault(); toggleTheme();
+    }
+  });
+
+  Array.prototype.forEach.call(document.querySelectorAll('.nav-item'), function(item) {
+    item.addEventListener('click', function() {
+      var view = item.getAttribute('data-view');
+      if (item.classList.contains('has-children')) {
+        var g = item.parentElement;
+        g.setAttribute('data-open', g.getAttribute('data-open') === 'true' ? 'false' : 'true');
+        return;
+      }
+      if (view) switchView(view);
+    });
+  });
+}
+
+// ⑥ 快捷翻译方向状态见文件顶部（必须在 bindEvents 之前声明）
+
+function renderQtDir() {
+  var d = (QT_LANG && QT_LANG[qtDir]) || (QT_LANG && QT_LANG['ja2zh']);
+  if (!d) return;
+  var g = function(id) { return document.getElementById(id); };
+  var a = g('qtFromLang'), b = g('qtToLang'), c = g('qtOutLabel'), s = g('qtSource'), t = g('qtTarget'), m = g('qtMeta');
+  if (a) a.textContent = d.fromName;
+  if (b) b.textContent = d.toName;
+  if (c) c.textContent = d.toName + '（译文）';
+  if (s) s.placeholder = '在这里输入' + d.fromName + '…';
+  if (t) t.value = '';
+  if (m) m.textContent = '';
+}
+
+function doQt() {
+  var src = document.getElementById('qtSource').value.trim();
+  var tgt = document.getElementById('qtTarget');
+  if (!src) { tgt.value = ''; document.getElementById('qtMeta').textContent = ''; return; }
+  var d = QT_LANG[qtDir];
+  // 本地 memo 秒回
+  var memoKey = d.from + '|' + d.to + '|' + src;
+  if (TMEMO[memoKey]) {
+    tgt.value = TMEMO[memoKey].translated;
+    document.getElementById('qtMeta').textContent = '来源: ' + TMEMO[memoKey].source + '（本地缓存）';
+    return;
+  }
+  tgt.value = '翻译中…';
+  translate(src, d.from, d.to).then(function(j) {
+    tgt.value = j.ok ? j.translated : (j.note || '翻译失败');
+    document.getElementById('qtMeta').textContent = j.ok ? ('来源: ' + j.source + (j.model ? ' · ' + j.model : '')) : (j.msg || '');
+    if (j.ok) { TMEMO[memoKey] = { translated: j.translated, source: j.source }; tmemoSave(); }
+  });
+}
+
+function aiReply() {
+  var c = state.selectedId ? findContact(state.selectedId) : null;
+  if (!c) return '请先在左侧选择一个客户。';
+  var d = state.details[c.contactId] || {};
+  var parts = ['【' + c.name + '】'];
+  var od = ONLINE[c.onlineTier];
+  if (od) parts.push(od.tip);
+  if (c.age) parts.push(c.age);
+  if (c.lastMsgTime) parts.push('最近聊天 ' + c.lastMsgTime);
+  if (d.profile && d.profile.fields) {
+    var f = d.profile.fields, fs = [];
+    if (f.occupation) fs.push('职业 ' + f.occupation);
+    if (f.marital) fs.push(f.marital);
+    if (f.height) fs.push(f.height);
+    if (fs.length) parts.push(fs.join(' · '));
+  }
+  if (d.profile && d.profile.interestIcons && d.profile.interestIcons.length) {
+    parts.push('兴趣：' + d.profile.interestIcons.map(function(i) { return i.label || i.icon; }).join('、'));
+  }
+  var msgs = d.messages || [];
+  if (msgs.length) {
+    parts.push('共 ' + msgs.length + ' 条消息');
+    var lastPeer = null;
+    for (var i = msgs.length - 1; i >= 0; i--) if (msgs[i].from === 'peer') { lastPeer = msgs[i]; break; }
+    if (lastPeer) parts.push('客户最后说："' + (lastPeer.text || '').slice(0, 40) + '"');
+  }
+  return parts.join('；');
+}
+
+function esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+function toast(msg, ok) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.background = ok ? '#2e7d32' : (ok === false ? '#c62828' : '#37474f');
+  t.classList.add('show');
+  clearTimeout(t.__timer);
+  t.__timer = setTimeout(function() { t.classList.remove('show'); }, 2600);
+}
+</script>
+</body>
+</html>

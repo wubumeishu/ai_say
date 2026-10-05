@@ -1,0 +1,26 @@
+{
+  "vars": [
+    "name",
+    "region",
+    "interest",
+    "lineId",
+    "greeting",
+    "personaName",
+    "personaTone"
+  ],
+  "note": "会（ai_meeting）×日语模板。变量占位符：{name}=客户称呼 {region}=地区 {interest}=兴趣/诉求 {lineId}=LINE ID {personaName}=账号人设名 {personaTone}=语气基调。A/B 双变体按 contactId 哈希固定分流。",
+  "variants": {
+    "A": {
+      "hot": "こんにちは、{name}さん！{interest}のお話はスムーズに進めたいですよね。LINE: {lineId} に登録いただければ、日程・詳細を即時共有できます。よろしければお友達登録お願いします！",
+      "warm": "こんにちは、{name}さん。{region}付近でしたら対応可能です。LINE（{lineId}）でもっと詳しくお話ししませんか？",
+      "cold": "お問い合わせありがとうございます。ご質問は LINE（{lineId}）までどうぞ。"
+    },
+    "B": {
+      "hot": "{name}さん、こんにちは！本日中の回答をご希望とのこと、LINE: {lineId} で対応します。お友達登録いただければ、優先ご案内できます！",
+      "warm": "{name}さん、ご興味ありがとうございます。LINE（{lineId}）で詳細を送りますね。",
+      "cold": "LINE（{lineId}）でのご連絡でもOKです。どうぞ。"
+    },
+    "remind": "先ほどお送りした LINE（{lineId}）のお友達登録、まだでしたらお願いします。{interest}の件、早めに手を回しておきたいです。",
+    "fallback": "LINE: {lineId} でつながりませんか？"
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "vars": [
+    "name",
+    "region",
+    "interest",
+    "lineId",
+    "greeting",
+    "personaName",
+    "personaTone"
+  ],
+  "note": "缺省日语兜底模板（品类/平台未命中时使用）。",
+  "variants": {
+    "A": {
+      "hot": "LINE: {lineId} でフォローいただくと、案内がすぐに届きます。よろしければ？",
+      "warm": "詳細は LINE（{lineId}）でもお伝えできます。",
+      "cold": "ご質問は LINE（{lineId}）までどうぞ。"
+    },
+    "B": {
+      "hot": "次回が早く届くよう、LINE（{lineId}）でもつながりませんか？",
+      "warm": "LINE（{lineId}）のほうがスムーズです。",
+      "cold": "LINE（{lineId}）でのご連絡でもOKです。"
+    },
+    "remind": "LINE（{lineId}）のお友達登録、お時間があるときお願いします。",
+    "fallback": "LINE: {lineId} へどうぞ。"
+  }
+}

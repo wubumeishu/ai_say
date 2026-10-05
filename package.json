@@ -1,0 +1,16 @@
+{
+  "name": "ai-say",
+  "version": "0.1.0",
+  "private": true,
+  "description": "控制比特浏览器指定窗口，将客户消息转中文，并显示推荐回复与常用语",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "test": "node --test tests/app.test.js tests/profile.test.js tests/profileInspect.test.js tests/messagePage.test.js"
+  },
+  "license": "UNLICENSED",
+  "dependencies": {
+    "ws": "^8.21.3"
+  }
+}

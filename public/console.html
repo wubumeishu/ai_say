@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ai SAY · 卡片式统一控制台</title>
+  <link rel="stylesheet" href="/console.css" />
+</head>
+<body>
+<div id="console">
+  <!-- ===== 账号切换顶栏（多账号） ===== -->
+  <div class="con-accounts" id="accountBar">
+    <span class="con-accounts__label">账号切换</span>
+    <div class="con-accounts__chips" id="accountChips">
+      <button class="acc-chip active" data-account-id="">全部账号</button>
+    </div>
+    <button class="con-accounts__rollback btn btn-danger" id="rollbackBtn" title="话术一键回滚（调 talkEngine.rollbackLastTalk + MergeEvent 审计）">↶ 话术回滚（全局）</button>
+  </div>
+
+  <!-- ===== 顶栏 ===== -->
+  <header class="con-head">
+    <div class="brand">Ai SAY <span>控制台</span></div>
+    <nav class="tabs" id="tabs">
+      <div class="tab active" data-view="customers">客户</div>
+      <div class="tab" data-view="metrics">指标</div>
+      <div class="tab" data-view="rules">规则</div>
+      <div class="tab" data-view="locator">告警</div>
+      <div class="tab" data-view="likely">归并</div>
+      <div class="tab" data-view="private-domain">私域管理</div>
+      <div class="tab" data-view="audit">审计 / 封号演练</div>
+      <div class="tab" data-view="tags">标签 / 漏斗</div>
+    </nav>
+    <div class="spacer"></div>
+    <div class="loc-alert hidden" id="locAlert">
+      <span class="badge" style="background:rgba(245,166,35,.15);color:var(--warn)" id="locAlertBadge">DOM 告警 0</span>
+    </div>
+    <div class="refresh"><span class="dot" id="refreshDot"></span><span id="refreshText">— 30s 轮询</span></div>
+  </header>
+
+  <!-- ===== 主体 ===== -->
+  <div class="con-main">
+    <aside class="con-side" id="sidePanel">
+      <!-- 侧栏：当前视图的详情/资料页 -->
+    </aside>
+    <section class="con-content" id="content">
+      <!-- 客户卡片网格 -->
+      <div id="view-customers"></div>
+      <div id="view-metrics" class="hidden"></div>
+      <div id="view-rules" class="hidden"></div>
+      <div id="view-locator" class="hidden"></div>
+      <div id="view-likely" class="hidden"></div>
+      <div id="view-private-domain" class="hidden"></div>
+      <div id="view-audit" class="hidden"></div>
+      <div id="view-tags" class="hidden"></div>
+    </section>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script src="/console.js"></script>
+</body>
+</html>

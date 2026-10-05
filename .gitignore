@@ -1,0 +1,25 @@
+# ============================================================
+# Ai SAY .gitignore — 原则：代码 + 文档进库；数据 + 密钥绝不上库
+# ============================================================
+
+# 依赖
+node_modules/
+
+# 运行数据与客户隐私（客户画像/消息/缓存，一律不进库）
+data/
+backups/
+platform/
+
+# 密钥与本地配置（含模型 apiKey、窗口 id）
+settings.json
+
+# 日志 / 进程文件 / 运行残留
+*.log
+console.log
+console.pid
+_startup*.log
+undefined/
+
+# Windows 杂项
+Thumbs.db
+Desktop.ini

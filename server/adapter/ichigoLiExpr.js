@@ -1,0 +1,1 @@
+(function(){var l=document.querySelector('li.w60 a[href*="show_profile"], .w60 a[href*="show_profile"], a[href*="show_profile"]');var h=document.querySelector('h1')||document.querySelector('.profile-name');return{profileLink:l?l.href:null,headerName:h?h.innerText.trim():''};})()
