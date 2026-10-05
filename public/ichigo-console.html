@@ -400,7 +400,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
     <span class="tt-icon" id="themeIcon">🌙</span><span class="tt-label" id="themeLabel">黑夜</span>
   </button>
   <div class="conn" id="connBadge"><div class="dot"></div>比特浏览器未连接</div>
-  <div class="conn" id="netChip" title="网络体检：出口 IP + 平台连通 + 归因" style="display:none"><span id="netDot" class="dot"></span><span id="netText">体检中…</span></div>
+  <div class="conn" id="netChip" title="网络体检：出口 IP + 平台连通 + 归因" style="display:none"><span id="netDot" class="dot"></span><span id="netText">体检中…</span> <button id="btnRotateIp" style="margin-left:6px;font-size:11px;padding:2px 8px;cursor:pointer">换 IP</button></div>
 </div>
 <div id="toast"></div>
 
@@ -782,6 +782,27 @@ function refreshNetChip(force) {
       chip.style.cursor = 'pointer';
     })
     .catch(function() {});
+}
+async function rotateIp() {
+  var btn = document.getElementById('btnRotateIp');
+  if (!btn) return;
+  btn.disabled = true; btn.textContent = '换中…';
+  try {
+    // 第一步 dryRun：先看清将用哪个槽位（不动窗口）
+    var dry = await fetch('/api/console/proxy/rotate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dryRun: true }) }).then(function(r) { return r.json(); });
+    var who = (dry && dry.data && (dry.data.account || dry.data.msg)) || '未知槽位';
+    var go = confirm('将把出会窗口换成：\n' + who + '\n\n（粘性 90min，换后 30min 内不能再换）确定执行？');
+    if (!go) { btn.disabled = false; btn.textContent = '换 IP'; return; }
+    var real = await fetch('/api/console/proxy/rotate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) }).then(function(r) { return r.json(); });
+    if (real && real.ok) {
+      toast('已换 IP（' + ((real.data && real.data.random) || '') + '），窗口重开中… 15s 后自动体检', true);
+      lastNetChipAt = 0;
+      setTimeout(function() { refreshNetChip(true); }, 15000);
+    } else {
+      toast('换 IP 未执行：' + (((real && real.data) && (real.data.msg || real.data.reason)) || real.msg || '未知'), false);
+    }
+  } catch (e) { toast('换 IP 请求失败：' + e.message, false); }
+  btn.disabled = false; btn.textContent = '换 IP';
 }
 function setConn(ok) {
   var b = document.getElementById('connBadge');
@@ -1759,7 +1780,7 @@ function bindAccountEvents() {
 
 function bindEvents() {
   var nc = document.getElementById('netChip');
-  if (nc) nc.addEventListener('click', function() { lastNetChipAt = 0; refreshNetChip(true); });
+  if (nc) nc.addEventListener('click', function(e) { if (e.target && e.target.id === 'btnRotateIp') { rotateIp(); return; } lastNetChipAt = 0; refreshNetChip(true); });
   document.getElementById('btnSend').addEventListener('click', function() {
     var t = document.getElementById('msgInput').value.trim();
     if (!t) return;

@@ -12,6 +12,9 @@ platform/
 
 # 密钥与本地配置（含模型 apiKey、窗口 id）
 settings.json
+# 代理密码与池数据（手动维护，绝不上库）
+data/proxy-secrets.json
+data/proxy-pool.json
 
 # 日志 / 进程文件 / 运行残留
 *.log

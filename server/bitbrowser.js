@@ -43,6 +43,10 @@ class BitBrowserClient {
   listBrowsers(params = {}) { return this.call('/browser/list', params); }
   openBrowser(body) { return this.call('/browser/open', body); }
   closeBrowser(id) { return this.call('/browser/close', { id }); }
+  /** 批量修改窗口代理（IPDeep 池用）；需关-开窗口生效。 */
+  updateProxy(fields) { return this.call('/browser/proxy/update', fields); }
+  /** 批量部分修改窗口字段。 */
+  updatePartial(fields) { return this.call('/browser/update/partial', fields); }
 
   /**
    * 打开窗口并返回已连接的 DevToolsClient（M5 控制台实时抓页面用）。

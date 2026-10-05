@@ -75,6 +75,7 @@ const adapters = {
 // settings.json 已有 windowId + apiBase（BitBrowser 54346）；createLiveScanner 读 settings 后构建。
 // 控制台 /api/console/live 端点实时连活 17098 窗口抓出会页面，取代静态 DB 快照卡片。
 const { createLiveScanner } = require('./adapter/liveScanner');
+const { createProxyPool } = require('./adapter/proxyPool');
 const settingsForLive = loadConfig(); // settings.json（line 108 mountConsoleRoutes 也要用）
 let liveScanner = null;
 try {
@@ -123,6 +124,16 @@ function navigateToInbox() {
 }
 
 // 控制台偏好（账号覆盖 + 常用语）
+// --- IPDeep 代理池 v1（池数据 data/proxy-pool.json + 密码 data/proxy-secrets.json；两者在 .gitignore）---
+let proxyPool = null;
+try {
+  proxyPool = createProxyPool({ rootDir: require('path').join(__dirname, '..') });
+  console.log('[proxyPool] 就绪: 池数据 ' + require('path').join(__dirname, '..', 'data', 'proxy-pool.json') + '（首次 ensurePool 时从当前窗口代理生成）');
+} catch (e) {
+  console.warn('[proxyPool] 构建失败:', e && e.message);
+  proxyPool = null;
+}
+
 let consolePrefs = null;
 let accountInfo = null;
 try {
@@ -187,7 +198,7 @@ try {
 }
 
 // Mount console read-only routes on the main app (task-19 起挂 /api/console/*)
-mountConsoleRoutes(consoleApp, { store, talkEngine, dedup, adapters, recommender, liveScanner, deepScrape, ichigoCache, modelStore, translationCache, consolePrefs, accountInfo, settings: settingsForLive, settingsForLive: settingsForLive });
+mountConsoleRoutes(consoleApp, { store, talkEngine, dedup, adapters, recommender, liveScanner, deepScrape, ichigoCache, modelStore, translationCache, consolePrefs, accountInfo, proxyPool, settings: settingsForLive, settingsForLive: settingsForLive });
 
 
 function matchConsoleRoute(req, res) {

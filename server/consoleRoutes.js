@@ -43,7 +43,14 @@ function mountConsoleRoutes(app, deps = {}) {
   const translationCache = deps.translationCache || null;
   const consolePrefs = deps.consolePrefs || null;
   const accountInfo = deps.accountInfo || null;
-
+  const talkEngine = deps.talkEngine || null;
+  const dedup = deps.dedup || null;
+  const adapters = deps.adapters || null;
+  const recommender = deps.recommender || null;
+  const liveScanner = deps.liveScanner || null;
+  const deepScrape = deps.deepScrape || null;
+  const settingsForLive = deps.settingsForLive || deps.settings || null;
+  const proxyPool = deps.proxyPool || null;
   // 兼容老缓存：interestIcons 若为裸字符串数组 → 富化成 {icon,label,unknown}
   function enrichContact(c) {
     if (!c || !c.profile) return c;
@@ -66,12 +73,7 @@ function mountConsoleRoutes(app, deps = {}) {
     }
     return c;
   }
-  const talkEngine = deps.talkEngine || null;
-  const dedup = deps.dedup || null;
-  const adapters = deps.adapters || null;
-  const recommender = deps.recommender || null;
-  const liveScanner = deps.liveScanner || null; // M5 核心改造①（task-36）：实时抓出会窗口
-  const deepScrape = deps.deepScrape || null; // M5 核心改造②：出会平台深度抓取器（收件箱分页 + 资料页 12 字段 + 兴趣 icon 反查），支持多 出会 窗口
+
 
   const db = store && store.db ? store.db : null;
 
@@ -1296,7 +1298,7 @@ register('GET', '/api/console/customers', wrap(async (req, res) => {
     const act = modelStore.activate(id);
     if (!act) return json(res, 404, { ok: false, msg: '模型不存在' });
     // 同步进程内 settingsForLive（翻译立即生效）
-    if (deps.settings) deps.settings.model = { provider: act.provider, baseUrl: act.baseUrl, model: act.model, apiKey: (modelStore.get(id) || {}).apiKey };
+    if (deps.settingsForLive) deps.settingsForLive.model = { provider: act.provider, baseUrl: act.baseUrl, model: act.model, apiKey: (modelStore.get(id) || {}).apiKey };
     return json(res, 200, { ok: true, model: act });
   }));
 
@@ -1433,6 +1435,41 @@ register('GET', '/api/console/customers', wrap(async (req, res) => {
     });
   }));
 
+  // ---------------------------------------------------------------- IPDeep 代理池 v1（事件驱动，不定时轮换）
+  // GET  /api/console/proxy/pool         池状态（槽位/使用/冷却/粘性/密码是否就绪）
+  // POST /api/console/proxy/rotate       { windowId?, dryRun?, force? } 手动换 IP（30min 冷却，force 跳过）
+  // POST /api/console/proxy/pool/expand  { n } 扩池
+  // POST /api/console/proxy/pool/sticky  { minutes } 改粘性时长
+  // POST /api/console/proxy/health-rotate 体检驱动换 IP（body 不传 health 则现测）
+  register('GET', '/api/console/proxy/pool', wrap(async (req, res) => {
+    if (!proxyPool) return json(res, 501, { ok: false, msg: 'proxyPool 未注入' });
+    try { json(res, 200, { ok: true, data: proxyPool.list() }); } catch (e) { json(res, 200, { ok: false, msg: e.message }); }
+  }));
+  register('POST', '/api/console/proxy/rotate', wrap(async (req, res, body) => {
+    if (!proxyPool) return json(res, 501, { ok: false, msg: 'proxyPool 未注入' });
+    const win = body && body.windowId ? String(body.windowId) : (settingsForLive && settingsForLive.windowId ? String(settingsForLive.windowId) : '');
+    if (!win) return json(res, 400, { ok: false, msg: '缺少 windowId（settings 未配置且未传参）' });
+    const r = await proxyPool.rotate(win, { dryRun: !!(body && body.dryRun), force: !!(body && body.force) });
+    json(res, (r && r.ok) ? 200 : 409, { ok: !!(r && r.ok), data: r, msg: r && (r.msg || r.reason) });
+  }));
+  register('POST', '/api/console/proxy/pool/expand', wrap(async (req, res, body) => {
+    if (!proxyPool) return json(res, 501, { ok: false, msg: 'proxyPool 未注入' });
+    json(res, 200, { ok: true, data: await proxyPool.expand(body && body.n) });
+  }));
+  register('POST', '/api/console/proxy/pool/sticky', wrap(async (req, res, body) => {
+    if (!proxyPool) return json(res, 501, { ok: false, msg: 'proxyPool 未注入' });
+    json(res, 200, { ok: true, data: await proxyPool.setSticky(body && body.minutes) });
+  }));
+  register('POST', '/api/console/proxy/health-rotate', wrap(async (req, res, body) => {
+    if (!proxyPool) return json(res, 501, { ok: false, msg: 'proxyPool 未注入' });
+    const win = body && body.windowId ? String(body.windowId) : (settingsForLive && settingsForLive.windowId ? String(settingsForLive.windowId) : '');
+    if (!win) return json(res, 400, { ok: false, msg: '缺少 windowId' });
+    let health = body && body.health;
+    if (!health && deepScrape && typeof deepScrape.networkHealth === 'function') health = await deepScrape.networkHealth();
+    if (!health) return json(res, 501, { ok: false, msg: '无法获取体检结果（deepScrape 未注入且未传 health）' });
+    const r = await proxyPool.healthDrivenRotate(win, health);
+    json(res, 200, { ok: !!(r && r.ok), data: r });
+  }));
   // ---------------------------------------------------------------- 网络体检（只读，归因诊断）
   // GET /api/console/network/health → { ok, health:{exitIp,platform,diagnosis}, fetchedAt }
   //   在出会窗口页面上下文探测：出口 IP（ipinfo/ipify）+ 平台连通 + CDP 可达性。
