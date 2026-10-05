@@ -1,3 +1,5 @@
+> **模块状态（2026-10）**：本文提及的 lineOa / platformAdapter（含 facebook/whatsapp 骨架）/ scripts/tools 一次性工具 已按「只保留 ichigo-console 主链」原则从项目中移除；相关段落仅作历史设计参考，不再可运行。
+
 # 03 · 自动引流 / LINE 对接 / 私域管理
 
 > 项目计划书章节（Ai SAY）——承接「消息翻译 + 推荐回复」能力，把每一次平台会话变成可留存的私域资产。

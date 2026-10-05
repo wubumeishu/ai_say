@@ -1,3 +1,5 @@
+> **模块状态（2026-10）**：本文提及的 lineOa / platformAdapter（含 facebook/whatsapp 骨架）/ scripts/tools 一次性工具 已按「只保留 ichigo-console 主链」原则从项目中移除；相关段落仅作历史设计参考，不再可运行。
+
 # 04 · 路线图 / 里程碑 / 验收标准 / 风险
 
 > 本章是《Ai SAY 项目计划书》第四部分：分阶段里程碑（M0–M5）、各阶段可验收标准、团队分工（architect / engine / adapter / acquisition / ui）、风险清单与缓解、度量指标。
