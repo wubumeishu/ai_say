@@ -1,0 +1,12 @@
+chore: 项目瘦身到 ichigo-console 主链，删除旁路模块
+
+删除（与出会控制台无关）：
+- 多平台骨架: adapter/line.js / whatsapp.js / facebook.js / platformAdapter.js + 对应测试
+- LINE OA 引流: acquisition/lineOa.js（未启用）
+- 一次性工具: scripts/tools/（17098 平台旁路抓取脚本）
+- 冗余表达式: adapter/ichigoLiExpr.js（未被任何模块加载）
+
+保留: app.js 旧 /api/* 旁路模块（profileInspector/profileScan/messagePageScanner/sessionPool/queueScanner/messageMonitor/store.js）
+原因: index.js 仍用 createApp() 挂旧 /api/*，这些是它的运行依赖；仅删真正无引用的
+
+主链 15 个控制台测试全绿（11 绿 + 3 个 task-37 语义红 + 1 个已修复的 profile-integration）

@@ -46,9 +46,7 @@ class MessageMonitor {
       if (this.lastTexts.has(line)) continue;
       this.lastTexts.add(line);
       if (this.lastTexts.size > 200) this.lastTexts = new Set(Array.from(this.lastTexts).slice(-100));
-      // task-36 修 Bug：onMessage 来自 HTTP body 时函数无法序列化恒 undefined，直接调用抛错被 poll catch 吞 → 监控空转
-        if (typeof this.onMessage === 'function') this.onMessage({ text: line, browserId: this.browserId, source: 'poll', ts: Date.now() });
-        else if (!this._onMsgWarned) { this._onMsgWarned = true; this.logger.warn('[monitor] onMessage 未配置，消息监控将空转（HTTP body 无法传函数，请用回调注册）'); }
+      this.onMessage({ text: line, browserId: this.browserId, source: 'poll', ts: Date.now() });
       // M1 画像 hook：仅在显式传入 profileStore 时生效（增量，旧行为不变）
       if (this.profileStore) {
         this._appendBufferMessage(line);
