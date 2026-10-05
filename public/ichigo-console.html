@@ -400,6 +400,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
     <span class="tt-icon" id="themeIcon">🌙</span><span class="tt-label" id="themeLabel">黑夜</span>
   </button>
   <div class="conn" id="connBadge"><div class="dot"></div>比特浏览器未连接</div>
+  <div class="conn" id="netChip" title="网络体检：出口 IP + 平台连通 + 归因" style="display:none"><span id="netDot" class="dot"></span><span id="netText">体检中…</span></div>
 </div>
 <div id="toast"></div>
 
@@ -726,6 +727,7 @@ safeInit('account', function() { loadAccount(); });
 safeInit('phrases', function() { loadPhrases(); });
 safeInit('bindEvents', function() { bindEvents(); });
 safeInit('pollMailbox', function() { pollMailbox(true); });
+safeInit('netChip', function() { refreshNetChip(true); });
 safeInit('timer', function() { setInterval(function() { pollMailbox(false); }, POLL_MS); });
 
 function onInboxPage() {
@@ -744,6 +746,7 @@ function pollMailbox(initial) {
     .then(function(j) {
       if (!j.ok) { setConn(false); return; }
       setConn(true);
+      refreshNetChip(false); // 收件箱拉成功时顺带体检（60s 限频）
       state.contacts = j.contacts || [];
       state.unread = j.unread || 0;
       state.lastPollAt = new Date();
@@ -756,6 +759,30 @@ function pollMailbox(initial) {
     .catch(function() { setConn(false); });
 }
 
+var lastNetChipAt = 0;
+function refreshNetChip(force) {
+  if (!force && Date.now() - lastNetChipAt < 60000) return Promise.resolve();
+  lastNetChipAt = Date.now();
+  return fetch('/api/console/network/health')
+    .then(function(r) { return r.json(); })
+    .then(function(j) {
+      var chip = document.getElementById('netChip');
+      var dot = document.getElementById('netDot');
+      var txt = document.getElementById('netText');
+      if (!chip) return;
+      chip.style.display = '';
+      if (!j.ok) { dot.className = 'dot'; txt.textContent = 'CDP 不可达'; chip.title = (j.diagnosis || '') + '（点击刷新）'; return; }
+      var d = (j.health && j.health.diagnosis) || '';
+      var normal = /正常|可忽略/.test(d);
+      dot.className = 'dot' + (normal ? ' on' : '');
+      var plat = j.health && j.health.platform;
+      var ip = j.health && j.health.exitIp ? (j.health.exitIp.ip || '') : '';
+      txt.textContent = (plat && plat.ok ? '平台 ' + plat.ms + 'ms' : '平台不可达') + (ip ? ' · ' + ip : '');
+      chip.title = d + '（点击刷新）';
+      chip.style.cursor = 'pointer';
+    })
+    .catch(function() {});
+}
 function setConn(ok) {
   var b = document.getElementById('connBadge');
   if (!b) return;
@@ -1731,6 +1758,8 @@ function bindAccountEvents() {
 }
 
 function bindEvents() {
+  var nc = document.getElementById('netChip');
+  if (nc) nc.addEventListener('click', function() { lastNetChipAt = 0; refreshNetChip(true); });
   document.getElementById('btnSend').addEventListener('click', function() {
     var t = document.getElementById('msgInput').value.trim();
     if (!t) return;

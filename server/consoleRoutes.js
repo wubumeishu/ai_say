@@ -1433,6 +1433,18 @@ register('GET', '/api/console/customers', wrap(async (req, res) => {
     });
   }));
 
+  // ---------------------------------------------------------------- 网络体检（只读，归因诊断）
+  // GET /api/console/network/health → { ok, health:{exitIp,platform,diagnosis}, fetchedAt }
+  //   在出会窗口页面上下文探测：出口 IP（ipinfo/ipify）+ 平台连通 + CDP 可达性。
+  //   用于回答「发消息失败/页面不动」到底是网络问题、平台问题还是 CDP 卡住。
+  register('GET', '/api/console/network/health', wrap(async (req, res) => {
+    if (!deepScrape || typeof deepScrape.networkHealth !== 'function') {
+      return json(res, 501, { ok: false, msg: 'deepScrape 未注入，无法做网络体检' });
+    }
+    const result = await deepScrape.networkHealth();
+    json(res, 200, result);
+  }));
+
   // ---------------------------------------------------------------- 真发（出会窗口 · CDP 页面操作）
   // POST /api/console/send-live { contactId, text, doConfirm?, waitMs?, toInbox? }
   //   老板在控制台填好要说的话 → 点「确认发送」才调（直接真发，非话术生成确认）

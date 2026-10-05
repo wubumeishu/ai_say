@@ -105,6 +105,7 @@ function createIchigoDeepScrape(deps) {
   var inboxExpr          = readExpr(path.join(__dirname, 'ichigoInboxExpr.js'));
   var profileExprLegacy  = readExpr(path.join(__dirname, 'ichigoProfileExpr.js'));
   var sendExprSrc        = readExpr(path.join(__dirname, 'ichigoSendExpr.js'));
+  var networkExprSrc     = readExpr(path.join(__dirname, 'ichigoNetworkExpr.js'));
 
   // ---------- 工具 ----------
   function parseContactName(raw) {
@@ -466,11 +467,32 @@ function createIchigoDeepScrape(deps) {
       return { ok: false, reason: 'navigate-inbox-failed', msg: String(e && e.message || e) };
     });
   }
+  // ---------- ⑧ 网络体检（只读：出口 IP / 平台连通 / 归因诊断） ----------
+  // networkHealth() → 在出会窗口页面上下文做三项探测：
+  //   exitIp（出口 IP：ipinfo 优先、ipify 兜底）+ platform（sp.194964.com 轻量连通）
+  //   diagnosis：归因结论（正常 / 网络问题 / 平台问题 / CDP 卡住）
+  // 约束：纯只读，不改窗口任何配置；任何一步失败都返回结构化结果，不抛错。
+  function networkHealth() {
+    if (!networkExprSrc) return Promise.resolve({ ok: false, reason: 'no-network-expr', diagnosis: '网络体检表达式缺失' });
+    return withTarget(function (client) {
+      return cdpEvalAsync(client, networkExprSrc).then(function (v) {
+        v = v || {};
+        if (v.exitIp && v.platform && v.platform.ok) v.diagnosis = '正常：出口 ' + (v.exitIp.ip || '?') + ' · 平台 ' + v.platform.ms + 'ms';
+        else if (!v.exitIp && v.platform && v.platform.ok) v.diagnosis = 'IP 检测服务不可达（平台可达，可忽略）';
+        else if (v.exitIp && !(v.platform && v.platform.ok)) v.diagnosis = '平台问题：出口 ' + (v.exitIp.ip || '?') + ' 正常但 sp.194964.com 不可达';
+        else v.diagnosis = '网络问题：出口 IP 探测不到且平台不可达（代理断开 / 本地波动）';
+        return { ok: true, health: v, fetchedAt: new Date().toISOString() };
+      });
+    }).catch(function (e) {
+      return { ok: false, reason: 'cdp-unavailable', diagnosis: 'CDP 卡住：连不上出会窗口（BitBrowser 未开 / 窗口未开 / CDP 超时）', msg: String((e && e.message) || e) };
+    });
+  }
   return {
     mailboxOnly: mailboxOnly,
     fetchHistory: fetchHistory,
     sendToContact: sendToContact,
     navigateInbox: navigateInbox,
+    networkHealth: networkHealth,
     fetchProfile: fetchProfile,
     fetchAccountProfile: fetchAccountProfile,
     ACCOUNT_PROFILE_URL: ACCOUNT_PROFILE_URL,
