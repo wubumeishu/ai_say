@@ -387,6 +387,12 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 .pf-row{display:flex;gap:8px;font-size:11.5px;line-height:1.5;padding:2.5px 0}
 .pf-row .pk{color:var(--muted);flex:0 0 76px;word-break:break-all}
 .pf-row .pv{flex:1;min-width:0;word-break:break-all}
+
+.ai-quick{ display:flex; flex-wrap:wrap; gap:6px; padding:8px 10px 4px; max-height:90px; overflow-y:auto; }
+.ai-quick:empty{ display:none; }
+.ai-quick .qbtn{ font-size:11px; padding:4px 10px; border-radius:14px; cursor:pointer; border:1px solid var(--line,#333); background:var(--panel,#1b1e28); color:var(--txt,#ddd); font-family:inherit; max-width:240px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ai-quick .qbtn:hover{ background:var(--accent,#e64340); color:#fff; border-color:var(--accent,#e64340); }
+.ai-quick .qlabel{ font-size:11px; color:var(--dim,#888); align-self:center; }
 </style>
 <script>
 // 防闪烁：首屏渲染前就确定主题（localStorage → 系统偏好 → 黑夜）
@@ -574,6 +580,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
     <div class="ai-list" id="aiList">
       <div class="ai-msg bot">你好，我是 Ai SAY 助手。选择客户后我可以帮你分析客户画像、生成推荐话术、翻译消息。所有发送给客户的消息需要你确认后才发出。</div>
     </div>
+    <div class="ai-quick" id="aiQuick" title="常用语快捷提问：点击填入下方输入框"></div>
     <div class="ai-input">
       <textarea id="aiInput" placeholder="向 Ai SAY 提问…"></textarea>
       <button class="send-ai" id="btnAiSend">发送</button>
@@ -1615,6 +1622,27 @@ function saveAcctForm() {
 }
 
 // ---------- 常用语 ----------
+  // ---- Ai SAY 面板快捷短语：常用语前 8 条（按使用次数），点击填入输入框 ----
+  function renderAiQuick() {
+    var host = document.getElementById('aiQuick');
+    if (!host) return;
+    var list = (acctState.phrases || []).slice().sort(function(a, b) { return (b.useCount || 0) - (a.useCount || 0); }).slice(0, 8);
+    if (!list.length) { host.innerHTML = '<span class="qlabel">暂无常用语（中栏 ＋ 可添加）</span>'; return; }
+    var h = '<span class="qlabel">快捷：</span>';
+    list.forEach(function(p) {
+      var short = (p.text || '').length > 18 ? (p.text || '').slice(0, 18) + '…' : (p.text || '');
+      h += '<button class="qbtn" data-qt="' + esc(p.text || '') + '" title="' + esc(p.text || '') + '">' + esc(short) + '</button>'; 
+    });
+    host.innerHTML = h;
+    Array.prototype.forEach.call(host.querySelectorAll('.qbtn'), function(b) {
+      b.addEventListener('click', function() {
+        var txt = b.getAttribute('data-qt');
+        var inp = document.getElementById('aiInput');
+        inp.value = (inp.value ? inp.value + '\n' : '') + txt;
+        inp.focus();
+      });
+    });
+  }
 function loadPhrases() {
   return fetch('/api/console/phrases').then(function(r) { return r.json(); }).then(function(j) {
     if (!j.ok) return;
@@ -1622,6 +1650,7 @@ function loadPhrases() {
     acctState.groups = j.groups || [];
     renderPhraseTabs();
     renderPhrases();
+    renderAiQuick();
   }).catch(function(e) { console.warn('phrases load failed', e); });
 }
 
