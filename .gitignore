@@ -26,3 +26,8 @@ undefined/
 # Windows 杂项
 Thumbs.db
 Desktop.ini
+
+# 一次性验证/提交脚本（勿入库）
+_commit_msg.txt
+_syntax_check.js
+test-deep-debug*.js
