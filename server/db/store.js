@@ -94,14 +94,31 @@ function createStore({ dbPath = path.join(__dirname, '..', '..', 'data', 'aisay.
     }
 
     // ContactProfile（INSERT OR REPLACE，保留高置信度规则由调用方负责）
+    // task-36 修 Bug：原 INSERT OR REPLACE 会把 occupation/language 硬编码 null、
+    // 且新写入把 age/region/height 清成 null（旧值丢失）。改 ON CONFLICT DO UPDATE + COALESCE：
+    // 新值为空则保留旧值，真正写入 occupation/language（不再 null）。
     db.prepare(
-      'INSERT OR REPLACE INTO ContactProfile (contactId,age,region,height,occupation,language,intent,interests,historySummary,fields,confidence,source,createdAt,updatedAt) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+      "INSERT INTO ContactProfile (contactId,age,region,height,occupation,language,intent,interests,historySummary,fields,confidence,source,createdAt,updatedAt) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?) " +
+      "ON CONFLICT(contactId) DO UPDATE SET " +
+      "age = COALESCE(excluded.age, ContactProfile.age), " +
+      "region = COALESCE(excluded.region, ContactProfile.region), " +
+      "height = COALESCE(excluded.height, ContactProfile.height), " +
+      "occupation = COALESCE(excluded.occupation, ContactProfile.occupation), " +
+      "language = COALESCE(excluded.language, ContactProfile.language), " +
+      "intent = excluded.intent, " +
+      "interests = COALESCE(excluded.interests, ContactProfile.interests), " +
+      "historySummary = COALESCE(excluded.historySummary, ContactProfile.historySummary), " +
+      "fields = COALESCE(excluded.fields, ContactProfile.fields), " +
+      "confidence = MAX(excluded.confidence, ContactProfile.confidence), " +
+      "source = excluded.source, " +
+      "updatedAt = excluded.updatedAt"
     ).run(
       contactId,
       String(contactRaw.age || '') || null,
       String(contactRaw.region || '') || null,
       String(contactRaw.height || '') || null,
-      null, null,
+      String(contactRaw.occupation || '') || null,
+      String(contactRaw.language || '') || null,
       'unknown',
       contactRaw.candidates ? JSON.stringify(contactRaw.candidates) : null,
       String(contactRaw.intro || ''),

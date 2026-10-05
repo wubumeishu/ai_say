@@ -51,6 +51,7 @@ function mountConsoleRoutes(app, deps = {}) {
   const deepScrape = deps.deepScrape || null;
   const settingsForLive = deps.settingsForLive || deps.settings || null;
   const proxyPool = deps.proxyPool || null;
+  const assistant = deps.assistant || null;
   // 兼容老缓存：interestIcons 若为裸字符串数组 → 富化成 {icon,label,unknown}
   function enrichContact(c) {
     if (!c || !c.profile) return c;
@@ -632,9 +633,8 @@ register('GET', '/api/console/customers', wrap(async (req, res) => {
         "COUNT(*) AS leads, " +
         "SUM(CASE WHEN lineOffered = 1 THEN 1 ELSE 0 END) AS offered, " +
         "SUM(CASE WHEN lineAdded = 1 THEN 1 ELSE 0 END) AS positive " +
-        "FROM LeadEvent WHERE createdAt >= ? GROUP BY d ORDER BY d ASC",
-        since,
-      ).all();
+        "FROM LeadEvent WHERE createdAt >= ? GROUP BY d ORDER BY d ASC"
+      ).all(since); // task-36 修 Bug：参数放 .all(since)，原 prepare(sql, since) 把 since 当 options 抛错被吞 → 趋势线恒空
     } catch (_) { daily = []; }
 
     // ---------------------------------------------------------- 引流漏斗（6 层，task-28）
@@ -1435,6 +1435,21 @@ register('GET', '/api/console/customers', wrap(async (req, res) => {
     });
   }));
 
+  // ---------------------------------------------------------------- Ai SAY 助手面板 B v1（单轮 + 工具调用）
+  // POST /api/console/assistant { message, contactId?, history?, maxMsgs? }
+  //   → { ok, degraded, reason, reply, actions:[{type,label,payload,sideEffect,needConfirm?}], contact, fetchedAt }
+  //   只读/弱副作用动作直接给；强副作用（send_message）只出「需确认」卡片，前端点了才走 send-live。
+  //   模型不可用 → degraded=true + 本地摘要（不删功能）。
+  register('POST', '/api/console/assistant', wrap(async (req, res, body) => {
+    if (!assistant) return json(res, 501, { ok: false, msg: 'assistant 未注入（Ai SAY 助手面板后端不可用）' });
+    const r = await assistant.chat({
+      message: body && body.message,
+      contactId: body && body.contactId,
+      history: Array.isArray(body && body.history) ? body.history : [],
+      maxMsgs: body && body.maxMsgs ? Number(body.maxMsgs) : 12,
+    });
+    json(res, r && r.ok ? 200 : 400, r);
+  }));
   // ---------------------------------------------------------------- IPDeep 代理池 v1（事件驱动，不定时轮换）
   // GET  /api/console/proxy/pool         池状态（槽位/使用/冷却/粘性/密码是否就绪）
   // POST /api/console/proxy/rotate       { windowId?, dryRun?, force? } 手动换 IP（30min 冷却，force 跳过）

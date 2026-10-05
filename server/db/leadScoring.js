@@ -101,7 +101,7 @@ function createLeadScoring(opts) {
   function writeLeadEvent(p) {
     const now=new Date().toISOString();
     const id=crypto.createHash('sha1').update('lead/'+p.contactId+'/'+now+'/'+Math.random()).digest('hex');
-    const evt={leadEventId:id,contactId:p.contactId,score:p.score,tier:p.tier,signals:JSON.stringify(p.signals||[]),action:p.action||'triggered',lineOffered:p.lineOffered?1:0,lineAdded:p.lineAdded?1:0,createdAt:now};
+    const evt={leadEventId:id,contactId:p.contactId,score:typeof p.score==='number'?p.score:0,tier:p.tier,signals:JSON.stringify(p.signals||[]),action:p.action||'triggered',lineOffered:p.lineOffered?1:0,lineAdded:p.lineAdded?1:0,createdAt:now};
     if (store.db && store.db.prepare)
       store.db.prepare('INSERT OR IGNORE INTO LeadEvent (leadEventId,contactId,score,tier,signals,action,lineOffered,lineAdded,createdAt) VALUES (?,?,?,?,?,?,?,?,?)')
         .run(id,p.contactId,p.score,p.tier,JSON.stringify(p.signals||[]),p.action||'triggered',p.lineOffered?1:0,p.lineAdded?1:0,now);

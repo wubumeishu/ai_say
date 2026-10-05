@@ -293,6 +293,8 @@ function createRecommender(opts = {}) {
     const leadEvent = contactId
       ? writeLeadEvent({
           contactId, tier,
+          // task-36 修 Bug：score 必传（LeadEvent.score INTEGER NOT NULL，缺省会绑定 undefined 抛错被吞）
+          score: ({ hot: 80, warm: 50, cold: 20 })[tier] || 50,
           signals: [{ signal: 'recommendReply', source, gated: gated.filter((g) => !g.ok).length, replyCount: replies.length }],
           action: 'triggered',
         })

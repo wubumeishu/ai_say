@@ -69,6 +69,28 @@ function connectTargetWs(wsUrl) {
   });
 }
 
+  // task-36 CDP 重试：BitBrowser 每次 /browser/open 换 DevTools 端口，通道偶发断/卡。
+  // 对可重试错误（timeout/ECONNREFUSED/socket closed 等）重连后重试，业务错误不重试。
+  function isRetryable(err) {
+    var m = String((err && err.message) || err || '');
+    return /timeout|ECONNREFUSED|ECONNRESET|socket|closed|aborted|Invalid parameters|unresponsive|CDP/i.test(m);
+  }
+  async function retryCdp(opName, fn, tries) {
+    tries = tries || 2;
+    var lastErr = null;
+    for (var i = 0; i <= tries; i++) {
+      try { return await fn(); } catch (e) {
+        lastErr = e;
+        if (i < tries && isRetryable(e)) {
+          console.warn('[cdp-retry] ' + opName + ' 第 ' + (i + 1) + ' 次失败（' + String((e && e.message) || e) + '），重连重试…');
+          await new Promise(function(r) { setTimeout(r, 1200); });
+          continue;
+        }
+        throw e;
+      }
+    }
+    throw lastErr;
+  }
 function getTargets(httpPort) {
   var host = '127.0.0.1';
   var port = httpPort;
@@ -166,7 +188,7 @@ function createIchigoDeepScrape(deps) {
 
   // ---------- 统一目标会话（自动清理 + 硬超时） ----------
   // fn(client) => Promise；无论成功失败都关闭 ws 和浏览器级 session
-  function withTarget(fn) {
+  function withTargetOnce(fn) {
     var session = null;
     return Promise.resolve()
       .then(function() { return deps.openCdpSession(); })
@@ -196,6 +218,11 @@ function createIchigoDeepScrape(deps) {
         if (session) { try { session.close(); } catch (_) {} }
         throw e;
       });
+  }
+
+  // task-36：withTarget 对外入口加 CDP 重试（通道级错误重连重试，业务错误直抛）
+  function withTarget(fn) {
+    return retryCdp('withTarget', function() { return withTargetOnce(fn); });
   }
 
   // 并发池

@@ -93,6 +93,7 @@ function fillTemplate(text, vars, persona) {
  */
 function checkGate({ text, rules, limits, persona }) {
   rules = rules || { rules: [], denyByDefault: false };
+  limits = limits || {}; // task-36：rateLimit 规则 Object.assign(limits, spec) 需 limits 为对象
   const matched = [];
   let blocked = false;
   let reason = '';
@@ -241,7 +242,8 @@ function createTalkEngine(opts = {}) {
       : pendingQueue.filter((p) => p.contactId === contactId && !p.confirmed).pop();
     if (!entry) entry = { accountId, contactId, text: ctx.text || '', talk: ctx.talk, tier: ctx.tier || 'warm', gateBlocked: false, reason: '', ts: Date.parse(nowIso()), confirmed: false, confirmedAt: null };
     const gateRules = ctx.governanceRules || entry.governanceRules || { rules: [], denyByDefault: false };
-    const gate = checkGate({ text: entry.text, rules: gateRules });
+    // task-36 修 Bug：checkGate 需要 limits（rateLimit 规则走 Object.assign(limits, spec)，缺省会崩）
+      const gate = checkGate({ text: entry.text, rules: gateRules, limits: ctx.limits || entry.limits || {} });
     if (!gate.ok) {
       entry.confirmed = false; // 保持待确认（老板可改写后重发）
       logGateBlock('确认发送被合规闸门拒绝: ' + gate.reason);

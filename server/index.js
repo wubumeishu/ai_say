@@ -76,6 +76,7 @@ const adapters = {
 // 控制台 /api/console/live 端点实时连活 17098 窗口抓出会页面，取代静态 DB 快照卡片。
 const { createLiveScanner } = require('./adapter/liveScanner');
 const { createProxyPool } = require('./adapter/proxyPool');
+const { createAssistant } = require('./adapter/assistant');
 const settingsForLive = loadConfig(); // settings.json（line 108 mountConsoleRoutes 也要用）
 let liveScanner = null;
 try {
@@ -134,6 +135,8 @@ try {
   proxyPool = null;
 }
 
+
+
 let consolePrefs = null;
 let accountInfo = null;
 try {
@@ -180,6 +183,8 @@ try {
   const { createModelStore } = require('./adapter/modelStore');
   modelStore = createModelStore({ settingsPath: require('path').join(__dirname, '..', 'settings.json') });
   const _ml = modelStore.list();
+
+
   console.log('[modelStore] 就绪: ' + _ml.models.length + ' 个模型, 当前=' + (_ml.activeId || '无'));
 } catch (e) {
   console.warn('[modelStore] 构建失败:', e && e.message);
@@ -197,129 +202,146 @@ try {
   ichigoCache = null;
 }
 
-// Mount console read-only routes on the main app (task-19 起挂 /api/console/*)
-mountConsoleRoutes(consoleApp, { store, talkEngine, dedup, adapters, recommender, liveScanner, deepScrape, ichigoCache, modelStore, translationCache, consolePrefs, accountInfo, proxyPool, settings: settingsForLive, settingsForLive: settingsForLive });
+// task-36：Ai SAY 助手面板 B v1（单轮 + 工具调用，强副作用只出卡片）
+let assistant = null;
+try {
+  assistant = createAssistant({ modelStore: modelStore, aiService: aiService, ichigoCache: ichigoCache });
+  console.log('[assistant] 就绪：Ai SAY 助手面板 B v1（/api/console/assistant）');
+} catch (e) {
+  console.warn('[assistant] 构建失败:', e && e.message);
+  assistant = null;
+}
+
+  // settingsForLive：进程内 settings（模型切换时同步）— 已在文件头部声明
+
+  // Mount console read-only routes on the main app (task-19 起挂 /api/console/*)
+  mountConsoleRoutes(consoleApp, { store, talkEngine, dedup, adapters, recommender, liveScanner, deepScrape, ichigoCache, modelStore, translationCache, consolePrefs, accountInfo, proxyPool, assistant, settings: settingsForLive, settingsForLive: settingsForLive });
 
 
-function matchConsoleRoute(req, res) {
-  const pathname = String(req.url || '').split('?')[0];
-  if (pathname.indexOf('/api/console') !== 0) return false;
+  function matchConsoleRoute(req, res) {
+    const pathname = String(req.url || '').split('?')[0];
+    if (pathname.indexOf('/api/console') !== 0) return false;
 
-  for (const route of consoleRoutes) {
-    if (route.method !== req.method) continue;
+    for (const route of consoleRoutes) {
+      if (route.method !== req.method) continue;
 
-    // 精确匹配
-    if (route.pathname === pathname) {
-      req.params = {};
-      req.__body = undefined;
-      return route.handler(req, res);
-    }
-    // 参数段匹配：/api/console/customers/:id、/api/console/accounts/:id、
-    //            /api/console/customers/:id/profile
-    const pm = pathname.match(/^\/api\/console\/(customers|accounts)\/([^\/?]+)(\/profile)?$/);
-    if (pm) {
-      const kind = pm[1];
-      const id   = pm[2];
-      const tail = pm[3] || '';
-      if (route.pathname === '/api/console/' + kind + '/:id' + tail) {
-        req.params = { id };
+      // 精确匹配
+      if (route.pathname === pathname) {
+        req.params = {};
         req.__body = undefined;
         return route.handler(req, res);
       }
+      // 参数段匹配：/api/console/customers/:id、/api/console/accounts/:id、/profile
+      const pm = pathname.match(/^\/api\/console\/(customers|accounts)\/([^\/?]+)(\/profile)?$/);
+      if (pm) {
+        const kind = pm[1];
+        const id   = pm[2];
+        const tail2 = pm[3] || '';
+        if (route.pathname === '/api/console/' + kind + '/:id' + tail2) {
+          req.params = { id };
+          req.__body = undefined;
+          return route.handler(req, res);
+        }
+      }
     }
-  }
-  res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
-  res.end(JSON.stringify({ success: false, msg: 'Not Found: ' + pathname }));
-  return true;
-}
-
-// --- 组装最终 app handler（静态文件 + 控制台路由 + 原有 app） ---
-const baseApp = createApp({ apiBase: loadConfig().apiBase || process.env.BIT_BROWSER_API_URL || 'http://127.0.0.1:54345' });
-
-function serveStatic(res, file, type) {
-  try {
-    const content = fs.readFileSync(path.join(__dirname, '..', 'public', file), 'utf8');
-    res.writeHead(200, { 'Content-Type': type });
-    res.end(content);
-    return true;
-  } catch {
     res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify({ success: false, msg: 'static not found: ' + file }));
+    res.end(JSON.stringify({ success: false, msg: 'Not Found: ' + pathname }));
     return true;
   }
-}
 
-const app = (req, res, notFound) => {
-  const pathname = String(req.url || '').split('?')[0];
+  // --- 组装最终 app handler（静态文件 + 控制台路由 + 原有 app） ---
+  const baseApp = createApp({ apiBase: loadConfig().apiBase || process.env.BIT_BROWSER_API_URL || 'http://127.0.0.1:54345' });
 
-  // /api/console/*（含 :id 参数段；GET + POST）优先走控制台路由
-  if (pathname.indexOf('/api/console') === 0) {
-    return matchConsoleRoute(req, res);
-  }
-
-  // 静态文件（仅 GET）
-  if (req.method === 'GET') {
-    switch (pathname) {
-      case '/ichigo-console':
-      case '/ichigo-console.html':
-        return serveStatic(res, 'ichigo-console.html', 'text/html; charset=utf-8');
-      case '/console':
-      case '/console.html':
-        return serveStatic(res, 'console.html', 'text/html; charset=utf-8');
-      case '/console.css':
-        return serveStatic(res, 'console.css', 'text/css; charset=utf-8');
-      case '/console.js':
-        return serveStatic(res, 'console.js', 'application/javascript; charset=utf-8');
-      default:
-        break;
+  function serveStatic(res, file, type) {
+    try {
+      const content = fs.readFileSync(path.join(__dirname, '..', 'public', file), 'utf8');
+      res.writeHead(200, { 'Content-Type': type });
+      res.end(content);
+      return true;
+    } catch {
+      res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ success: false, msg: 'static not found: ' + file }));
+      return true;
     }
   }
 
-  // 其余（含 / 与旧 /api/*）走原有 app handler
-  baseApp(req, res, notFound);
-};
+  const app = (req, res, notFound) => {
+    const pathname = String(req.url || '').split('?')[0];
 
-// --- 启动（仅生产直接 node 运行时；测试通过 module.exports 拿 app 自建临时 server） ---
-const isMain = require.main === module;
-if (isMain) {
-  const host = process.env.HOST || '127.0.0.1';
-  const port = Number(process.env.PORT || 8300);
-  const server = http.createServer((req, res) => {
-    app(req, res, () => {
-      res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ success: false, msg: 'Not Found' }));
-    });
-  });
-  server.listen(port, host, () => {
-    console.log('Ai SAY 控制台:   http://' + host + ':' + port + '/');
-    console.log('卡片式控制台:   http://' + host + ':' + port + '/console');
-    console.log('比特浏览器 API: ' + (loadConfig().apiBase || process.env.BIT_BROWSER_API_URL || 'http://127.0.0.1:54345'));
-    console.log('SQLite DB:      ' + dbPath);
-  });
-  process.on('SIGINT', () => {
-    server.close(() => process.exit(0));
-  });
-}
+    // /api/console/*（含 :id 参数段；GET + POST）优先走控制台路由
+    if (pathname.indexOf('/api/console') === 0) {
+      return matchConsoleRoute(req, res);
+    }
 
-// 导出供测试/组装使用
-module.exports = {
-  app,
-  store,
-  talkEngine,
-  recommender,
-  dedup,
-  adapters,
-  dbPath,
-  navigateToInbox,
-  _createServer: () => {
+    // 静态文件（仅 GET）
+    if (req.method === 'GET') {
+      switch (pathname) {
+        case '/ichigo-console':
+        case '/ichigo-console.html':
+          return serveStatic(res, 'ichigo-console.html', 'text/html; charset=utf-8');
+        case '/console':
+        case '/console.html':
+          return serveStatic(res, 'console.html', 'text/html; charset=utf-8');
+        case '/console.css':
+          return serveStatic(res, 'console.css', 'text/css; charset=utf-8');
+        case '/console.js':
+          return serveStatic(res, 'console.js', 'text/javascript; charset=utf-8');
+        default:
+          break;
+      }
+    }
+
+    // 其余（含 / 与旧 /api/*）走原有 app handler
+    baseApp(req, res, notFound);
+  };
+
+  // --- 启动（仅生产直接 node 运行时；测试通过 module.exports 拿 app 自建临时 server） ---
+  const isMain = require.main === module;
+  if (isMain) {
     const host = process.env.HOST || '127.0.0.1';
-    const port = Number(process.env.PORT || 0); // 测试传 0 随机端口
+    const port = Number(process.env.PORT || 8300);
     const server = http.createServer((req, res) => {
       app(req, res, () => {
         res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
         res.end(JSON.stringify({ success: false, msg: 'Not Found' }));
       });
     });
-    return server;
-  },
-};
+    server.listen(port, host, () => {
+      console.log('Ai SAY 控制台:   http://' + host + ':' + port + '/');
+      console.log('卡片式控制台:   http://' + host + ':' + port + '/console');
+      console.log('比特浏览器 API: ' + (loadConfig().apiBase || process.env.BIT_BROWSER_API_URL || 'http://127.0.0.1:54345'));
+      console.log('SQLite DB:      ' + dbPath);
+    });
+    process.on('SIGINT', shutdown);
+    // task-36：SIGTERM（stop-console.bat / 进程管理）也要优雅退出
+    process.on('SIGTERM', shutdown);
+    function shutdown() {
+      console.log('[shutdown] 收到退出信号，关闭 server…');
+      try { server.close(); } catch (e) {}
+      setTimeout(function() { process.exit(0); }, 1500).unref();
+    }
+  }
+
+  // 导出供测试/组装使用
+  module.exports = {
+    app,
+    store,
+    talkEngine,
+    recommender,
+    dedup,
+    adapters,
+    dbPath,
+    navigateToInbox,
+    assistant,
+    _createServer: () => {
+      const host = process.env.HOST || '127.0.0.1';
+      const port = Number(process.env.PORT || 0);
+      const server = http.createServer((req, res) => {
+        app(req, res, () => {
+          res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify({ success: false, msg: 'Not Found' }));
+        });
+      });
+      return server;
+    },
+  };
