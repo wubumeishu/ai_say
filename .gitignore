@@ -15,6 +15,7 @@ settings.json
 # 代理密码与池数据（手动维护，绝不上库）
 data/proxy-secrets.json
 data/proxy-pool.json
+data/happy-cache.json  # H4 快乐平台缓存（§0.3 数据不进 Git，仿 console-cache.json）
 
 # 日志 / 进程文件 / 运行残留
 *.log
@@ -22,6 +23,7 @@ console.log
 console.pid
 _startup*.log
 undefined/
+logs/
 
 # Windows 杂项
 Thumbs.db
