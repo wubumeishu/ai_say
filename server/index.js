@@ -13,14 +13,73 @@
 // =============================================================================
 'use strict';
 // =============================================================================
-// 进程级兜底：CDP / WebSocket 偶发异常不得带崩整个控制台服务
+// 进程级兜底（task-6 crash-guard + task-10 A 项升级，对齐 devops GUARDIAN.md §4.3）：
+//  钩子本体下沉到 if (isMain) 块内注册（devops 方案 A / code-reviewer B 项），
+//  避免测试 require index.js 时顶层钩子意外挂进程。此处只放纯函数 + 判定函数，
+//  钩子在 isMain 内直接引用 store（同块作用域，免顶层块级访问问题）。
+//
+//  - uncaughtException：写 data/crash.log（时间戳+pid+stack，§0.5）→ close SQLite → exit(1)。
+//    【恒 fatal，无白名单概念；不 spawn/respawn】：拉起 100% 归 pm2（预审挂账 #2 防 double-restart）。
+//  - unhandledRejection（task-10 A，GUARDIAN §4.3 双方向语义）：
+//    配置入口 = env AI_SAY_REJECTION_GUARD（JSON 字符串：
+//      { denyByDefault:bool, list:[{match:正则串, kind:str}] }）。
+//    缺省 / 解析失败 = { denyByDefault:false, list:[] } ⇒ 全 log-only（= 起步保守态，
+//    0 行为变化，不破 119 基线）。
+//    双方向判定（_shouldFatalRejection）：
+//      · denyByDefault=true  ⇒ 默认全 fatal，list=白名单（命中良性特征 ⇒ log-only 放行）；
+//      · denyByDefault=false ⇒ 默认全 log-only，list=黑名单（命中危险特征 ⇒ 升级 fatal）。
+//    仅 unhandledRejection 走判定；uncaughtException 恒 fatal。
 // =============================================================================
-process.on('uncaughtException', function(err) {
-  console.error('[uncaughtException] 已兜底，服务继续:', (err && err.stack) || err);
-});
-process.on('unhandledRejection', function(reason) {
-  console.error('[unhandledRejection] 已兜底，服务继续:', (reason && reason.stack) || reason);
-});
+const path0 = require('path');
+const fs0 = require('fs');
+function _crashLog(err, tag) {
+  try {
+    fs0.mkdirSync(path0.join(__dirname, '..', 'data'), { recursive: true });
+    fs0.appendFileSync(path0.join(__dirname, '..', 'data', 'crash.log'),
+      '[' + new Date().toISOString() + '] pid=' + process.pid + ' ' + String(tag || '') + ' ' + ((err && err.stack) || err) + '\n');
+  } catch (e) { console.error('[crash-guard] 写 crash.log 失败:', e && e.message); }
+}
+// GUARDIAN §4.3：读 env AI_SAY_REJECTION_GUARD（JSON）；缺省/解析失败 = 起步保守态
+//（denyByDefault=false, list=[] ⇒ 全 log-only，0 行为变化，安全起步）。
+function _loadRejectionGuard() {
+  const defaultGuard = { denyByDefault: false, list: [] };
+  const raw = process.env.AI_SAY_REJECTION_GUARD;
+  if (!raw) return defaultGuard;
+  try {
+    const parsed = JSON.parse(raw);
+    const out = { denyByDefault: !!parsed.denyByDefault, list: [] };
+    if (Array.isArray(parsed.list)) {
+      parsed.list.forEach(function(item) {
+        if (item && typeof item.match === 'string' && item.match) {
+          out.list.push({ match: item.match, kind: String(item.kind || 'unknown') });
+        }
+      });
+    }
+    return out;
+  } catch (e) {
+    console.warn('[crash-guard] AI_SAY_REJECTION_GUARD 解析失败，回退起步保守态（全 log-only）:', e && e.message);
+    return defaultGuard;
+  }
+}
+// reason 是否命中 guard list（match 为正则串，kind 仅标注来源不参判定）
+function _matchesGuardList(reason, list) {
+  if (!list || !list.length) return false;
+  const msg = String((reason && reason.message) || reason || '');
+  return list.some(function(rule) {
+    try { return new RegExp(rule.match).test(msg); } catch (e) { return false; }
+  });
+}
+// 判定 unhandledRejection 是否应 fatal（exit 1）。denyByDefault 双方向（GUARDIAN §4.3）：
+//   true  ⇒ 默认全 fatal，命中 list（白名单）⇒ 放行 log-only
+//   false ⇒ 默认全 log-only，命中 list（黑名单）⇒ 升级 fatal（起步态 0 行为变化）
+function _shouldFatalRejection(reason) {
+  const guard = _loadRejectionGuard();
+  const matched = _matchesGuardList(reason, guard.list);
+  if (guard.denyByDefault) return !matched; // 默认 fatal；命中白名单 ⇒ 放行 log-only
+  return matched;                            // 默认 log-only；命中黑名单 ⇒ 升级 fatal
+}
+// 兼容别名（旧单测可能引用 _isWhitelistedRejection；语义=是否 fatal，非字面白名单）
+function _isWhitelistedRejection(reason) { return _shouldFatalRejection(reason); }
 
 
 const http = require('http');
@@ -47,8 +106,20 @@ const talkEngine = createTalkEngine({
   aiService: require('./aiService'),
   templatesDir: path.join(__dirname, 'acquisition', 'templates'),
   sendHook: null,   // 平台侧发送走 adapter.send 契约；M5 阶段留 null，运行时注入
-  lineId: 'pending' // M4 替换为实际 LINE OA lineId
+  lineId: 'pending', // M4 替换为实际 LINE OA lineId
+  ledger: {          // task-3 · 频控账本句柄（生产路径必传，跨重启限额有效；NoopLedger 负例哨兵测试应红在此）
+    push: (row, table) => (typeof store.pushLedger === 'function' ? store.pushLedger(row, table) : false),
+    since: (t, dim) => (typeof store.sinceLedger === 'function' ? store.sinceLedger(t, dim) : []),
+    lastFor: (cid) => (typeof store.lastForLedger === 'function' ? store.lastForLedger(cid) : null),
+    flush: () => { try { if (typeof store.syncFlushLedger === 'function') store.syncFlushLedger(); } catch (e) { console.error('[index.js] ledger.flush 失败:', e && e.message); } return true; },
+    syncFlush: () => { try { if (typeof store.syncFlushLedger === 'function') store.syncFlushLedger(); } catch (e) { console.error('[index.js] ledger.syncFlush 失败:', e && e.message); } },
+    snapshot: () => (typeof store.snapshotLedger === 'function' ? store.snapshotLedger() : []),
+    pushPendingLedger: (row) => (typeof store.pushPendingLedger === 'function' ? store.pushPendingLedger(row) : null),
+    confirmPendingLedger: (pid, at) => (typeof store.confirmPendingLedger === 'function' ? store.confirmPendingLedger(pid, at) : false),
+  },
 });
+// task-3 · 启动载入 24h/7 天热账本快照（跨重启限额有效；失败回 false → talkEngine 仍可用但 24h 限额本进程内有效）
+try { if (typeof store.loadRateLedger === 'function') store.loadRateLedger(); } catch (e) { console.error('[index.js] store.loadRateLedger 启动载入失败（24h 限额降级本进程内有效）:', e && e.message); }
 
 // --- M1 补强：推荐回复生成器（人设+画像+规则 驱动的 LLM 个性化；降级 talkEngine 模板）---
 const { createRecommender } = require('./db/recommender');
@@ -63,11 +134,18 @@ const dedup = createDedup({ store });
 // PlatformAdapter 构造需要 DevToolsClient（opts.cdp 缺省会 throw），
 // 所以这里只注册工厂；窗口接入时（/api/monitor 或 sessionPool）再 create(cdp, targetId)。
 const { IchigoAdapter } = require('./adapter/ichigo194964');
+// task-H1 · 快乐平台 kairaku Adapter（happymail.co.jp，测绘图 v4 坐实；只注册不激活，默认仍 ikuru）
+const { HappyAdapter } = require('./adapter/happy');
 const adapters = {
   ichigo194964: {
     name: 'ichigo194964',
     create: (cdp, targetId, opts = {}) =>
       new IchigoAdapter(Object.assign({ cdp, targetId, platform: 'ichigo194964' }, opts)),
+  },
+  kairaku: {
+    name: 'kairaku',
+    create: (cdp, targetId, opts = {}) =>
+      new HappyAdapter(Object.assign({ cdp, targetId, platform: 'kairaku' }, opts)),
   },
 };
 
@@ -92,6 +170,27 @@ try {
   console.warn('[liveScanner] 构建失败，控制台 /api/console/live 将返回 501:', e && e.message);
   liveScanner = null;
 }
+
+// --- H4 · 快乐平台（happymail.co.jp / 18595 窗口）只读实时抓取（复用出会 BitBrowser CDP 机制） ---
+// 独立 liveScanner：出会组=17098（ichigo194964），快乐组=18595（kairaku）；两条链路不混用。
+const { createHappyScanner } = require('./adapter/happyScanner');
+// H4 缺陷 6 · A 持久化：快乐缓存层（data/happy-cache.json，独立键不混出会 console-cache）
+const { createHappyCache } = require('./adapter/happyCache');
+let happyScanner = null;
+let happyCache = null;
+try { happyCache = createHappyCache({}); } catch (e) { console.warn('[happyCache] 构建失败，/api/console/happy/* 走纯 CDP 无缓存:', e && e.message); happyCache = null; }
+try {
+  const kairakuGroup = (settingsForLive.platformGroups || []).find((g) => g.id === 'kairaku-happymail');
+  happyScanner = createHappyScanner({
+    settings: { apiBase: settingsForLive.apiBase },
+    windowId: (kairakuGroup && kairakuGroup.windows && kairakuGroup.windows[0]) || '1ccd4351a6fe4482bc8378a78c53398e',
+  });
+} catch (e) {
+  // happyScanner 构建失败不阻断服务启动；/api/console/happy/* 返回 501 降级
+  console.warn('[happyScanner] 构建失败，控制台 /api/console/happy/* 将返回 501:', e && e.message);
+  happyScanner = null;
+}
+
 
 // --- 挂载 console 路由（一次性） ---
 const { mountConsoleRoutes } = require('./consoleRoutes');
@@ -215,7 +314,7 @@ try {
   // settingsForLive：进程内 settings（模型切换时同步）— 已在文件头部声明
 
   // Mount console read-only routes on the main app (task-19 起挂 /api/console/*)
-  mountConsoleRoutes(consoleApp, { store, talkEngine, dedup, adapters, recommender, liveScanner, deepScrape, ichigoCache, modelStore, translationCache, consolePrefs, accountInfo, proxyPool, assistant, settings: settingsForLive, settingsForLive: settingsForLive });
+  mountConsoleRoutes(consoleApp, { store, talkEngine, dedup, adapters, recommender, liveScanner, happyScanner, happyCache, deepScrape, ichigoCache, modelStore, translationCache, consolePrefs, accountInfo, proxyPool, assistant, settings: settingsForLive, settingsForLive: settingsForLive });
 
 
   function matchConsoleRoute(req, res) {
@@ -255,11 +354,13 @@ try {
   function serveStatic(res, file, type) {
     try {
       const content = fs.readFileSync(path.join(__dirname, '..', 'public', file), 'utf8');
-      res.writeHead(200, { 'Content-Type': type });
+      // 维护修 · 静态响应缓存头（用户排障根因：无 Cache-Control → 浏览器启发式 disk cache 极顽固，前端改动后页面跑旧缓存）
+      // no-cache = 每次跟服务端 revalidate（带 If-Modified-Since/ETag 协商），绝不用旧 disk cache；不用 no-store（每次全量拉 HTML 太重，no-cache 够用且省带宽）
+      res.writeHead(200, { 'Content-Type': type, 'Cache-Control': 'no-cache' });
       res.end(content);
       return true;
     } catch {
-      res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-cache' });
       res.end(JSON.stringify({ success: false, msg: 'static not found: ' + file }));
       return true;
     }
@@ -275,6 +376,10 @@ try {
 
     // 静态文件（仅 GET）
     if (req.method === 'GET') {
+      // 第一刀起 · 前端 ES6 模块静态资源（/ichigo-assets/*.js，ESM 需正确 MIME）
+      if (pathname.indexOf('/ichigo-assets/') === 0) {
+        return serveStatic(res, 'ichigo-assets' + pathname.slice('/ichigo-assets'.length), 'text/javascript; charset=utf-8');
+      }
       switch (pathname) {
         case '/ichigo-console':
         case '/ichigo-console.html':
@@ -312,12 +417,32 @@ try {
       console.log('比特浏览器 API: ' + (loadConfig().apiBase || process.env.BIT_BROWSER_API_URL || 'http://127.0.0.1:54345'));
       console.log('SQLite DB:      ' + dbPath);
     });
+    // task-10 B：crash-guard 钩子下沉到 isMain（测试 require 不挂）
+    process.on('uncaughtException', function(err) {
+      console.error('[uncaughtException] crash-guard：记录后 close+exit(1)，拉起归 pm2：', (err && err.stack) || err);
+      _crashLog(err, 'uncaughtException');
+      try { if (typeof store.close === 'function') store.close(); } catch (e) { console.error('[crash-guard] store.close 失败:', e && e.message); }
+      setTimeout(function() { process.exit(1); }, 200).unref();
+    });
+    // task-10 A：unhandledRejection 双方向判定（GUARDIAN §4.3）；起步态（env AI_SAY_REJECTION_GUARD 缺省）全 log-only，0 行为变化
+    process.on('unhandledRejection', function(reason) {
+      if (_shouldFatalRejection(reason)) {
+        console.error('[unhandledRejection] crash-guard fatal（GUARDIAN §4.3 判定）：记录后 close+exit(1)，拉起归 pm2：', (reason && reason.stack) || reason);
+        _crashLog(reason, 'unhandledRejection');
+        try { if (typeof store.close === 'function') store.close(); } catch (e) { console.error('[crash-guard] store.close 失败:', e && e.message); }
+        setTimeout(function() { process.exit(1); }, 200).unref();
+      } else {
+        console.warn('[unhandledRejection] GUARDIAN §4.3 判定为 log-only（起步保守态 / denyByDefault=true 命中白名单），不退出:', (reason && reason.stack) || reason);
+      }
+    });
     process.on('SIGINT', shutdown);
     // task-36：SIGTERM（stop-console.bat / 进程管理）也要优雅退出
     process.on('SIGTERM', shutdown);
     function shutdown() {
-      console.log('[shutdown] 收到退出信号，关闭 server…');
-      try { server.close(); } catch (e) {}
+      console.log('[shutdown] 收到退出信号，关闭 server + SQLite（task-6：close 时序对齐 pm2 kill_timeout ≥ 2000ms）…');
+      try { server.close(); } catch (e) { console.error('[shutdown] server.close 失败:', e && e.message); }
+      // task-6：SIGTERM/SIGINT 前显式关 SQLite（防 -wal 残留；幂等，uncaughtException 路径已关则 no-op）
+      try { if (typeof store.close === 'function') store.close(); } catch (e) { console.error('[shutdown] store.close 失败:', e && e.message); }
       setTimeout(function() { process.exit(0); }, 1500).unref();
     }
   }
@@ -326,6 +451,7 @@ try {
   module.exports = {
     app,
     store,
+    _crashGuard: { _isWhitelistedRejection, _shouldFatalRejection, _loadRejectionGuard, _matchesGuardList, _crashLog },
     talkEngine,
     recommender,
     dedup,

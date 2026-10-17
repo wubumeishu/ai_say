@@ -24,6 +24,7 @@
 'use strict';
 
 const http = require('http');
+const net = require('net'); // task-2：/api/console/health 轻量端点探 CDP 54346 TCP 可达（不调平台 network/health、不做风控归因，GUARDIAN ⑤ 防重启风暴）
 
 /**
  * 在现有 Express/原生 http app 上注册 /api/console/* 路由。
@@ -48,6 +49,8 @@ function mountConsoleRoutes(app, deps = {}) {
   const adapters = deps.adapters || null;
   const recommender = deps.recommender || null;
   const liveScanner = deps.liveScanner || null;
+  const happyScanner = deps.happyScanner || null; // H4 · 快乐平台只读抓取
+  const happyCache = deps.happyCache || null; // H4 缺陷6 · A 持久化（data/happy-cache.json）
   const deepScrape = deps.deepScrape || null;
   const settingsForLive = deps.settingsForLive || deps.settings || null;
   const proxyPool = deps.proxyPool || null;
@@ -898,7 +901,170 @@ register('GET', '/api/console/customers', wrap(async (req, res) => {
   }));
 
   // GET /api/console/live/customers → 全量客户（缓存快照）
-  register('GET', '/api/console/live/customers', wrap(async (req, res) => {
+    // ---------------------------------------------------------------- 
+  // H4 · 快乐平台（happymail.co.jp / 18595）只读端点（独立不碰出会 mailbox）
+  // GET /api/console/happy/inbox?force=1&more=1&expand=1
+  //   缓存优先（5min 新鲜直接回 cached:true）→ 过期/force 真连 CDP → 成功后回写缓存；
+  //   expand=1 时循环点「もっと見る」直到无按钮/不再增长/达 30 位上限（C 自动加载更多）；
+  //   窗口未开/CDP 失败 → 降级回缓存（stale 标记），不回空。
+  // GET /api/console/happy/inbox/customer?id={memberID}&mailID={mailID}
+  //   按 memberID 键缓存 profile+messages（TTL 5min），无缓存/force 才真连拉。
+  // GET /api/console/happy/inbox/brief
+  //   从缓存取最近 1 个 messages>0 的客户 → 返回其 profile+messages（B 客户详情自动获取）；
+  //   全客户无 messages → { ok:true, empty:true }。
+
+  register('GET', '/api/console/happy/inbox', wrap(async (req, res) => {
+    const qs = new URLSearchParams(String(req.url || '').split('?')[1] || '');
+    const force = qs.get('force') === '1';
+    const more = qs.get('more') === '1'; // H4 缺陷②：more=1 点一次「もっと見る」
+    const expand = qs.get('expand') === '1'; // H4 缺陷6 · C：expand=1 循环点「もっと見る」到全量
+    if (!happyScanner || typeof happyScanner.scanInbox !== 'function') {
+      // 端点 501 降级（scanner 未注入）；若 happyCache 有旧数据则 stale 降级回缓存
+      if (happyCache) {
+        const cached = happyCache.getInbox({ stale: true });
+        if (cached) return json(res, 200, Object.assign({ ok: false, reason: 'happyScanner-not-injected', from: 'cache-stale', cached: !!cached.cached }, cached));
+      }
+      return json(res, 501, { ok: false, reason: 'happyScanner-not-injected', msg: '快乐抓取器未注入，暂无法加载快乐数据' });
+    }
+    // C 自动加载更多：expand=true 时把 more 升级成「循环点」语义（scanInbox 内部循环）
+    try {
+      const wantMore = expand ? true : more;
+      const scan = await happyScanner.scanInbox(wantMore, { expand: !!expand });
+      if (scan.ok) {
+        // A 持久化：成功 → 回写缓存
+        if (happyCache) happyCache.upsertInbox(scan);
+        return json(res, 200, scan);
+      }
+      // 抓取失败：降级回缓存（stale 标记），不回空
+      if (happyCache) {
+        const cached = happyCache.getInbox({ stale: true });
+        if (cached) return json(res, 200, Object.assign({ ok: true, from: 'cache-fallback', scanReason: scan.reason, cached: !!cached.cached, stale: true }, cached));
+      }
+      return json(res, 501, Object.assign({ ok: false }, scan));
+    } catch (e) {
+      if (happyCache) {
+        const cached = happyCache.getInbox({ stale: true });
+        if (cached) return json(res, 200, Object.assign({ ok: false, from: 'cache-exception', reason: 'scan-exception', msg: String(e && e.message || e), cached: !!cached.cached, stale: true }, cached));
+      }
+      return json(res, 501, { ok: false, reason: 'happy-scan-exception', msg: String(e && e.message || e) });
+    }
+  }));
+
+  register('GET', '/api/console/happy/inbox/customer', wrap(async (req, res) => {
+    const qs = new URLSearchParams(String(req.url || '').split('?')[1] || '');
+    const memberID = qs.get('id') || '';
+    const mailID = qs.get('mailID') || '';
+    const force = qs.get('force') === '1';
+    if (!happyScanner || typeof happyScanner.scanCustomer !== 'function') {
+      // 端点 501；有缓存则 stale 降级
+      if (happyCache && memberID) {
+        const cached = happyCache.getCustomer(memberID, { stale: true });
+        if (cached) return json(res, 200, Object.assign({ ok: false, reason: 'happyScanner-not-injected', from: 'cache-stale', memberID }, cached, { cached: !!cached.cached, stale: true }));
+      }
+      return json(res, 501, { ok: false, reason: 'happyScanner-not-injected', msg: '快乐抓取器未注入，暂无法加载客户详情' });
+    }
+    if (!memberID) {
+      return json(res, 400, { ok: false, reason: 'missing-memberID', msg: '缺少 id（memberID）查询参数' });
+    }
+    // B/A：先读缓存（非 force + 新鲜直接回）
+    if (!force && happyCache) {
+      const cached = happyCache.getCustomer(memberID, {});
+      if (cached) return json(res, 200, Object.assign({ ok: true, from: 'cache', memberID, contact: cached.profile ? { tid: cached.memberID, name: (cached.profile.fields && cached.profile.fields.name) || '' } : null, profile: cached.profile, messages: cached.messages, mailID: cached.mailID || mailID }, { cached: cached.cached, scannedAt: cached.fetchedAt }));
+    }
+    try {
+      const r = await happyScanner.scanCustomer(memberID, mailID);
+      if (r.ok) {
+        if (happyCache) happyCache.upsertCustomer(memberID, r.profile, r.messages, r.mailID || mailID);
+        return json(res, 200, r);
+      }
+      // 抓取失败：降级回缓存
+      if (happyCache) {
+        const cached = happyCache.getCustomer(memberID, { stale: true });
+        if (cached) return json(res, 200, Object.assign({ ok: false, from: 'cache-fallback', scanReason: r.reason, memberID, contact: null, profile: cached.profile, messages: cached.messages, mailID: cached.mailID || mailID }, { stale: true }));
+      }
+      return json(res, 501, Object.assign({ ok: false }, r));
+    } catch (e) {
+      if (happyCache) {
+        const cached = happyCache.getCustomer(memberID, { stale: true });
+        if (cached) return json(res, 200, Object.assign({ ok: false, from: 'cache-exception', reason: 'scan-exception', memberID, profile: cached.profile, messages: cached.messages }, { stale: true }));
+      }
+      return json(res, 501, { ok: false, reason: 'happy-customer-scan-exception', msg: String(e && e.message || e) });
+    }
+  }));
+
+  // H4 缺陷 6 · B 客户详情自动获取：/brief 从缓存取最近 1 个 messages>0 的客户
+  register('GET', '/api/console/happy/inbox/brief', wrap(async (req, res) => {
+    // H4 缺陷6 · B 增强：缓存里 messages 全空但 happyScanner 在 → 真连拉「收件箱首条有 lastMessage 客户」的 history（只读），回写缓存
+    if (happyCache && happyScanner && typeof happyScanner.scanInbox === 'function') {
+      const cachedBrief = happyCache.getBrief();
+      if (!cachedBrief && !happyCache.hasAnyWithMessages()) {
+        // 缓存无有 messages 的客户 → 真连拉 1 个（取收件箱首条有 mailID 的客户 navigate 会话页抽 history）
+        try {
+          const scan = await happyScanner.scanInbox(false);
+          if (scan.ok && Array.isArray(scan.contacts)) {
+            const target = scan.contacts.find(function(c) { return c && c.mailID && c.lastMessage; }) || (scan.contacts[0] || null);
+            if (target && target.mailID) {
+              const cust = await happyScanner.scanCustomer(target.memberID, target.mailID);
+              if (cust.ok) {
+                happyCache.upsertCustomer(target.memberID, cust.profile, cust.messages, target.mailID);
+                return json(res, 200, {
+                  ok: true, empty: !(Array.isArray(cust.messages) && cust.messages.length), from: 'live-brief',
+                  memberID: target.memberID,
+                  contact: cust.contact || { tid: target.memberID, name: target.name || '' },
+                  profile: cust.profile,
+                  messages: cust.messages || [],
+                  mailID: target.mailID,
+                });
+              }
+            }
+          }
+        } catch (e) {
+          // 真连拉 brief 失败 → 降级缓存（可能全空）
+        }
+      }
+    }
+    if (!happyCache) {
+      // 无缓存层：直接真连（退化为旧行为）
+      if (happyScanner && typeof happyScanner.scanInbox === 'function') {
+        try {
+          const scan = await happyScanner.scanInbox(false);
+          if (scan.ok) {
+            const withMsg = (scan.contacts || []).filter(function(c) { return c && c.mailID; });
+            if (withMsg.length) {
+              const first = withMsg[0];
+              const cust = await happyScanner.scanCustomer(first.memberID, first.mailID);
+              return json(res, 200, { ok: true, memberID: first.memberID, contact: cust.contact, profile: cust.profile, messages: cust.messages, mailID: first.mailID, empty: false, from: 'live' });
+            }
+          }
+          return json(res, 200, { ok: true, empty: true, from: 'live' });
+        } catch (e) {
+          return json(res, 501, { ok: false, reason: 'brief-scan-exception', msg: String(e && e.message || e) });
+        }
+      }
+      return json(res, 501, { ok: false, reason: 'no-cache-no-scanner', msg: 'happyCache/happyScanner 均未注入' });
+    }
+    // 有缓存：取最近 1 个 messages>0 的客户（不真连 CDP）
+    const brief = happyCache.getBrief();
+    if (brief) {
+      return json(res, 200, {
+        ok: true, empty: false, from: 'cache',
+        memberID: brief.memberID,
+        contact: brief.profile ? { tid: brief.memberID, name: (brief.profile.fields && brief.profile.fields.name) || '' } : null,
+        profile: brief.profile,
+        messages: brief.messages,
+        mailID: brief.mailID,
+        scannedAt: brief.fetchedAt,
+      });
+    }
+    // 全客户无 messages → 缓存里看收件箱是否有客户（提示占位）
+    const inbox = happyCache.getInbox({});
+    if (inbox && Array.isArray(inbox.contacts) && inbox.contacts.length) {
+      return json(res, 200, { ok: true, empty: true, from: 'cache', note: '收件箱 ' + inbox.contacts.length + ' 位客户均暂无历史消息（可切收件箱选客户拉取）', contactsCount: inbox.contacts.length });
+    }
+    return json(res, 200, { ok: true, empty: true, from: 'cache', note: '暂无客户数据' });
+  }));
+
+    register('GET', '/api/console/live/customers', wrap(async (req, res) => {
     if (!ichigoCache) return json(res, 501, { ok: false, msg: 'ichigoCache 未注入' });
     return json(res, 200, { ok: true, contacts: ichigoCache.getContacts().map(enrichContact), stats: ichigoCache.stats() });
   }));
@@ -1369,6 +1535,20 @@ register('GET', '/api/console/customers', wrap(async (req, res) => {
     });
   }));
 
+  // ---------------------------------------------------------------- 8b) 平台列表（Phase 4 工单 H2 · 平台切换 UI 只读端点）
+  // GET /api/console/platforms → { ok, platforms: [{ id, label, baseUrl }], active }
+  // 纯只读：返回 adapters 注册表 + liveScanner 当前 adapterPlatform（H2 不切抓取，H3 才激活 kairaku）
+  register('GET', '/api/console/platforms', wrap(async (req, res) => {
+    if (!adapters || !liveScanner) return json(res, 501, { ok: false, msg: 'adapters 或 liveScanner 未注入' });
+    const platformMeta = [
+      { id: 'ichigo194964', label: '出会（ikuru）', baseUrl: 'sp.194964.com' },
+      { id: 'kairaku', label: '快乐', baseUrl: 'happymail.co.jp' },
+    ];
+    let active = 'ichigo194964';
+    try { active = (typeof liveScanner.getAdapterPlatform === 'function' ? liveScanner.getAdapterPlatform() : null) || 'ichigo194964'; } catch (e) { active = 'ichigo194964'; }
+    json(res, 200, { ok: true, platforms: platformMeta, active: active });
+  }));
+
   // ---------------------------------------------------------------- 9) likelySame 待确认队列（dedup.scanLikelySame）
   register('GET', '/api/console/likely-same', wrap(async (req, res) => {
     if (!dedup || typeof dedup.scanLikelySame !== 'function') {
@@ -1486,6 +1666,57 @@ register('GET', '/api/console/customers', wrap(async (req, res) => {
     json(res, 200, { ok: !!(r && r.ok), data: r });
   }));
   // ---------------------------------------------------------------- 网络体检（只读，归因诊断）
+  // ---------------------------------------------------------------- 轻量健康探针（task-2 / GUARDIAN ⑤ 守护验收）
+  // GET /api/console/health → 200 { ok, service:'alive', port, cdp:{reachable, port}, ts }
+  //   纯只读：服务活 + 监听端口 + CDP（BitBrowser apiBase，默认 127.0.0.1:54346）TCP 可达探测。
+  //   【铁律】不调 /api/console/network/health、不做平台风控归因、不读代理池——
+  //   pm2/Docker 健康检查打它绝不因风控非 200 误判→重启风暴（GUARDIAN ⑤ 决议）。
+  //   CDP 不可达时 cdp.reachable=false 但端点仍 200（探针只报可达性，不归因）。
+  register('GET', '/api/console/health', wrap(async (req, res) => {
+    const host = settingsForLive && settingsForLive.host ? String(settingsForLive.host) : '127.0.0.1';
+    const cdpPort = settingsForLive && settingsForLive.port ? Number(settingsForLive.port) : 54346;
+    const svcPort = process.env.PORT ? Number(process.env.PORT) : 8300;
+    let cdpReachable = false;
+    try {
+      cdpReachable = await new Promise((resolve) => {
+        const sock = net.connect({ host, port: cdpPort });
+        const timer = setTimeout(() => { try { sock.destroy(); } catch (e) { console.error('[consoleRoutes.health] CDP 探测 destroy 失败:', e && e.message); } resolve(false); }, 2000);
+        sock.once('connect', () => { clearTimeout(timer); try { sock.destroy(); } catch (e) { console.error('[consoleRoutes.health] CDP 探测 destroy 失败:', e && e.message); } resolve(true); });
+        sock.once('error', () => { clearTimeout(timer); try { sock.destroy(); } catch (e) { console.error('[consoleRoutes.health] CDP 探测 destroy 失败:', e && e.message); } resolve(false); });
+      });
+    } catch (e) {
+      console.error('[consoleRoutes.health] CDP TCP 探测异常（记 reachable=false，不阻断 200）:', e && e.message);
+      cdpReachable = false;
+    }
+    json(res, 200, { ok: true, service: 'alive', port: svcPort, cdp: { reachable: cdpReachable, port: cdpPort }, ts: new Date().toISOString() });
+  }));
+
+  // ---------------------------------------------------------------- 收件箱未读（Phase B 切单轨启用；InboxSnapshot 归位写）
+  // GET /api/console/inbox/unread → 200 { ok, unread:[{ contactId, name, unread, lastMsgTime, onlineTier }], total }
+  //   数据源 = SQLite InboxSnapshot（task-2 缓存轨归位）；前端「new 角标」改读此端点（§3.2 切单轨后启用）。
+  //   过渡期（Phase A 双写）JSON 轨缓存仍写，本端点只读 SQLite，双源并存但前端角标以 SQLite 为准。
+  //   纯只读聚合，不写 DB、不抓页面。
+  register('GET', '/api/console/inbox/unread', wrap(async (req, res) => {
+    if (!db) return json(res, 501, { ok: false, msg: 'store.db 未注入，无法查 InboxSnapshot' });
+    let rows;
+    try {
+      rows = db.prepare(
+        "SELECT s.contactId, c.displayName AS name, s.unread, s.lastMsgTime, s.onlineTier " +
+        "FROM InboxSnapshot s LEFT JOIN Contact c ON c.contactId = s.contactId " +
+        "WHERE s.unread > 0 ORDER BY s.lastMsgTime DESC"
+      ).all();
+    } catch (e) {
+      // 表尚未归位（迁移未跑）或旧库无列时降级空，不 500（铁律 §0.5 catch 必 log）
+      console.error('[consoleRoutes.inboxUnread] 查 InboxSnapshot 失败（降级空列表）:', e && e.message);
+      return json(res, 200, { ok: true, unread: [], total: 0, degraded: true });
+    }
+    const unread = rows.map((r) => ({
+      contactId: r.contactId, name: r.name || '', unread: r.unread,
+      lastMsgTime: r.lastMsgTime || '', onlineTier: r.onlineTier || null,
+    }));
+    json(res, 200, { ok: true, unread, total: unread.length });
+  }));
+
   // GET /api/console/network/health → { ok, health:{exitIp,platform,diagnosis}, fetchedAt }
   //   在出会窗口页面上下文探测：出口 IP（ipinfo/ipify）+ 平台连通 + CDP 可达性。
   //   用于回答「发消息失败/页面不动」到底是网络问题、平台问题还是 CDP 卡住。

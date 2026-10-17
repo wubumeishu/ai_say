@@ -261,7 +261,79 @@ CREATE TABLE IF NOT EXISTS MergeEvent (
 CREATE INDEX IF NOT EXISTS idx_merge_event_merged   ON MergeEvent(mergedContactId);
 CREATE INDEX IF NOT EXISTS idx_merge_event_survivor ON MergeEvent(survivorContactId);
 
+
 -- =============================================================================
+-- task-2 双存储统一 · 群控基座三级嵌套（终极蓝图 §-1.1 [平台ID-账号ID-会话ID]）
+-- 依据：docs/plan/dual-store-unify.md §1.2
+-- 设计原则：全 ADD 幂等零删改，不碰旧 14 表；三要素隔离（人设/画像/上下文落库互不污染）
+-- =============================================================================
+
+-- -----------------------------------------------------------------------------
+-- Platform · 平台维度（群控多平台基座；provider 不硬编码 ikuru，可扩 line/fb/whatsapp）
+-- 迁移期 Platform.provider='ikuru' 固定一行（sp.194964.com），Account.platform 字符串解析归位
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS Platform (
+  platformId  TEXT PRIMARY KEY,        -- 归一化 provider key（ikuru=sp.194964.com）
+  provider    TEXT NOT NULL,            -- 枚举：ikuru / line / fb / whatsapp / …
+  label       TEXT NOT NULL DEFAULT '',-- 运营可读名（旧 Account.platform 字符串迁入）
+  baseUrl     TEXT NOT NULL DEFAULT '',
+  status      TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','disabled')),
+  createdAt   TEXT NOT NULL,
+  updatedAt   TEXT NOT NULL
+);
+
+-- -----------------------------------------------------------------------------
+-- PlatformGroup / AccountGroup · 群控分组（账号可自由分组，蓝图 §-1.1）
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS PlatformGroup (
+  groupId   TEXT PRIMARY KEY,
+  label     TEXT NOT NULL DEFAULT '',
+  parent    TEXT,                                  -- 支持嵌套分组
+  createdAt TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS AccountGroup (
+  groupId   TEXT NOT NULL REFERENCES PlatformGroup(groupId),
+  accountId TEXT NOT NULL REFERENCES Account(accountId),
+  seq       INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (groupId, accountId, seq)
+);
+
+-- -----------------------------------------------------------------------------
+-- InboxSnapshot · 未读态与收件箱快照（缓存轨归位的核心；§0.2 未读 4 字段 + 在线分档）
+-- 按 [contactId, accountId] 隔离（三要素隔离：消息上下文按会话）；未读 4 字段 =
+--   lastMsgTime / unread / lastMsgTimeSeen / lastMsgTimeNotified（控制台「new 角标」数据源）
+-- Phase B 切单轨后前端改读 GET /api/console/inbox/unread（本单只落表，端点留 Phase B）
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS InboxSnapshot (
+  contactId     TEXT NOT NULL REFERENCES Contact(contactId),
+  accountId     TEXT NOT NULL REFERENCES Account(accountId),
+  lastMsgTime   TEXT NOT NULL DEFAULT '',
+  unread        INTEGER NOT NULL DEFAULT 0,
+  onlineTier    TEXT,
+  fetchedAt     TEXT NOT NULL,
+  PRIMARY KEY (contactId, accountId)
+);
+
+-- -----------------------------------------------------------------------------
+-- AccountProfileRaw · 大 JSON 桶（fields/sections/lines/nextLevelPages/bottomNav/detection/navigation/raw）
+-- 不拆细列，整包进 payload（§1.2 新增 2）；避免 JSON 列宽度膨胀
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS AccountProfileRaw (
+  accountId  TEXT PRIMARY KEY REFERENCES Account(accountId),
+  payload    TEXT NOT NULL,                          -- JSON：{fields,sections,lines,nextLevelPages,bottomNav,detection,navigation,raw}
+  updatedAt  TEXT NOT NULL
+);
+
+
+-- =============================================================================
+
+-- 迁移期平台种子：ikuru（sp.194964.com，出会平台）；provider 行幂等 INSERT OR IGNORE
+INSERT OR IGNORE INTO Platform (platformId, provider, label, baseUrl, status, createdAt, updatedAt)
+VALUES ('ikuru', 'ikuru', '自用出会', 'sp.194964.com', 'active', datetime('now'), datetime('now')),
+  -- task-H1 · 快乐平台 kairaku（happymail.co.jp）种子（测绘图 v4 坐实，幂等 INSERT OR IGNORE）
+  ('kairaku', 'kairaku', '快乐', 'happymail.co.jp', 'active', datetime('now'), datetime('now'));
+
+
 -- 迁移元数据：记录 schema 版本与迁移批次（幂等判断用）
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS _migration (
@@ -269,5 +341,78 @@ CREATE TABLE IF NOT EXISTS _migration (
   appliedAt TEXT NOT NULL,
   note      TEXT NOT NULL DEFAULT ''
 );
+
+-- =============================================================================
+-- task-3 频控账本落库（rate-ledger-persist.md §1，Variant A · 挂 v2 外键）
+-- 顺序：v1(M0 14 实体) → v2(task-2 外键源表) → v3(task-3 账本表挂 v2 外键)
+-- 三表自含 [accountId, contactId, conversationId] 三级字段，挂 Account/Contact/Conversation 外键
+-- =============================================================================
+
+-- -----------------------------------------------------------------------------
+-- SentLog · 发送/生成流水（append-only，与 Message 同纪律）
+-- pk：确定性 = sha1(accountId|contactId|ts|kind|seq)；seq = 同 (accountId,ts) 内行序
+-- 语义：单客户 24h 按「生成条数」计（blocked=0/1 都计，task-31 防绕过）；账号 1h/每分钟 cap 只计 blocked=0
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS SentLog (
+  sentLogId        TEXT PRIMARY KEY,          -- sha1(accountId|contactId|ts|kind|seq)
+  accountId        TEXT NOT NULL REFERENCES Account(accountId),
+  contactId        TEXT NOT NULL REFERENCES Contact(contactId),
+  conversationId  TEXT,                       -- 可空；有值时 REFERENCES Conversation(conversationId)
+  ts               INTEGER NOT NULL,          -- epoch ms（对齐内存账本 Date.parse(nowIso())）
+  kind             TEXT NOT NULL DEFAULT 'guide' CHECK (kind IN ('guide','remind','push','other')),
+  blocked          INTEGER NOT NULL DEFAULT 0,  -- 1 = 被合规/频控拦截仍计数
+  pending          INTEGER NOT NULL DEFAULT 0,  -- 1 = 已生成未真发（task-37 待确认口径）
+  templateVersion  TEXT,
+  variant          TEXT,                      -- A/B 变体
+  seq              INTEGER NOT NULL DEFAULT 0
+);
+-- 24h 客户级热路径：WHERE accountId=? AND contactId=? AND ts>=?
+CREATE INDEX IF NOT EXISTS idx_sent_customer_day  ON SentLog(accountId, contactId, ts DESC);
+-- 1h 账号级热路径：WHERE accountId=? AND blocked=0 AND ts>=?
+CREATE INDEX IF NOT EXISTS idx_sent_account_hour  ON SentLog(accountId, blocked, ts DESC);
+
+-- -----------------------------------------------------------------------------
+-- PendingQueue · 待确认话术（活跃队列落库）
+-- expire 语义（打回 #3）：72h 未确认 → 状态机标记 expired=1（不动 confirmed 列，confirmed 行 72h 内不被裁）；
+--   物理归档只按行量阈值 + 过 72h 时间窗（confirmed 行 72h 内既不 expire 也不归档）
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS PendingQueue (
+  pendingId        TEXT PRIMARY KEY,          -- sha1(accountId|contactId|ts|textHash)
+  accountId        TEXT NOT NULL REFERENCES Account(accountId),
+  contactId        TEXT NOT NULL REFERENCES Contact(contactId),
+  tier             TEXT NOT NULL DEFAULT 'warm',
+  text             TEXT NOT NULL,            -- 话术原文（≤500 字）
+  talkRef          TEXT,                     -- JSON：{ variant, templateVersion, platform, fallback }
+  gateBlocked      INTEGER NOT NULL DEFAULT 0,
+  gateReason       TEXT NOT NULL DEFAULT '',
+  confirmed        INTEGER NOT NULL DEFAULT 0,
+  confirmedAt      TEXT,                     -- ISO
+  expired          INTEGER NOT NULL DEFAULT 0,  -- 72h 未确认状态机标志
+  createdAt        TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_pending_active  ON PendingQueue(confirmed, expired, accountId, contactId, createdAt DESC);
+CREATE INDEX IF NOT EXISTS idx_pending_lookup  ON PendingQueue(accountId, contactId, text);
+
+-- -----------------------------------------------------------------------------
+-- GateBlock · 拦截审计（append-only，供看板/审计视图）
+-- kind 判定：rateLimit（频控前缀）/ blacklist（黑名单|denyByDefault|红线）/ compliance（其余）/ other
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS GateBlock (
+  gateBlockId      TEXT PRIMARY KEY,          -- sha1(ts|reason|kind|seq)
+  accountId        TEXT,                      -- 可空（全局拦截无账号）；有值时 REFERENCES Account(accountId)
+  contactId        TEXT,
+  ts               INTEGER NOT NULL,
+  kind             TEXT NOT NULL CHECK (kind IN ('compliance','rateLimit','blacklist','other')),
+  reason           TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_gateblock_ts  ON GateBlock(ts DESC);
+
 INSERT OR IGNORE INTO _migration (version, appliedAt, note) VALUES
-  (1, datetime('now'), 'M0: 14 实体初版 schema');
+  (1, datetime('now'), 'M0: 14 实体初版 schema'),
+  (2, datetime('now'), 'task-2 双存储统一：三级嵌套新表 Platform/PlatformGroup/AccountGroup/InboxSnapshot/AccountProfileRaw + 缓存轨归位'),
+  (3, datetime('now'), 'task-3 频控账本落库：SentLog/PendingQueue/GateBlock 三表（Variant A，挂 v2 外键）'),
+  (4, datetime('now'), 'kairaku 快乐平台种子（happymail.co.jp）+ 7 Expr 草案');
+-- 注：v4 = task-H1 快乐平台识别 + 抓取原语；v2/v21/v3 各单写源不变
+  -- 注：Conversation/Contact/ContactProfile/Account/AccountPersona 的 ADD COLUMN（未读4字段/头像/profileUrl/candidates/ageNum/pageUrl/mypageUrl/platformId）
+  --    由独立迁移批次 002_add_columns.sql.js 承载（SQLite 无 ADD IF NOT EXISTS；探测式幂等，见 server/db/migrations/）；
+  --    版本号口径（单写源收敛，node 2 核验基准）：v2 = 本 DDL 静态写「新表已落」；列补齐批次独立写 v21（002_add_columns.sql.js），互不冲突。

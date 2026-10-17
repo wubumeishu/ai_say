@@ -11,8 +11,11 @@ const { test, before, after } = require('node:test');
 const assert = require('node:assert');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 
-const TMP_DB = path.join(__dirname, '..', 'data', 'talk_rollback_test.db');
+// 卫生项（task-1 / AGENTS §3.10）：测试 db 一律放 os.tmpdir()，不在 data/ 留文件，
+// 消除 safeUnlink EBUSY 残留锁（原 data/talk_rollback_test.db）。
+const TMP_DB = path.join(os.tmpdir(), 'aisay-talk-rollback-test-' + process.pid + '.db');
 
 const { safeUnlink, onExitUnlink } = require('../.test-setup.js');
 onExitUnlink([TMP_DB]);
@@ -21,32 +24,62 @@ function cleanup() {
 }
 
 let store, talkEngine, contactRB, contactNONE;
+let createTalkEngine;
 
 before(async () => {
   cleanup();
   const { createStore } = require('../server/db/store');
-  const { createTalkEngine } = require('../server/acquisition/talkEngine');
+  createTalkEngine = require('../server/acquisition/talkEngine').createTalkEngine;
   store = createStore({ dbPath: TMP_DB });
   // 造一个真实的 Contact（触发 triggerGuide / rollbackLastTalk 时 LeadEvent 外键可命中）
   contactRB = store.upsertContact({ windowId: 'w1', platform: 'ichigo', contactKey: 'cust-RB', contact: { name: '回滚客户' } }).contactId;
   contactNONE = store.upsertContact({ windowId: 'w1', platform: 'ichigo', contactKey: 'cust-NONE', contact: { name: '无话术客户' } }).contactId;
-  // 不传 sendHook：triggerGuide 视为「生成成功」，会记 sentLog + abStats.trials
+  // 不传 sendHook：task-37 语义下 triggerGuide 恒「生成入待确认队列」（不自动发），
+  // 仍会记 sentLog(blocked:false, pending:true) + abStats.trials；真发走 confirmSend。
   talkEngine = createTalkEngine({ store, sendHook: null, lineId: 'test-line' });
 });
 after(() => cleanup());
 
-test('triggerGuide 产生 sentLog + abStats.trials 记账', () => {
+test('triggerGuide 产生 sentLog + abStats.trials 记账（task-37 新语义）', () => {
   const lead = talkEngine.triggerGuide({
     accountId: 'acc-test', contactId: contactRB, tier: 'hot', score: 85,
     signals: [{ signal: 'lineWillingness' }], category: 'outreach', language: 'ja', platform: 'ichigo',
     accountPersona: { tone: '友好' }, customerProfile: { contactId: contactRB, name: '回滚客户', region: '埼玉' },
   });
-  assert.strictEqual(lead.sent, true, '无 sendHook 时应视为生成成功');
+  // task-37：triggerGuide 不再自动发送，恒 { sent:false, pending:true } 入 pendingQueue；
+  // 真发走 confirmSend（无 sendHook 时 confirmSend 视为生成成功并补记 sentLog）。
+  assert.strictEqual(lead.sent, false, 'task-37：triggerGuide 不自动发，sent 恒 false');
+  assert.strictEqual(lead.pending, true, '生成后应入待确认队列（pending=true）');
   assert.strictEqual(lead.leadEvent && lead.leadEvent.action, 'triggered');
   const stats = talkEngine.getAbStats();
   const v = talkEngine.variantOf(contactRB);
-  assert.ok(stats[v] && stats[v].trials >= 1, '该客户所属变体 trials 应 ≥1');
+  assert.ok(stats[v] && stats[v].trials >= 1, '该客户所属变体 trials 应 ≥1（生成即记）');
   assert.ok(talkEngine._sentLog.length >= 1, 'sentLog 应有记录');
+  const lastLog = talkEngine._sentLog[talkEngine._sentLog.length - 1];
+  assert.strictEqual(lastLog.blocked, false, '通过生成记 sentLog(blocked:false, pending:true)');
+  assert.strictEqual(lastLog.pending, true, 'sentLog 区分「生成未真发」靠 pending 标志');
+
+  // 补 confirmSend 真发路径断言（task-37：真发只在 confirmSend 成功后记账）。
+  // 用独立引擎（contactCS）隔离真发路径，避免污染共享 talkEngine 的
+  // sentLog/abStats 状态（后续 rollback 用例依赖它；且 24h 频控额度会互串）。
+  const contactCS = store.upsertContact({ windowId: 'w1', platform: 'ichigo', contactKey: 'cust-CS', contact: { name: '确认客户' } }).contactId;
+  const engCS = createTalkEngine({ store, sendHook: null, lineId: 'test-line' });
+  const csGen = engCS.triggerGuide({
+    accountId: 'acc-cs', contactId: contactCS, tier: 'warm', score: 50,
+    category: 'ai_meeting', language: 'ja', platform: 'fb',
+    accountPersona: { tone: '友好' }, customerProfile: { contactId: contactCS, name: '确认客户' },
+  });
+  assert.strictEqual(csGen.pending, true, '生成入待确认队列');
+  const cs = engCS.confirmSend({ accountId: 'acc-cs', contactId: contactCS });
+  assert.strictEqual(cs.sent, true, 'confirmSend 无 sendHook 时视为真发成功');
+  assert.strictEqual(cs.queueEntry.confirmed, true, '确认应标记 queueEntry.confirmed=true');
+  assert.ok(engCS._sentLog.length >= 2, 'confirmSend 成功应再记一条 sentLog');
+  const csLog = engCS._sentLog[engCS._sentLog.length - 1];
+  assert.strictEqual(csLog.blocked, false, '真发 sentLog(blocked:false)');
+  assert.notStrictEqual(csLog.pending, true, '真发记录 pending 标志应为 undefined/false（区别于生成未发）');
+  const evts = store.db.prepare('SELECT action, lineOffered FROM LeadEvent WHERE contactId = ? ORDER BY rowid DESC LIMIT 1').get(contactCS);
+  assert.strictEqual(evts.action, 'triggered', 'confirmSend 成功写 triggered LeadEvent');
+  assert.strictEqual(evts.lineOffered, 1, 'confirmSend 成功 lineOffered=1');
 });
 
 test('rollbackLastTalk 写 LeadEvent(action=archived) 且 TalkAbStat 版本回退', () => {

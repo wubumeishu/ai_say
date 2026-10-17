@@ -7,7 +7,14 @@
   "scripts": {
     "start": "node server/index.js",
     "dev": "node --watch server/index.js",
-    "test": "node --test tests/app.test.js tests/profile.test.js tests/profileInspect.test.js tests/messagePage.test.js"
+    "test": "node --test tests/app.test.js tests/profile.test.js tests/profileInspect.test.js tests/messagePage.test.js",
+    "test:all": "node --test tests/*.test.js server/db/*.test.js server/acquisition/*.test.js",
+    "guard:start": "npx pm2 start ecosystem.config.js",
+    "guard:stop": "npx pm2 stop ai-say",
+    "guard:restart": "npx pm2 restart ai-say",
+    "guard:logs": "npx pm2 logs ai-say",
+    "guard:monit": "npx pm2 monit",
+    "guard:describe": "npx pm2 describe ai-say"
   },
   "license": "UNLICENSED",
   "dependencies": {

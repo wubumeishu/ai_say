@@ -11,12 +11,16 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const crypto = require('crypto');
 
 const { createStore } = require('./store.js');
 const { createDedup } = require('./dedup.js');
 
-const DB = path.join(__dirname, '..', '..', 'data', 'dedup_test.db');
+// 卫生项（task-11 G / AGENTS §3.10）：测试 db 一律放 os.tmpdir()，不在 data/ 留文件，
+// 消除 Windows 全量连跑时 EBUSY 残留 → 跨子例数据累积 → MergeEvent 多计的 fixture 残留根因。
+// 与 talk-rollback / metrics-funnel 同根因同类，同先例迁移。
+const DB = path.join(os.tmpdir(), 'aisay-dedup-test-' + process.pid + '.db');
 const sha1 = (s) => crypto.createHash('sha1').update(s).digest('hex');
 
 // 构造一个 contact 并写入强/弱锚点

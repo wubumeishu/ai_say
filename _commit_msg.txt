@@ -1,4 +1,0 @@
-chore: 清理根目录调试脚本 + docs 标注已移除模块
-
-- 移除 _syntax_check.js / test-deep-debug2/3.js（无引用调试残留）
-- docs/plan 03/04 顶部加「已移除模块」状态说明（lineOa/多平台骨架/一次性工具不再运行）

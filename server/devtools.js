@@ -1,5 +1,8 @@
 ﻿const WebSocket = require('ws');
 
+// 页面级 ws 的 CDP 命令自增整数 id（CDP 要求整数 id，字符串 id 会报 'Message must have integer id'）
+let pageSeq = 0;
+
 class DevToolsClient {
   constructor(wsUrl) {
     this.wsUrl = wsUrl;
@@ -23,7 +26,7 @@ class DevToolsClient {
           }
         }
         for (const listener of this.eventListeners) {
-          try { listener(msg); } catch {}
+          try { listener(msg); } catch (e) { /* 事件监听器异常不阻断消息循环 */ }
         }
         if (msg.id && this.pending.has(msg.id)) {
           const { resolve, reject } = this.pending.get(msg.id);
@@ -104,6 +107,92 @@ class DevToolsClient {
 
   close() {
     if (this.ws) this.ws.close();
+  }
+
+  /**
+   * 页面级 ws 直连 evaluate（Bug 1 可靠通道，出会/快乐共用）。
+   * 根因（总控 18595 真连冒烟坐实）：BitBrowser CDP 桥的浏览器级 ws 上
+   *   Target.attachToTarget(flatten) 拿到的 attach sessionId 不支持 Runtime.evaluate
+   *   （报 'Runtime.evaluate' wasn't found）。可行通道 = /json/list（HTTP）拿 page target 的
+   *   webSocketDebuggerUrl（ws://host:port/devtools/page/{id}），直连该页面级 ws 发
+   *   Runtime.evaluate（【不带 sessionId / 不做 Runtime.enable 握手】）→ 直接应答。
+   * 参数：expression + targetId（page target id，仅用于无 pageWsUrl 时自动 resolvePageWs）
+   *       + pageWsUrl（/devtools/page/{id} ws，缺时本方法 fetch /json/list 按 targetId 补）
+   *       + cdpHttp（CDP http 端点 host:port，缺省用本 client 浏览器级 ws 同 host:port）
+   * 页面级 ws 用完即关（仿 ichigoDeepScrape L205-208 withTargetOnce 模式）。
+   * @returns {Promise<{value, targetInfo}>}（与 evaluate 主路径返回形态一致，调用方 res.value 取真值）
+   */
+  async evaluatePage(expression, targetId, pageWsUrl, cdpHttp) {
+    let wsUrl = String(pageWsUrl || '');
+    if (!wsUrl && targetId) {
+      wsUrl = await this.resolvePageWs(targetId, cdpHttp);
+    }
+    if (wsUrl) {
+      const pageWs = new WebSocket(wsUrl, { perMessageDeflate: false });
+      await new Promise((resolve, reject) => {
+        pageWs.once('open', () => resolve());
+        pageWs.once('error', (err) => reject(new Error('页面级 ws 连接失败: ' + err.message)));
+      });
+      try {
+        const reqId = ++pageSeq; // 整数 id（CDP 要求；字符串 id 报 'Message must have integer id'）
+        const result = await new Promise((resolve, reject) => {
+          const timer = setTimeout(() => reject(new Error('页面级 Runtime.evaluate 超时')), 15000);
+          const onMsg = (data) => {
+            const msg = JSON.parse(String(data));
+            if (msg.id === reqId) {
+              clearTimeout(timer);
+              pageWs.off('message', onMsg);
+              if (msg.error) reject(new Error(msg.error.message || 'CDP 页面级 evaluate 错误'));
+              else resolve(msg.result);
+            }
+          };
+          pageWs.on('message', onMsg);
+          pageWs.send(JSON.stringify({ id: reqId, method: 'Runtime.evaluate', params: { expression, returnByValue: true } }));
+        });
+        if (result.exceptionDetails) {
+          throw new Error(result.exceptionDetails.exception && result.exceptionDetails.exception.description || '页面脚本执行异常');
+        }
+        // devtools.evaluate 返回 { value, targetInfo } 包装——evaluatePage 同形态，调用方 res.value 取真值
+        return { value: result.result ? result.result.value : undefined, targetInfo: null };
+      } finally {
+        try { pageWs.close(); } catch (e) { /* ignore */ }
+      }
+    }
+    // 无页面级 ws（targetId 缺失/拿不到）→ 回退浏览器级会话路由 evaluate（主路径，会话正常时可用）
+    return this.evaluate(expression, targetId);
+  }
+
+  /**
+   * 从 CDP /json/list（HTTP）按 targetId 取 page target 的 webSocketDebuggerUrl（缺时 evaluatePage 自动补）。
+   */
+  async resolvePageWs(targetId, cdpHttp) {
+    const http = require('http');
+    let hostPort = String(cdpHttp || '').replace(/^https?:\/\//, '');
+    if (!hostPort && this.wsUrl) {
+      const m = String(this.wsUrl).match(/^wss?:\/\/([^/]+)/);
+      hostPort = m ? m[1] : '';
+    }
+    if (!hostPort) return '';
+    const url = 'http://' + hostPort + '/json/list';
+    try {
+      const targets = await new Promise((resolve, reject) => {
+        http.get(url, (res) => {
+          let raw = '';
+          res.on('data', (c) => { raw += c; });
+          res.on('end', () => {
+            try {
+              const parsed = JSON.parse(raw);
+              resolve(Array.isArray(parsed) ? parsed : []);
+            } catch (e) { reject(e); }
+          });
+        }).on('error', reject);
+      });
+      const hit = (targets || []).find((t) => t && t.id === targetId && t.webSocketDebuggerUrl);
+      return hit ? String(hit.webSocketDebuggerUrl) : '';
+    } catch (e) {
+      // /json/list 拿不到（404/解析失败）→ 回空（evaluatePage 回退会话路由）
+      return '';
+    }
   }
 }
 

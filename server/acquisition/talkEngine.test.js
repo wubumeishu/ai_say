@@ -1,12 +1,14 @@
 // =============================================================================
 // Ai SAY M3 · talkEngine 自检（node --test）
-// 4 类样例（对齐任务验收）：
-//   1. warm + 合规（allow）         → 生成话术含人设+画像变量，经 adapter.send 契约发送
+// 4 类样例（对齐任务验收，task-37 语义：triggerGuide 恒 {sent:false, pending:true}，
+//   生成入 pendingQueue 不自动发；真发只走 confirmSend（成功才调 sendHook + 补记
+//   sentLog/LeadEvent lineOffered=1））：
+//   1. warm + 合规（allow）         → 生成话术含人设+画像变量，confirmSend 后经 adapter.send 契约发送
 //   2. warm + 命中频控（24h ≥2）   → 拦截，LeadEvent 仍落库（action=triggered）
 //   3. warm + 黑名单（compliance）  → 拦截，reason 含「合规闸门拒绝」
-//   4. hot + 人工闸门（auto=true）  → 不自动发；approveManual 后 auto=false 重发成功
+//   4. hot 客户                     → approveManual 放行后 confirmSend 真发成功（sendHook）
 //   附加：归档 LeadEvent（remindIfNoLine 已提醒过 ⇒ action=archived）
-// 断言：话术符合人设+画像+规则 / 频控拦截 / 合规拦截 / 归档 LeadEvent
+// 断言：话术符合人设+画像+规则 / 频控拦截 / 合规拦截 / 归档 LeadEvent / 人工放行
 // =============================================================================
 'use strict';
 
@@ -77,44 +79,59 @@ test('talkEngine: 4 类样例 + 归档', (t) => {
 
   const ctxBase = { accountId: 'acc-x', category: 'ai_meeting', language: 'ja', platform: 'fb', accountPersona: persona };
 
-  // 1. warm + 合规 allow ⇒ 生成话术含人设+画像，经 adapter.send 发送
-  t.test('warm + 合规（allow）⇒ 生成话术含画像变量，经 adapter.send 发送', () => {
-    adapterOut = null;
+  // 1. warm + 合规 allow ⇒ 生成话术含人设+画像（task-37：生成入待确认队列，不自动发；
+  //    真发走 confirmSend，成功才调 sendHook（adapter.send 契约）+ 补记 sentLog/LeadEvent）
+  t.test('warm + 合规（allow）⇒ 生成话术含画像变量，confirmSend 后经 adapter.send 发送', () => {
     const rules = makeRules({ allowAll: true });
     const out = engine.triggerGuide(Object.assign({}, ctxBase, {
       contactId: cWarm, tier: 'warm', score: 55,
       signals: [{ signal: 'priceInquiry' }],
       customerProfile: profileFor(cWarm, '田中'),
       governanceRules: { rules, denyByDefault: false },
-      auto: true,
     }));
-    assert.strictEqual(out.sent, true, 'warm 合规应发送');
-    assert.ok(adapterOut, '应走 sendHook（adapter.send 契约）');
+    // task-37：triggerGuide 恒 sent=false + pending=true（生成入待确认队列，不自动发）
+    assert.strictEqual(out.sent, false, 'task-37：triggerGuide 不自动发');
+    assert.strictEqual(out.pending, true, '生成入待确认队列');
+    assert.strictEqual(out.leadEvent.action, 'triggered', 'LeadEvent=triggered');
+    assert.strictEqual(out.leadEvent.lineOffered, 0, 'pending 态 lineOffered=0（未确认发送）');
+    assert.ok(out.queueEntry, '生成话术应入 pendingQueue');
+    // 真发走 confirmSend：无 sendHook 失败时视为成功，才补记 sentLog + LeadEvent(lineOffered=1)
+    adapterOut = null;
+    const cs = engine.confirmSend({ accountId: ctxBase.accountId, contactId: cWarm });
+    assert.strictEqual(cs.sent, true, 'confirmSend 成功（sendHook mock ok:true）');
+    assert.ok(adapterOut, '真发应走 sendHook（adapter.send 契约）');
     assert.ok(adapterOut.text.includes('田中'), '话术应含客户名（画像变量填充）');
     assert.ok(adapterOut.text.includes('aisay.official'), '话术应含 LINE ID');
-    assert.strictEqual(out.leadEvent.action, 'triggered', 'LeadEvent=triggered');
-    assert.strictEqual(out.leadEvent.lineOffered, 1, 'lineOffered=1');
+    const evts = store.db.prepare('SELECT action, lineOffered FROM LeadEvent WHERE contactId = ? ORDER BY rowid DESC LIMIT 1').get(cWarm);
+    assert.strictEqual(evts.action, 'triggered', 'confirmSend 后最新 LeadEvent=triggered');
+    assert.strictEqual(evts.lineOffered, 1, 'confirmSend 成功 lineOffered=1');
   });
 
   // 2. warm + 频控（同客户 24h 第 3 条）⇒ 拦截 + LeadEvent 落库
   t.test('命中频控（单客户 24h ≥2）⇒ 拦截 + LeadEvent 仍落库', () => {
     const rules = makeRules({ allowAll: true });
-    // 样例 1 已发第 1 条。再触发 2 次用尽额度
+    // 24h 生成额度=2。样例 1 的 triggerGuide 记 1 条生成 + confirmSend 真发 1 条 = 共 2 条
+    // 计入 24h 生成额度（task-31 口径：生成数含 confirmSend 真发）。本样例第 1 次
+    // triggerGuide 时 perDay=2，已用尽额度 ⇒ 直接命中 24h≤2 频控拦截（实测 2026-10-06
+    // task-4 诊断确认）。task-37 语义：triggerGuide 恒 sent=false + pending=true，
+    // 区分拦截 vs 放行靠 reason（拦截才有 reason）。
     const second = engine.triggerGuide(Object.assign({}, ctxBase, {
       contactId: cWarm, tier: 'warm', score: 55,
       customerProfile: profileFor(cWarm, '田中'),
       governanceRules: { rules, denyByDefault: false },
-      auto: true,
     }));
-    assert.strictEqual(second.sent, true, '第 2 条 24h 内仍可发');
+    assert.strictEqual(second.sent, false, 'task-37：第 2 条恒 sent=false（不自动发）');
+    assert.match(second.reason, /频控/, '第 2 条命中 24h≤2 频控拦截（样例 1 已用尽额度）');
+    assert.strictEqual(second.leadEvent.action, 'triggered', '被拦截也写 LeadEvent（100%）');
+    assert.strictEqual(second.leadEvent.lineOffered, 0, 'lineOffered=0');
+    // 第 3 次触发同样命中频控（perDay=3 仍 ≥2），验证拦截的稳定性
     const third = engine.triggerGuide(Object.assign({}, ctxBase, {
       contactId: cWarm, tier: 'warm', score: 55,
       customerProfile: profileFor(cWarm, '田中'),
       governanceRules: { rules, denyByDefault: false },
-      auto: true,
     }));
-    assert.strictEqual(third.sent, false, '第 3 条应被频控拦截');
-    assert.match(third.reason, /频控/, 'reason 应标明频控');
+    assert.strictEqual(third.sent, false, '第 3 条恒 sent=false（task-37 不自动发）');
+    assert.match(third.reason, /频控/, '第 3 条仍命中频控（额度持续用尽）');
     assert.strictEqual(third.leadEvent.action, 'triggered', '被拦截也写 LeadEvent（100%）');
     assert.strictEqual(third.leadEvent.lineOffered, 0, 'lineOffered=0');
   });
@@ -134,28 +151,28 @@ test('talkEngine: 4 类样例 + 归档', (t) => {
   });
 
   // 4. hot + 人工闸门（auto 模式不自动发；approveManual 后放行）
-  t.test('hot + 人工闸门（auto）⇒ 不自动发；approveManual 放行后重发成功', () => {
+  t.test('hot 客户：approveManual 人工放行 + confirmSend 真发（task-37 语义）', () => {
     const rules = makeRules({ allowAll: true });
-    const autoOut = engine.triggerGuide(Object.assign({}, ctxBase, {
+    // task-37 后 triggerGuide 不再有「人工闸门拦截」分支（hot 也恒生成入待确认队列）；
+    // 人工闸门的语义 = 该客户需 approveManual 放行后才允许 confirmSend 真发。
+    const gen = engine.triggerGuide(Object.assign({}, ctxBase, {
       contactId: cHot, tier: 'hot', score: 90,
       customerProfile: profileFor(cHot, '热点'),
       governanceRules: { rules, denyByDefault: false },
-      auto: true,
     }));
-    assert.strictEqual(autoOut.sent, false, 'hot 客户 auto 模式不应自动发（人工闸门）');
-    assert.match(autoOut.reason, /人工闸门/, 'reason 标明人工闸门');
-    assert.strictEqual(autoOut.leadEvent.action, 'triggered', 'LeadEvent 仍落库');
+    assert.strictEqual(gen.sent, false, 'task-37：hot 客户 triggerGuide 也不自动发');
+    assert.strictEqual(gen.pending, true, '生成入待确认队列');
+    assert.strictEqual(gen.leadEvent.action, 'triggered', 'LeadEvent 仍落库');
+    // talk.needsManual：hot 且无 manualBypass ⇒ 需人工放行（buildTalks 输出标记）
+    assert.strictEqual(gen.talk.needsManual, true, 'hot 客户 talk.needsManual=true（人工闸门标记）');
 
     const appr = engine.approveManual({ accountId: ctxBase.accountId, contactId: cHot });
     assert.strictEqual(appr.approved, true, '人工放行成功');
 
-    const manualOut = engine.triggerGuide(Object.assign({}, ctxBase, {
-      contactId: cHot, tier: 'hot', score: 90,
-      customerProfile: profileFor(cHot, '热点'),
-      governanceRules: { rules, denyByDefault: false },
-      auto: false,
-    }));
-    assert.strictEqual(manualOut.sent, true, '人工放行后（auto=false）应发送成功');
+    adapterOut = null;
+    const cs = engine.confirmSend({ accountId: ctxBase.accountId, contactId: cHot });
+    assert.strictEqual(cs.sent, true, '人工放行后 confirmSend 真发成功（sendHook mock）');
+    assert.ok(adapterOut, '真发应走 sendHook（adapter.send 契约）');
   });
 
   // 附加：归档 LeadEvent

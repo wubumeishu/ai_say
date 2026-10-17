@@ -126,6 +126,8 @@ test('audit-view: /api/console/audit 3 区块 + 拦截计数 + degraded 读取',
   //   上一步 blocked（黑名单）已消耗 1 条生成额度 ⇒ 接下来第 1 条 clean send 是第 2 条生成（可发），
   //   第 2 条 clean send 是第 3 条生成（命中 24h≤2 频控拦截）。
   // 验证「合规拦截的也算额度、避免绕过」：rl3（第 3 条 clean send / 第 4 条生成）必被频控拦。
+  // task-37 新语义：triggerGuide 不自动发，恒 {sent:false, pending:true}；真发走 confirmSend。
+  // 通过判定改看 pending=true + 无 reason；拦截判定仍看 reason 前缀。
   const rl = talkEngine.triggerGuide({
     accountId: 'acc-audit', contactId, tier: 'warm', score: 55,
     category: 'ai_meeting', language: 'ja', platform: 'fb',
@@ -144,10 +146,12 @@ test('audit-view: /api/console/audit 3 区块 + 拦截计数 + degraded 读取',
     accountPersona: { persona: 'サヤ' }, customerProfile: { contactId, name: 'test' },
     governanceRules: { rules: [], denyByDefault: false }, auto: true,
   }); // clean send #3（生成 #4）→ 频控拦截
-  assert.strictEqual(rl.sent, true, 'clean send #1（生成#2）24h 内可发');
-  assert.strictEqual(rl2.sent, false, 'clean send #2（生成#3）命中 24h≤2 频控拦截（合规拦截也计入额度）');
-  assert.match(rl2.reason, /频控/, 'rl2 拦截原因=频控');
-  assert.strictEqual(rl3.sent, false, 'clean send #3 频控拦截');
+  assert.strictEqual(rl.sent, false, 'task-37：triggerGuide 恒 sent=false（不自动发）');
+  assert.strictEqual(rl.pending, true, 'clean send #1（生成#2）24h 内生成成功，入待确认队列');
+  assert.ok(rl.reason === '' || rl.reason === undefined, 'clean send #1 无拦截 reason');
+  assert.strictEqual(rl2.sent, false, 'clean send #2 恒 sent=false（task-37 不自动发）');
+  assert.match(rl2.reason, /频控/, 'rl2 拦截原因=频控（24h≤2 已用尽）');
+  assert.strictEqual(rl3.sent, false, 'clean send #3 恒 sent=false（task-37 不自动发）');
   assert.match(rl3.reason, /频控/, 'rl3 拦截原因=频控');
 
   // 调路由

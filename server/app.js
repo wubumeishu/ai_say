@@ -829,8 +829,14 @@ async function readProfilePage(body) {
           json(result.ok ? 200 : 502, result);
           return;
         }
+        // task-6（§3.3.4 修复 + 方案 A 兼容层）：/api/monitor 已标记 deprecated——
+        // onMessage 无法经 HTTP body 序列化（函数引用丢失，空转根源已修：
+        // MessageMonitor 分派改走进程内 registerSink）。本路由保留：窗口 open +
+        // session adopt + /api/stop 仍可用；新消费者请用进程内 registerSink，
+        // 不要依赖 /api/monitor 传回调。彻底废弃归 Phase 4 前端拆分（index.html）。
         if (method === 'POST' && pathname === '/api/monitor') {
           const result = await monitorMessage(parsed);
+          if (result && result.ok) result.data = Object.assign({}, result.data, { deprecated: true, note: 'onMessage 无法经 HTTP 序列化；新消费者走 MessageMonitor.registerSink（§3.3.4 task-6）' });
           json(result.ok ? 200 : 502, result);
           return;
         }

@@ -1,0 +1,18 @@
+# 数据/密钥/日志/依赖 一律不进镜像（AGENTS §0.3 铁律）
+node_modules/
+data/
+backups/
+platform/
+logs/
+undefined/
+settings.json
+settings.json.*
+*.log
+console.log
+console.pid
+_startup*.log
+_commit_msg.txt
+_syntax_check.js
+test-deep-debug*.js
+.git/
+.gitignore

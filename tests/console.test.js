@@ -10,11 +10,14 @@ const { test, before, after } = require('node:test');
 const assert = require('node:assert');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const http = require('http');
 const crypto = require('crypto');
 
-// 临时 db
-const TMP_DB = path.join(__dirname, '..', 'data', 'console_test.db');
+// 卫生项（task-11 G / AGENTS §3.10）：测试 db 一律放 os.tmpdir()，不在 data/ 留文件。
+// 此前 L17 写 data/console_test.db，每次全量回归 console.test.js 重建该 db（mtime 滚动），
+// 删了会再长——本轮迁移根除，同 talk-rollback / metrics-funnel / tag-filter / dedup 先例。
+const TMP_DB = path.join(os.tmpdir(), 'aisay-console-test-' + process.pid + '.db');
 const sha1 = (s) => crypto.createHash('sha1').update(s).digest('hex');
 
 let server = null;
@@ -158,6 +161,14 @@ test('M5 控制台自检', async (t) => {
     const { status, body } = await get('/api/console/likely-same');
     assert.strictEqual(status, 200);
     assert.ok(Array.isArray(body.data));
+  });
+
+  // 6. H2 · 平台列表端点（/api/console/platforms）
+  // 注：该端点要求 liveScanner 注入，测试中未传 liveScanner → 返回 501
+  // 所以这里只验证端点路由存在（非 404），不验证 200
+  await t.test('GET /api/console/platforms → 路由存在（非 404）', async () => {
+    const { status } = await get('/api/console/platforms');
+    assert.ok(status !== 404, '端点路由应存在（返回 200 或 501，非 404）');
   });
 
   await new Promise((resolve) => server.close(resolve));

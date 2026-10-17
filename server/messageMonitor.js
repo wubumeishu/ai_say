@@ -3,8 +3,15 @@ class MessageMonitor {
     this.client = devtoolsClient;
     this.browserId = browserId;
     this.pollInterval = pollInterval;
-    this.onMessage = onMessage;
     this.logger = logger || console;
+    // task-6 修 §3.3.4 空转：onMessage 可能来自 HTTP body（函数无法 JSON 序列化，恒 undefined）。
+    // 缺省不抛错——分发改走「进程内 sink 列表」registerSink(fn)（函数引用不经 HTTP）；
+    // 显式传入的 onMessage 保持旧语义（回归兼容）。
+    this.onMessage = typeof onMessage === 'function' ? onMessage : null;
+    this.sinks = []; // 进程内消息消费者（registerSink 注册）
+    if (!this.onMessage) {
+      this.logger.warn && this.logger.warn('[MessageMonitor] onMessage 缺省（HTTP body 无法传函数，§3.3.4），消息分派走 registerSink；未注册 sink 时新消息仅记日志不丢事件');
+    }
     this.timer = null;
     this.running = false;
     this.lastTexts = new Set();
@@ -31,6 +38,17 @@ class MessageMonitor {
     this.timer = null;
   }
 
+  /**
+   * task-6：注册进程内消息消费者（函数引用不经 HTTP 序列化，消除 onMessage 空转）。
+   * @param {(evt: {text:string,browserId:string,source:string,ts:number}) => void} fn
+   * @returns {MessageMonitor} this（链式）
+   */
+  registerSink(fn) {
+    if (typeof fn !== 'function') throw new Error('registerSink: fn 必须是函数');
+    this.sinks.push(fn);
+    return this;
+  }
+
   async poll() {
     try {
       const evalRes = await this.client.evaluate('document.body ? document.body.innerText : ""');
@@ -46,7 +64,16 @@ class MessageMonitor {
       if (this.lastTexts.has(line)) continue;
       this.lastTexts.add(line);
       if (this.lastTexts.size > 200) this.lastTexts = new Set(Array.from(this.lastTexts).slice(-100));
-      this.onMessage({ text: line, browserId: this.browserId, source: 'poll', ts: Date.now() });
+      const evt = { text: line, browserId: this.browserId, source: 'poll', ts: Date.now() };
+      // task-6 分派：显式 onMessage（旧轨回归）+ 进程内 sinks（§3.3.4 修复）
+      if (this.onMessage) this.onMessage(evt);
+      if (this.sinks.length) {
+        for (const fn of this.sinks) {
+          try { fn(evt); } catch (err) { this.logger.error && this.logger.error('[monitor] sink 分派失败（不影响其他 sink）:', err && err.message); }
+        }
+      } else if (!this.onMessage) {
+        this.logger.warn && this.logger.warn('[monitor] 新消息行无消费者（onMessage 缺省且未 registerSink）：' + String(line).slice(0, 40));
+      }
       // M1 画像 hook：仅在显式传入 profileStore 时生效（增量，旧行为不变）
       if (this.profileStore) {
         this._appendBufferMessage(line);

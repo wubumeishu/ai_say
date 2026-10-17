@@ -75,7 +75,7 @@ function loadTemplate(templatesDir, platform, category, language) {
 function fillTemplate(text, vars, persona) {
   let out = String(text || '');
   const v = Object.assign({}, persona ? { personaTone: persona.tone || '', personaBackground: persona.background || '' } : {}, vars || {});
-  out = out.replace(/\{(\w+)\}/g, (m, key) => (v[key] != null ? String(v[key]) : m));
+  out = out.replace(/\{(\w+)\}/g, (m, key) => (v[key] != null ? String(v[key]) : ''));
   // 人设语气前缀：话术以人设签名/称呼开头，保证「账号人设 + 客户画像」贴合
   const greet = v.name ? (v.greeting || ('こんにちは、' + v.name + 'さん')) : '';
   if (greet && !out.startsWith(greet)) out = greet + ' ' + out;
@@ -140,7 +140,10 @@ function checkGate({ text, rules, limits, persona }) {
 // ------------------------------------------------------------ A/B 分流 ----
 /** 按 contactId 哈希固定分流：同一客户永远同一组 */
 function variantOf(contactId) {
-  return sha1(String(contactId || 'anon') + '|ab') % 2 === 0 ? 'A' : 'B';
+  // 修 Bug：sha1 hex 串 % 2 恒为 NaN（十六进制字符无法被 + 正确数值化）。
+  // 取前 4 位 hex 转 parseInt 后再 % 2，同一 contactId 恒得同值（A/B 固定分流）。
+  const h = sha1(String(contactId || 'anon') + '|ab').slice(0, 4);
+  return parseInt(h, 16) % 2 === 0 ? 'A' : 'B';
 }
 
 /** 双比例 z 检验（样本 ≥200/组 时裁决）；返回 { decided, winner, z, p } */
@@ -159,6 +162,18 @@ function zTest(a, b, minSample = 200) {
 
 // ------------------------------------------------------------ 引擎主体 ----
 function createTalkEngine(opts = {}) {
+  // task-3 · 频控账本句柄注入（选法 a：_sentLog/_pendingQueue 保持数组快照读形状不破 4 处断言；
+  //   ledger 另开句柄 = 唯一写入口，有句柄时限额判定读「快照+本进程」合并视图，注入方静态数组不再能绕 24h）
+  const ledger = opts.ledger || null;
+  // NoopLedger 降级：注入裸数组（opts.sentLog 是 Array）且未传 ledger → 包装成只读 NoopLedger（不回写注入方引用）
+  const NoopLedger = {
+    _arr: Array.isArray(opts.sentLog) ? opts.sentLog : null,
+    push: function(r) { if (this._arr) this._arr.push(r); return true; }, // 只更新包装数组，不回写（避免污染注入方状态）
+    since: function(t, dim) { if (!this._arr) return []; return this._arr.filter((r) => r.ts >= t && (!dim.accountId || r.accountId === dim.accountId) && (!dim.contactId || r.contactId === dim.contactId)).sort((a, b) => (a.ts - b.ts) || ((a.seq || 0) - (b.seq || 0))); },
+    lastFor: function(cid) { if (!this._arr) return null; const rows = this._arr.filter((r) => r.contactId === cid); rows.sort((a, b) => (b.ts - a.ts) || ((b.seq || 0) - (a.seq || 0))); return rows[0] || null; },
+    flush: function() { return true; },
+    snapshot: function() { return this._arr ? this._arr.slice() : []; },
+  };
   const store = opts.store || null;
   const leadScoring = opts.leadScoring || null;
   const aiService = opts.aiService || null;
@@ -183,10 +198,15 @@ function createTalkEngine(opts = {}) {
     const hourAgo = t - 3600 * 1000;
     const minAgo = t - 60 * 1000;
     // task-31 口径：单客户 24h 按「生成话术条数」计（含被合规/人工拦截的 blocked 条），防绕过
-    const perDay = sentLog.filter((s) => s.contactId === contactId && s.ts >= dayAgo && s.accountId === accountId).length;
+    // task-3 · 限额判定读源（选法 a + LedgerHandle 优先）：有 ledger 句柄 → 读「快照+本进程」合并视图
+    //   （sinceLedger，(ts,seq) 字典序，跨重启有效，不查 SQLite 热路径）；无句柄（NoopLedger 降级/旧测试）
+    //   → 现状 sentLog.filter（不破 4 处断言）。注入方静态数组不再能绕 24h（句柄唯一写入口）。
+    const src = (ledger && typeof ledger.since === 'function') ? ledger.since(dayAgo, { accountId, contactId }) : sentLog.filter((s2) => s2.contactId === contactId && s2.accountId === accountId && s2.ts >= dayAgo);
+    const perDay = src.length; // 单客户 24h 生成条数（blocked 0/1 都计，task-31 防绕过口径）
     // 账号级 1h / 每分钟 cap 仍按实际发送成功条数（blocked 不计入真实发送压力）
-    const perHour = sentLog.filter((s) => s.accountId === accountId && !s.blocked && s.ts >= hourAgo).length;
-    const perMin = sentLog.filter((s) => s.accountId === accountId && !s.blocked && s.ts >= minAgo).length;
+    const srcAll = (ledger && typeof ledger.since === 'function') ? ledger.since(hourAgo, { accountId }) : sentLog.filter((s2) => s2.accountId === accountId && s2.ts >= hourAgo);
+    const perHour = srcAll.filter((s2) => !s2.blocked && s2.ts >= hourAgo).length;
+    const perMin = srcAll.filter((s2) => !s2.blocked && s2.ts >= minAgo).length;
     if (perDay >= limits.perCustomerPerDay) return { ok: false, reason: '单客户 24h 已生成 ' + perDay + ' 条（≥' + limits.perCustomerPerDay + '，含被合规/人工拦截的）' };
     if (perHour >= limits.perAccountPerHour) return { ok: false, reason: '账号级 1h 已发 ' + perHour + ' 条（≥' + limits.perAccountPerHour + '）' };
     if (perMin >= limits.perMinuteCap) return { ok: false, reason: '每分钟 cap ' + limits.perMinuteCap + ' 已用尽' };
@@ -206,7 +226,9 @@ function createTalkEngine(opts = {}) {
     if (/^频控:|每分钟 cap|账号级 1h|单客户 24h 已生成/i.test(raw)) kind = 'rateLimit';
     else if (/黑名单|denyByDefault|合规闸门|红线|compliance/i.test(raw)) kind = 'blacklist';
     else kind = 'compliance';
-    gateBlockLog.push({ ts: Date.parse(nowIso()), reason: raw, kind });
+    const gRow = { ts: Date.parse(nowIso()), reason: raw, kind };
+    gateBlockLog.push(gRow);
+    if (ledger && typeof ledger.push === 'function') ledger.push(gRow, 'GateBlock'); // 账本落库（审计）
   }
 
   // --------------------------------------------------- 待确认话术队列（task-37） --
@@ -518,7 +540,7 @@ function createTalkEngine(opts = {}) {
           'INSERT INTO TalkAbStat (variant,trials,conversions,updatedAt) VALUES (?,?,?,?) ' +
           'ON CONFLICT(variant) DO UPDATE SET trials=excluded.trials, conversions=excluded.conversions, updatedAt=excluded.updatedAt'
         ).run(variant, st.trials || 0, st.conversions || 0, nowIso());
-      } catch (e) { /* 表创建失败不阻断 */ }
+      } catch (e) { /* 表创建失败不阻断（task-6 补 log，§0.5 禁空 catch） */ console.error('[talkEngine.persistAbStat] TalkAbStat 表创建/写入失败:', e && e.message); }
     }
   }
 
@@ -666,6 +688,7 @@ function createTalkEngine(opts = {}) {
     _sentLog: sentLog,
     _gateBlockLog: gateBlockLog,
     _pendingQueue: pendingQueue,
+    _ledger: ledger, // task-3 · 账本句柄（选法 a：数组=快照读，句柄=写入口；旧测试无 ledger 走 NoopLedger 不破断言）
   };
 }
 

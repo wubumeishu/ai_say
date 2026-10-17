@@ -11,10 +11,13 @@ const { test, before, after } = require('node:test');
 const assert = require('node:assert');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const crypto = require('crypto');
 const sha1 = (s) => crypto.createHash('sha1').update(s).digest('hex');
 
-const TMP_DB = path.join(__dirname, '..', 'data', 'tag_filter_test.db');
+// 卫生项（task-11 G / AGENTS §3.10）：测试 db 一律放 os.tmpdir()，不在 data/ 留文件，
+// 消除全量连跑时 Windows safeUnlink 清理后旧 db 残留 → LeadEvent 同 pk 撞 UNIQUE 约束的假红。
+const TMP_DB = path.join(os.tmpdir(), 'aisay-tag-filter-test-' + process.pid + '.db');
 function cleanup() { try { fs.unlinkSync(TMP_DB); } catch (_) {} }
 
 let store, talkEngine, dedup, fakeApp, db;
