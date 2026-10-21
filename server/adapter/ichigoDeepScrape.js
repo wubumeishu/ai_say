@@ -121,6 +121,7 @@ function createIchigoDeepScrape(deps) {
   var iconMap = deps.iconMap || loadIconMap(rootDir);
 
   var mailboxExprSrc     = readExpr(path.join(__dirname, 'ichigoMailboxExpr.js'));
+  var blockExprSrc       = readExpr(path.join(__dirname, 'ichigoBlockExpr.js')); // 模块1 · 拉黑联动真实窗口
   var historyExprSrc     = readExpr(path.join(__dirname, 'ichigoHistoryExpr.js'));
   var profileFetchSrc    = readExpr(path.join(__dirname, 'ichigoProfileFetchExpr.js'));
   // 兼容旧文件（若新文件缺失）
@@ -480,6 +481,32 @@ function createIchigoDeepScrape(deps) {
   }
   // ---------- ⑦ 切回收件箱（发送后 / 需要静止窗口时使用） ----------
   // navigateInbox() → 把出会窗口 location 切到 show_mailbox.html，避免停留在会话页中断后续操作。
+  // 模块1 · 拉黑联动：在客户 show_history 页触发「ブロック」屏蔽（CDP 页面内 DOM 操作，零导航）
+  // 返回 { ok, step, reason, note }；按钮找不到 → ok:false reason:'block-btn-not-found'（不抛错，由端点判断）
+  function blockContact(historyUrl) {
+    if (!historyUrl) return Promise.resolve({ ok: false, reason: 'no-history-url', msg: '客户无会话页，无法定位拉黑按钮' });
+    var url = String(historyUrl);
+    if (url.indexOf('sp.194964.com') === -1) return Promise.resolve({ ok: false, reason: 'not-ichigo', msg: '非出会平台会话页' });
+    return withTarget(function(client) {
+      // 先导航到该客户历史页（拉黑按钮在该页或资料页）
+      return cdpEval(client, 'location.href=' + JSON.stringify(url) + ';')
+        .then(function() { return new Promise(function(r) { setTimeout(r, 2500); }); })
+        .then(function() {
+          var expr = fillUrl(blockExprSrc, url);
+          return cdpEval(client, expr);
+        })
+        .then(function(v) {
+          v = v || {};
+          return { ok: !!v.ok, step: v.step || null, reason: v.reason || '', note: v.note || '', via: 'cdp-block-expr' };
+        })
+        .catch(function(e) {
+          return { ok: false, reason: 'cdp-error', msg: String((e && e.message) || e) };
+        });
+    }).catch(function(e) {
+      return { ok: false, reason: 'cdp-unavailable', msg: String((e && e.message) || e) };
+    });
+  }
+
   function navigateInbox() {
     var INBOX = 'https://sp.194964.com/mail/inbox/show_mailbox.html';
     return withTarget(function(client) {
@@ -518,6 +545,7 @@ function createIchigoDeepScrape(deps) {
     mailboxOnly: mailboxOnly,
     fetchHistory: fetchHistory,
     sendToContact: sendToContact,
+    blockContact: blockContact,
     navigateInbox: navigateInbox,
     networkHealth: networkHealth,
     fetchProfile: fetchProfile,

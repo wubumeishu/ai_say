@@ -917,8 +917,29 @@ register('GET', '/api/console/customers', wrap(async (req, res) => {
     }
     let up = { changed: [] };
     if (ichigoCache) up = ichigoCache.upsertMailbox(scan.contacts);
+    // 模块1 · 自动归档：cache 里有但真实窗口本次没抓到的客户 → 自动 archived=1
+    let autoArchived = 0;
+    var liveIdsSet = new Set((scan.contacts || []).map(function(c) { return c.contactId; }).filter(Boolean));
+    if (ichigoCache && store && typeof store.batchSetContactFlag === 'function') {
+      var staleContacts = ichigoCache.getContacts().filter(function(c) {
+        return c.contactId && !liveIdsSet.has(c.contactId);
+      });
+      if (staleContacts.length) {
+        var staleIds = staleContacts.map(function(c) { return c.contactId; });
+        var flags = store.getContactFlags(staleIds);
+        var toArchive = staleIds.filter(function(id) { var f = flags.get(id); return !f || !f.archived; });
+        if (toArchive.length) { var archRes = store.batchSetContactFlag(toArchive, 'archived'); autoArchived = archRes.updated; }
+      }
+    }
     const cs = ichigoCache ? ichigoCache.getContacts() : scan.contacts;
-    return json(res, 200, { ok: true, from: 'live', contacts: applyFlagsAndFilter(cs.map(enrichContact), includeArchived), unread: ichigoCache ? ichigoCache.unreadTotal() : 0, changed: up.changed, scannedAt: scan.fetchedAt, pages: scan.pages });
+    var enriched = applyFlagsAndFilter(cs.map(enrichContact), includeArchived);
+    enriched.forEach(function(c) { c.inLiveInbox = liveIdsSet.has(c.contactId); });
+    return json(res, 200, {
+      ok: true, from: 'live', contacts: enriched,
+      unread: ichigoCache ? ichigoCache.unreadTotal() : 0, changed: up.changed,
+      autoArchived: autoArchived, liveCount: liveIdsSet.size,
+      scannedAt: scan.fetchedAt, pages: scan.pages
+    });
   }));
 
   // GET /api/console/live/customers → 全量客户（缓存快照）
@@ -941,9 +962,52 @@ register('GET', '/api/console/customers', wrap(async (req, res) => {
     switch (action) {
       case 'archive':
       case 'blacklist': {
-        const flag = (action === 'archive') ? 'archived' : 'blacklisted';
-        const r = store.batchSetContactFlag(uniq, flag);
-        return json(res, 200, { ok: true, action: action, flag: flag, updated: r.updated, ids: r.ids });
+        const realFlag = (action === 'archive') ? 'archived' : 'blacklisted';
+        const r = store.batchSetContactFlag(uniq, realFlag);
+        // 模块1 · 拉黑/归档联动真实窗口（CDP）：
+        //   * blacklist → 逐个调 deepScrape.blockContact(historyUrl) 触发真实拉黑
+        //   * archive   → 仅 DB 打标（归档是本地操作，不触发平台动作）
+        //   * CDP 不可用/按钮未找到 → queued 提示（"已排入真实拉黑队列/待同步到窗口"），不当成假拉黑
+        let realSync = { queued: 0, blocked: 0, failed: 0, detail: [] };
+        if (action === 'blacklist' && deepScrape && typeof deepScrape.blockContact === 'function') {
+          for (const id of uniq) {
+            const c = ichigoCache ? ichigoCache.getContact(id) : null;
+            if (!c || !c.historyUrl) {
+              realSync.queued += 1;
+              realSync.detail.push({ contactId: id, status: 'queued', note: '无会话页，拉黑待窗口打开后同步' });
+              continue;
+            }
+            try {
+              const br = await deepScrape.blockContact(c.historyUrl);
+              if (br && br.ok) {
+                realSync.blocked += 1;
+                realSync.detail.push({ contactId: id, status: 'blocked', note: br.note });
+              } else {
+                realSync.queued += 1;
+                realSync.detail.push({ contactId: id, status: 'queued', note: br ? (br.reason || br.msg || '拉黑未触发') : 'CDP 不可用' });
+              }
+            } catch (e) {
+              realSync.failed += 1;
+              realSync.detail.push({ contactId: id, status: 'failed', note: String((e && e.message) || e) });
+            }
+          }
+          // 拉黑后导航回收件箱（保持窗口整洁）
+          if (realSync.blocked > 0 && typeof deepScrape.navigateInbox === 'function') {
+            try { await deepScrape.navigateInbox(); } catch (_) { /* 忽略 */ }
+          }
+        } else if (action === 'blacklist') {
+          // CDP 不可用 → 全部 queued
+          realSync.queued = uniq.length;
+          realSync.detail = uniq.map((id) => ({ contactId: id, status: 'queued', note: 'CDP 未注入，拉黑待同步到窗口' }));
+        }
+        return json(res, 200, {
+          ok: true, action: action, flag: realFlag,
+          updated: r.updated, ids: r.ids,
+          realSync: realSync,
+          note: (action === 'blacklist' && realSync.queued > 0)
+            ? ('已排入真实拉黑队列（' + realSync.queued + ' 位待同步到窗口）；DB 已打标，下次窗口打开时同步')
+            : (action === 'blacklist' ? ('已真实拉黑 ' + realSync.blocked + ' 位') : '已归档'),
+        });
       }
       case 'restore': {
         // 恢复 = 同时清 archived + blacklisted

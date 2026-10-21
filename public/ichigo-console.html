@@ -211,6 +211,19 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 .cust-item:hover{background:var(--bg2)}
 .cust-item.active{background:var(--card2);border-left:3px solid var(--accent);padding-left:9px}
 .cust-item.unread .ci-name{font-weight:700}
+/* 模块1 · 编辑模式：checkbox 平时隐藏，进编辑模式才显示 */
+.cust-item .ci-check{display:none}
+.cust-item.selected .ci-check, .col-customers.editing .ci-check{display:inline-block}
+/* 编辑模式下卡片左侧留白给 checkbox */
+.col-customers.editing .cust-item{padding-left:28px}
+.col-customers.editing .cust-item .ci-check{position:absolute;left:8px;top:50%;transform:translateY(-50%)}
+.cust-item{position:relative}
+/* 已归档客户卡片 */
+.cust-item.is-archived .ci-name{opacity:.55}
+.cust-item.is-archived .ci-last{opacity:.5}
+.batch-toggle{background:var(--accent);color:#fff;border-color:var(--accent)}
+.batch-toggle.active{background:var(--pending,#e6a23c);border-color:var(--pending,#e6a23c)}
+.archived-on{background:var(--card2);border-color:var(--accent);color:var(--accent)}
 /* 模块 1 · 批量操作栏 */
 .batch-bar{display:flex;align-items:center;gap:6px;padding:8px 12px;border-bottom:1px solid var(--border);background:var(--card2);position:sticky;top:0;z-index:5;flex-wrap:wrap}
 .batch-selectall{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted);cursor:pointer;user-select:none}
@@ -504,6 +517,10 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
     <div class="cust-header">
       <span>客户 (<span id="custCount">0</span>)</span>
       <span id="lastPoll" style="font-size:10px"></span>
+      <span class="cust-actions" style="margin-left:auto;display:flex;gap:6px;align-items:center">
+        <button class="batch-btn batch-toggle" id="batchToggle" title="进入编辑模式（复选框 + 批量操作）">✎ 编辑</button>
+        <button class="batch-btn batch-ghost" id="archivedToggle" title="显示/隐藏已归档客户">📁 已归档</button>
+      </span>
     </div>
     <div class="batch-bar" id="batchBar" style="display:none">
       <label class="batch-selectall"><input type="checkbox" id="batchAll" /> <span>全选</span></label>
