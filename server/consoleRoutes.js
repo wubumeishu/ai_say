@@ -869,12 +869,33 @@ register('GET', '/api/console/customers', wrap(async (req, res) => {
     // ---------------- 三层缓存 API（P0/P1 重构） ----------------
 
   // GET /api/console/mailbox → 轻量轮询：抓收件箱 → 写缓存 → 返回轻量列表（含未读）
+  // 模块 1 · 出会消息队列过滤：?includeArchived=1 时含归档/拉黑客户（默认 0 排除）
+  // 给 contacts 加 archived/blacklisted 字段 + 按 includeArchived 过滤
+  function applyFlagsAndFilter(contacts, includeArchived) {
+    if (!Array.isArray(contacts) || !contacts.length) return contacts;
+    var ids = contacts.map(function(c) { return c.contactId; }).filter(Boolean);
+    var flags = {};
+    if (store && typeof store.getContactFlags === 'function') {
+      var m = store.getContactFlags(ids);
+      m.forEach(function(v, k) { flags[k] = v; });
+    }
+    // 深拷贝避免改原始 cache 对象
+    var out = contacts.map(function(c) {
+      var f = flags[c.contactId] || { archived: 0, blacklisted: 0 };
+      return Object.assign({}, c, { archived: f.archived, blacklisted: f.blacklisted });
+    });
+    if (includeArchived) return out;
+    // 默认：排除归档 + 拉黑
+    return out.filter(function(c) { return !c.archived && !c.blacklisted; });
+  }
+
   register('GET', '/api/console/mailbox', wrap(async (req, res) => {
     const qs0 = new URLSearchParams(String(req.url || '').split('?')[1] || '');
     const force = qs0.get('force') === '1';
+    const includeArchived = qs0.get('includeArchived') === '1';
     if (!deepScrape || typeof deepScrape.mailboxOnly !== 'function') {
       // 降级：直接读缓存
-      if (ichigoCache) return json(res, 200, { ok: true, from: 'cache-only', contacts: ichigoCache.getContacts().map(enrichContact), unread: ichigoCache.unreadTotal() });
+      if (ichigoCache) return json(res, 200, { ok: true, from: 'cache-only', contacts: applyFlagsAndFilter(ichigoCache.getContacts().map(enrichContact), includeArchived), unread: ichigoCache.unreadTotal() });
       return json(res, 501, { ok: false, msg: 'deepScrape 未注入' });
     }
     if (!force && ichigoCache) {
@@ -885,24 +906,56 @@ register('GET', '/api/console/customers', wrap(async (req, res) => {
       }, 0);
       // 缓存 90s 内直接用（避免重复打 CDP）
       if (cs.length && Date.now() - newest < 90 * 1000) {
-        return json(res, 200, { ok: true, from: 'cache', contacts: cs.map(enrichContact), unread: ichigoCache.unreadTotal(), cached: true });
+        return json(res, 200, { ok: true, from: 'cache', contacts: applyFlagsAndFilter(cs.map(enrichContact), includeArchived), unread: ichigoCache.unreadTotal(), cached: true });
       }
     }
     const scan = await deepScrape.mailboxOnly();
     if (!scan.ok) {
       // 抓取失败：返回缓存，不让前端丢数据
-      if (ichigoCache) return json(res, 200, { ok: true, from: 'cache-fallback', contacts: ichigoCache.getContacts().map(enrichContact), unread: ichigoCache.unreadTotal(), scanReason: scan.reason });
+      if (ichigoCache) return json(res, 200, { ok: true, from: 'cache-fallback', contacts: applyFlagsAndFilter(ichigoCache.getContacts().map(enrichContact), includeArchived), unread: ichigoCache.unreadTotal(), scanReason: scan.reason });
       return json(res, 200, { ok: false, reason: scan.reason, msg: scan.msg });
     }
     let up = { changed: [] };
     if (ichigoCache) up = ichigoCache.upsertMailbox(scan.contacts);
     const cs = ichigoCache ? ichigoCache.getContacts() : scan.contacts;
-    return json(res, 200, { ok: true, from: 'live', contacts: cs.map(enrichContact), unread: ichigoCache ? ichigoCache.unreadTotal() : 0, changed: up.changed, scannedAt: scan.fetchedAt, pages: scan.pages });
+    return json(res, 200, { ok: true, from: 'live', contacts: applyFlagsAndFilter(cs.map(enrichContact), includeArchived), unread: ichigoCache ? ichigoCache.unreadTotal() : 0, changed: up.changed, scannedAt: scan.fetchedAt, pages: scan.pages });
   }));
 
   // GET /api/console/live/customers → 全量客户（缓存快照）
     // ---------------------------------------------------------------- 
   // H4 · 快乐平台（happymail.co.jp / 18595）只读端点（独立不碰出会 mailbox）
+  // ---------------------------------------------------------------- 出会批量操作（模块 1）
+  // POST /api/console/batch
+  //   body: { action: 'archive'|'blacklist'|'restore', contactIds: string[] }
+  //   语义：归档/拉黑 = Contact 表对应标志置 1；恢复 = 置 0。不物理删除。
+  //   返回: { ok, action, updated, ids, detail? }
+  register('POST', '/api/console/batch', wrap(async (req, res, body) => {
+    if (!store || typeof store.batchSetContactFlag !== 'function') {
+      return json(res, 501, { ok: false, msg: 'store 未注入，批量操作不可用' });
+    }
+    const action = body && body.action;
+    const ids = body && Array.isArray(body.contactIds) ? body.contactIds.map(String).filter(Boolean) : [];
+    if (!ids.length) return json(res, 200, { ok: true, action: action, updated: 0, ids: [], msg: '无选中客户' });
+    // 去重
+    const uniq = Array.from(new Set(ids));
+    switch (action) {
+      case 'archive':
+      case 'blacklist': {
+        const flag = (action === 'archive') ? 'archived' : 'blacklisted';
+        const r = store.batchSetContactFlag(uniq, flag);
+        return json(res, 200, { ok: true, action: action, flag: flag, updated: r.updated, ids: r.ids });
+      }
+      case 'restore': {
+        // 恢复 = 同时清 archived + blacklisted
+        const r1 = store.batchClearContactFlag(uniq, 'archived');
+        const r2 = store.batchClearContactFlag(uniq, 'blacklisted');
+        return json(res, 200, { ok: true, action: 'restore', updated: r1.updated + r2.updated, ids: uniq });
+      }
+      default:
+        return json(res, 400, { ok: false, msg: 'action 必须是 archive|blacklist|restore' });
+    }
+  }));
+
   // GET /api/console/happy/inbox?force=1&more=1&expand=1
   //   缓存优先（5min 新鲜直接回 cached:true）→ 过期/force 真连 CDP → 成功后回写缓存；
   //   expand=1 时循环点「もっと見る」直到无按钮/不再增长/达 30 位上限（C 自动加载更多）；

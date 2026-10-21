@@ -12,6 +12,7 @@ import { openModelForm, closeModelForm, saveModelForm, testModelForm } from './m
 import { loadAccount, bindAccountEvents } from './accounts.js';
 import { loadPhrases } from './phrases.js';
 import { aiHistRestore, aiHistNewSession, aiHistClear, openAiHistPop, closeAiHistPop, bindAiHistPopDismiss, bindAiChips, askAssistantCore } from './aisay.js';
+import { initBatchBar } from './batch.js'; // 模块 1 · 出会批量操作栏
 
 // ---- 事件绑定（复制自老经典脚本 L2215-2364，全部改指 module 函数）----
 function bindEvents() {
@@ -183,6 +184,7 @@ export function initMain() {
   safeInit('bindEvents', function() { bindEvents(); });
   safeInit('aiHistRestore', function() { aiHistRestore(state.selectedId || null); });
   safeInit('aiChips', function() { bindAiChips(); });
+  safeInit('batchBar', function() { initBatchBar(); }); // 模块 1 · 出会批量操作
   safeInit('pollMailbox', function() { pollMailbox(true); });
   safeInit('netChip', function() { refreshNetChip(true); });
   safeInit('agentPage', function() { if (state.currentView === 'agents') renderAgentPage(); });

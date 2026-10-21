@@ -30,11 +30,15 @@ export function renderList() {
     var av = (c.avatarUrl && !c.avatarIsDefault)
       ? '<img src="' + esc(c.avatarUrl) + '" alt="">'
       : '<span class="av-txt">' + esc(firstChar(c.name)) + '</span>';
+    var flags = '';
+    if (c.blacklisted) flags += '<span class="ci-flag blacklisted" title="已拉黑">拉黑</span>';
+    if (c.archived) flags += '<span class="ci-flag archived" title="已归档">归档</span>';
     html += '<div class="cust-item' + active + (c.unread > 0 ? ' unread' : '') + '" data-id="' + esc(c.contactId) + '">';
     html +=   '<div class="ci-top">';
+    html +=     '<input type="checkbox" class="ci-check" data-cid="' + esc(c.contactId) + '" title="勾选后批量操作">';
     html +=     '<div class="ci-av">' + av + '</div>';
     html +=     '<div class="ci-main">';
-    html +=       '<div class="ci-name">' + dot + esc(c.name) + '</div>';
+    html +=       '<div class="ci-name">' + dot + esc(c.name) + flags + '</div>';
     html +=       '<div class="ci-last">' + esc((c.lastMsg || '').slice(0, 42)) + '</div>';
     html +=     '</div>';
     html +=     '<div class="ci-right">';
@@ -46,8 +50,18 @@ export function renderList() {
   });
   host.innerHTML = html;
   Array.prototype.forEach.call(host.querySelectorAll('.cust-item'), function(el) {
-    el.addEventListener('click', function() { selectCustomer(el.getAttribute('data-id')); });
+    el.addEventListener('click', function(e) {
+      if (e.target && e.target.classList && e.target.classList.contains('ci-check')) return;
+      selectCustomer(el.getAttribute('data-id'));
+    });
   });
+  host.onchange = function(e) {
+    if (e.target && e.target.classList && e.target.classList.contains('ci-check')) {
+      var item = e.target.closest('.cust-item');
+      if (item) item.classList.toggle('selected', e.target.checked);
+      if (typeof window.__onBatchSelectionChanged === 'function') window.__onBatchSelectionChanged();
+    }
+  };
 }
 
 // 选客户（复制自 L1019；竞态守卫 + aiHistRestore 跨模块保护）

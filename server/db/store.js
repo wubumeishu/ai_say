@@ -24,12 +24,28 @@ function openDb(dbPath) {
   } catch (e) {
     console.error('[store.openDb] 002 列补齐批次应用失败（不阻断，M0 表可用）:', e && e.message);
   }
+  // 模块 1 · 003 批次：Contact.archived/blacklisted（出会消息队列过滤 + 批量操作）
+  try {
+    const { applyAddColumns: apply003 } = require('./migrations/003_add_contact_flags.sql.js');
+    apply003(db);
+  } catch (e) {
+    console.error('[store.openDb] 003 列补齐批次应用失败（不阻断）:', e && e.message);
+  }
   return db;
 }
 
 function createStore({ dbPath = path.join(__dirname, '..', '..', 'data', 'aisay.db') } = {}) {
   if (!fs.existsSync(dbPath)) fs.mkdirSync(path.dirname(dbPath), { recursive: true });
   const db = openDb(dbPath);
+  // 模块 1 · 出会运营标志表（专门存归档/拉黑标志；键=contactId，live 客户也能打标）
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS ContactOpsFlags (
+      contactId    TEXT PRIMARY KEY,
+      archived     INTEGER NOT NULL DEFAULT 0,
+      blacklisted  INTEGER NOT NULL DEFAULT 0,
+      updatedAt    TEXT NOT NULL
+    );
+  `);
   const sha1 = (s) => crypto.createHash('sha1').update(String(s)).digest('hex');
   const now  = () => new Date().toISOString();
 
@@ -591,6 +607,56 @@ function createStore({ dbPath = path.join(__dirname, '..', '..', 'data', 'aisay.
     return { archivedSent, archivedPending, expiredPending, archivedGate };
   }
 
+  // =======================================================================
+  // 模块 1 · 出会批量操作（归档/拉黑/恢复）—— 003 批次列补齐后启用
+  // =======================================================================
+  /** 批量归档/拉黑：把一组 contactId 的指定标志置 1（ContactOpsFlags 表 upsert，live 客户也能打标）。 */
+  function batchSetContactFlag(contactIds, flag) {
+    if (!Array.isArray(contactIds) || !contactIds.length) return { updated: 0, ids: [] };
+    const valid = (flag === 'archived' || flag === 'blacklisted') ? flag : null;
+    if (!valid) throw new Error('batchSetContactFlag: flag must be archived|blacklisted');
+    const now = new Date().toISOString();
+    const ids = contactIds.map(String);
+    const run = db.prepare(
+      'INSERT INTO ContactOpsFlags (contactId, ' + valid + ', updatedAt) VALUES (?, 1, ?) ' +
+      'ON CONFLICT(contactId) DO UPDATE SET ' + valid + ' = 1, updatedAt = excluded.updatedAt'
+    );
+    let n = 0;
+    for (const id of ids) {
+      const r = run.run(id, now);
+      n += (r.changes || 0);
+    }
+    return { updated: n, ids: ids };
+  }
+
+  /** 批量恢复（取消归档/拉黑）：把一组 contactId 的指定标志置 0（ContactOpsFlags 表）。 */
+  function batchClearContactFlag(contactIds, flag) {
+    if (!Array.isArray(contactIds) || !contactIds.length) return { updated: 0, ids: [] };
+    const valid = (flag === 'archived' || flag === 'blacklisted') ? flag : null;
+    if (!valid) throw new Error('batchClearContactFlag: flag must be archived|blacklisted');
+    const now = new Date().toISOString();
+    const ids = contactIds.map(String);
+    const marks = ids.map(() => '?').join(',');
+    const run = db.prepare(
+      'UPDATE ContactOpsFlags SET ' + valid + ' = 0, updatedAt = ? WHERE contactId IN (' + marks + ')'
+    );
+    const out = run.run(now, ...ids);
+    return { updated: out.changes, ids: ids };
+  }
+
+  /** 读一组 contactId 的归档/拉黑标志（ContactOpsFlags 表；miss 兜底 0/0）。 */
+  function getContactFlags(contactIds) {
+    if (!Array.isArray(contactIds) || !contactIds.length) return new Map();
+    const ids = contactIds.map(String);
+    const marks = ids.map(() => '?').join(',');
+    const rows = db.prepare(
+      'SELECT contactId, archived, blacklisted FROM ContactOpsFlags WHERE contactId IN (' + marks + ')'
+    ).all(...ids);
+    const m = new Map();
+    rows.forEach((r) => m.set(String(r.contactId), { archived: r.archived || 0, blacklisted: r.blacklisted || 0 }));
+    return m;
+  }
+
   let _closed = false;
   /** task-6 crash-guard：SQLite 关闭（幂等；SIGTERM/SIGINT/uncaughtException 前调用，防 -wal 残留） */
   function close() {
@@ -623,6 +689,10 @@ function createStore({ dbPath = path.join(__dirname, '..', '..', 'data', 'aisay.
     sinceLedger,
     lastForLedger,
     archiveRateLedgers,
+    // 模块 1 · 出会批量操作
+    batchSetContactFlag,
+    batchClearContactFlag,
+    getContactFlags,
   };
 }
 
