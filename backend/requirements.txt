@@ -1,0 +1,4 @@
+pydantic>=2.0
+# 向量库（RAG Phase 3 预留，现阶段不装）
+# qdrant-client>=1.8
+# sqlite-vec>=0.1
