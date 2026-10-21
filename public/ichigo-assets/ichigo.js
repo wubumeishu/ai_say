@@ -7,6 +7,7 @@ import { esc, firstChar, timeRank, hasJa, prettyFields, findContact, toast } fro
 import { isIchigoView } from './view.js';
 import { updateBadge } from './nav-poll.js';
 import { aiHistRestore } from './aisay.js'; // 第 8 刀收口：直接 import（aisay→state/util，无循环）
+import { loadV5Panel } from './v5-panel.js'; // 第 9 刀 · v5 画像库纵向切片
 
 // 翻译缓存 + 计时器（原 L1083 区）
 export var TMEMO = (function() { try { var r = localStorage.getItem('aisay-tmemo'); if (r) { var p = JSON.parse(r); if (p && typeof p === 'object') return p; } } catch (e) { console.warn('[ichigo] TMEMO 读取失败', e); } return {}; })();
@@ -54,6 +55,7 @@ export function renderList() {
 export function selectCustomer(id) {
   state.selectedId = id;
   aiHistRestore(id); // 第 8 刀收口：直接 import 调用（无循环依赖）
+  loadV5Panel(id); // 第 9 刀 · 选客户后拉 v5 画像库面板（双层记忆 + 写入闭环）
   var c = findContact(id);
   if (!c) return;
   renderList();
