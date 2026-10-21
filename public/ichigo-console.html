@@ -219,8 +219,10 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 .col-customers.editing .cust-item .ci-check{position:absolute;left:8px;top:50%;transform:translateY(-50%)}
 .cust-item{position:relative}
 /* 已归档客户卡片 */
-.cust-item.is-archived .ci-name{opacity:.55}
-.cust-item.is-archived .ci-last{opacity:.5}
+.cust-item.is-archived{opacity:.6}
+.cust-item.is-archived .ci-name{color:var(--muted)}
+.cust-item.is-archived:hover{opacity:.85;opacity:1}
+.cust-item.is-archived .ci-flag{opacity:1}
 .batch-toggle{background:var(--accent);color:#fff;border-color:var(--accent)}
 .batch-toggle.active{background:var(--pending,#e6a23c);border-color:var(--pending,#e6a23c)}
 .archived-on{background:var(--card2);border-color:var(--accent);color:var(--accent)}

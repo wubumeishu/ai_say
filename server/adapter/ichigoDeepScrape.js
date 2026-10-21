@@ -181,10 +181,11 @@ function createIchigoDeepScrape(deps) {
     });
   }
 
-  function fillUrl(exprSrc, url, isAccount) {
+  function fillUrl(exprSrc, url, isAccount, customerName) {
     // url 为 null/undefined → 注入 JS null（表示"用当前页面"），不能变成字符串 "null"
     var injected = (url === null || url === undefined) ? 'null' : JSON.stringify(String(url));
-    return exprSrc.replace('__URL__', injected).replace('__ACCOUNT__', isAccount ? 'true' : 'false');
+    var nameInjected = (customerName === null || customerName === undefined) ? 'null' : JSON.stringify(String(customerName));
+    return exprSrc.replace('__URL__', injected).replace('__CUSTOMER_NAME__', nameInjected).replace('__ACCOUNT__', isAccount ? 'true' : 'false');
   }
 
   // ---------- 统一目标会话（自动清理 + 硬超时） ----------
@@ -481,27 +482,48 @@ function createIchigoDeepScrape(deps) {
   }
   // ---------- ⑦ 切回收件箱（发送后 / 需要静止窗口时使用） ----------
   // navigateInbox() → 把出会窗口 location 切到 show_mailbox.html，避免停留在会话页中断后续操作。
-  // 模块1 · 拉黑联动：在客户 show_history 页触发「ブロック」屏蔽（CDP 页面内 DOM 操作，零导航）
-  // 返回 { ok, step, reason, note }；按钮找不到 → ok:false reason:'block-btn-not-found'（不抛错，由端点判断）
-  function blockContact(historyUrl) {
-    if (!historyUrl) return Promise.resolve({ ok: false, reason: 'no-history-url', msg: '客户无会话页，无法定位拉黑按钮' });
-    var url = String(historyUrl);
-    if (url.indexOf('sp.194964.com') === -1) return Promise.resolve({ ok: false, reason: 'not-ichigo', msg: '非出会平台会话页' });
+  // 模块1 · 拉黑/删除联动真实窗口：在收件箱（show_mailbox.html）页执行真实 3 步 DOM 链路
+  //   Step1 点「編集」→ Step2 按客户名勾 checkboxN → Step3 点「チェックを削除する」
+  // 删除成功后强制 navigateInbox + 刷新收件箱快照，保持前端/DB/真实窗口三方 100% 同步。
+  // 传参：customerName（客户显示名，用于 Step2 定位 checkbox）；不传则按首个可见 checkbox 兜底
+  // 返回 { ok, step, reason, note, mailboxRefreshed }；按钮/客户找不到 → ok:false（不抛错，端点转 queued）
+  function blockContact(customerName, opts) {
+    opts = opts || {};
     return withTarget(function(client) {
-      // 先导航到该客户历史页（拉黑按钮在该页或资料页）
-      return cdpEval(client, 'location.href=' + JSON.stringify(url) + ';')
-        .then(function() { return new Promise(function(r) { setTimeout(r, 2500); }); })
-        .then(function() {
-          var expr = fillUrl(blockExprSrc, url);
-          return cdpEval(client, expr);
-        })
-        .then(function(v) {
-          v = v || {};
-          return { ok: !!v.ok, step: v.step || null, reason: v.reason || '', note: v.note || '', via: 'cdp-block-expr' };
-        })
-        .catch(function(e) {
-          return { ok: false, reason: 'cdp-error', msg: String((e && e.message) || e) };
-        });
+      // 先确保窗口在收件箱页（show_mailbox.html）
+      return cdpEval(client, 'location.href').then(function(cur) {
+        var onMailbox = String(cur || '').indexOf('show_mailbox') !== -1;
+        if (!onMailbox) {
+          var INBOX = 'https://sp.194964.com/mail/inbox/show_mailbox.html';
+          return cdpEval(client, 'location.href=' + JSON.stringify(INBOX) + ';')
+            .then(function() { return new Promise(function(r) { setTimeout(r, 3000); }); });
+        }
+        return new Promise(function(r) { setTimeout(r, 500); });
+      }).then(function() {
+        // 在收件箱页执行 3 步删除表达式（url=null 表当前页，customerName 传入）
+        var expr = fillUrl(blockExprSrc, null, false, customerName);
+        return cdpEvalAsync(client, expr);
+      }).then(function(v) {
+        v = v || {};
+        var result = {
+          ok: !!v.ok, step: v.step || null, reason: v.reason || '',
+          note: v.note || '', matched: v.matched || null,
+          checkboxIndex: v.checkboxIndex != null ? v.checkboxIndex : null,
+          via: 'cdp-block-expr-3step'
+        };
+        // 真·自动同步：删除成功 → 强制重抓收件箱 + 回导航（三方同步）
+        if (result.ok && opts.refreshMailbox !== false) {
+          return cdpEval(client, 'location.href=' + JSON.stringify('https://sp.194964.com/mail/inbox/show_mailbox.html') + ';')
+            .then(function() { return new Promise(function(r) { setTimeout(r, 2000); }); })
+            .then(function() {
+              result.mailboxNav = true;
+              return result;
+            });
+        }
+        return result;
+      }).catch(function(e) {
+        return { ok: false, reason: 'cdp-error', msg: String((e && e.message) || e) };
+      });
     }).catch(function(e) {
       return { ok: false, reason: 'cdp-unavailable', msg: String((e && e.message) || e) };
     });

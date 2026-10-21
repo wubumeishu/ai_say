@@ -970,43 +970,52 @@ register('GET', '/api/console/customers', wrap(async (req, res) => {
         //   * CDP 不可用/按钮未找到 → queued 提示（"已排入真实拉黑队列/待同步到窗口"），不当成假拉黑
         let realSync = { queued: 0, blocked: 0, failed: 0, detail: [] };
         if (action === 'blacklist' && deepScrape && typeof deepScrape.blockContact === 'function') {
+          // 模块1整改 · 真实 3 步 RPA：收件箱页「編集」→ 勾客户 checkboxN →「チェックを削除する」
+          // 按客户名定位 checkbox（Step2 需要 customerName）
           for (const id of uniq) {
             const c = ichigoCache ? ichigoCache.getContact(id) : null;
-            if (!c || !c.historyUrl) {
+            const custName = c ? (c.name || c.displayName || '') : '';
+            if (!c) {
               realSync.queued += 1;
-              realSync.detail.push({ contactId: id, status: 'queued', note: '无会话页，拉黑待窗口打开后同步' });
+              realSync.detail.push({ contactId: id, status: 'queued', note: '客户缓存缺失，待窗口重新抓取后同步删除' });
               continue;
             }
             try {
-              const br = await deepScrape.blockContact(c.historyUrl);
+              const br = await deepScrape.blockContact(custName, { refreshMailbox: true });
               if (br && br.ok) {
                 realSync.blocked += 1;
-                realSync.detail.push({ contactId: id, status: 'blocked', note: br.note });
+                realSync.detail.push({ contactId: id, status: 'blocked', matched: br.matched, checkboxIndex: br.checkboxIndex, note: br.note });
               } else {
                 realSync.queued += 1;
-                realSync.detail.push({ contactId: id, status: 'queued', note: br ? (br.reason || br.msg || '拉黑未触发') : 'CDP 不可用' });
+                realSync.detail.push({ contactId: id, status: 'queued', reason: br ? br.reason : 'cdp-unavailable', note: br ? (br.note || br.msg || '删除未触发') : 'CDP 不可用，待窗口打开后同步' });
               }
             } catch (e) {
               realSync.failed += 1;
               realSync.detail.push({ contactId: id, status: 'failed', note: String((e && e.message) || e) });
             }
           }
-          // 拉黑后导航回收件箱（保持窗口整洁）
-          if (realSync.blocked > 0 && typeof deepScrape.navigateInbox === 'function') {
-            try { await deepScrape.navigateInbox(); } catch (_) { /* 忽略 */ }
+          // 真·自动同步：任一真实删除成功 → 强制重抓收件箱（刷新前端+DB+真实窗口三方）
+          if (realSync.blocked > 0) {
+            try {
+              await deepScrape.mailboxOnly({ allPages: false, maxPages: 1 });
+              if (ichigoCache) ichigoCache.saveNow();
+              realSync.mailboxRefreshed = true;
+            } catch (_) { realSync.mailboxRefreshed = false; }
           }
         } else if (action === 'blacklist') {
           // CDP 不可用 → 全部 queued
           realSync.queued = uniq.length;
-          realSync.detail = uniq.map((id) => ({ contactId: id, status: 'queued', note: 'CDP 未注入，拉黑待同步到窗口' }));
+          realSync.detail = uniq.map((id) => ({ contactId: id, status: 'queued', note: 'CDP 未注入，删除待同步到窗口' }));
         }
         return json(res, 200, {
           ok: true, action: action, flag: realFlag,
           updated: r.updated, ids: r.ids,
           realSync: realSync,
-          note: (action === 'blacklist' && realSync.queued > 0)
-            ? ('已排入真实拉黑队列（' + realSync.queued + ' 位待同步到窗口）；DB 已打标，下次窗口打开时同步')
-            : (action === 'blacklist' ? ('已真实拉黑 ' + realSync.blocked + ' 位') : '已归档'),
+          note: (action === 'blacklist')
+            ? (realSync.blocked > 0
+                ? ('已在真实窗口删除 ' + realSync.blocked + ' 位' + (realSync.queued > 0 ? '，另有 ' + realSync.queued + ' 位待同步' : '') + '，收件箱已强制重抓同步')
+                : (realSync.queued > 0 ? ('已排入真实删除队列（' + realSync.queued + ' 位待同步到窗口）；DB 已打标') : '已拉黑'))
+            : '已归档',
         });
       }
       case 'restore': {

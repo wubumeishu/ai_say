@@ -45,16 +45,6 @@ function refreshList() {
       state.unread = mj.unread || 0;
       // 渲染：已归档/拉黑客户加 .is-archived 类（卡片灰显）
       if (typeof renderList === 'function') renderList();
-      // 给已归档卡片加灰显类（renderList 不感知 archived，这里补一刀）
-      var host = document.getElementById('customerList');
-      if (host) {
-        Array.prototype.forEach.call(host.querySelectorAll('.cust-item'), function(el) {
-          var cid = el.getAttribute('data-id');
-          var c = state.contacts.find(function(x) { return x.contactId === cid; });
-          if (c && (c.archived || c.blacklisted)) el.classList.add('is-archived');
-          else el.classList.remove('is-archived');
-        });
-      }
       if (typeof updateBadge === 'function') updateBadge();
       updateBar();
     }

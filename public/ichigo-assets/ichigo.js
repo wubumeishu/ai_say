@@ -33,7 +33,8 @@ export function renderList() {
     var flags = '';
     if (c.blacklisted) flags += '<span class="ci-flag blacklisted" title="已拉黑">拉黑</span>';
     if (c.archived) flags += '<span class="ci-flag archived" title="已归档">归档</span>';
-    html += '<div class="cust-item' + active + (c.unread > 0 ? ' unread' : '') + '" data-id="' + esc(c.contactId) + '">';
+    var isArchivedCls = (c.archived || c.blacklisted || !c.inLiveInbox) ? ' is-archived' : '';
+    html += '<div class="cust-item' + active + (c.unread > 0 ? ' unread' : '') + isArchivedCls + '" data-id="' + esc(c.contactId) + '">';
     html +=   '<div class="ci-top">';
     html +=     '<input type="checkbox" class="ci-check" data-cid="' + esc(c.contactId) + '" title="勾选后批量操作">';
     html +=     '<div class="ci-av">' + av + '</div>';
