@@ -12,7 +12,6 @@ import { openModelForm, closeModelForm, saveModelForm, testModelForm } from './m
 import { loadAccount, bindAccountEvents } from './accounts.js';
 import { loadPhrases } from './phrases.js';
 import { aiHistRestore, aiHistNewSession, aiHistClear, openAiHistPop, closeAiHistPop, bindAiHistPopDismiss, bindAiChips, askAssistantCore } from './aisay.js';
-import { loadV5Panel, bindV5Panel } from './v5-panel.js'; // 第 9 刀 · v5 画像库纵向切片
 
 // ---- 事件绑定（复制自老经典脚本 L2215-2364，全部改指 module 函数）----
 function bindEvents() {
@@ -184,7 +183,6 @@ export function initMain() {
   safeInit('bindEvents', function() { bindEvents(); });
   safeInit('aiHistRestore', function() { aiHistRestore(state.selectedId || null); });
   safeInit('aiChips', function() { bindAiChips(); });
-  safeInit('v5Panel', function() { bindV5Panel(); });
   safeInit('pollMailbox', function() { pollMailbox(true); });
   safeInit('netChip', function() { refreshNetChip(true); });
   safeInit('agentPage', function() { if (state.currentView === 'agents') renderAgentPage(); });

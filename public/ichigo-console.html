@@ -128,26 +128,6 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 .rec-reply{font-size:12px;padding:8px 10px;background:var(--card2);border-radius:6px;margin-bottom:6px;position:relative;line-height:1.5}
 .rec-reply .copy-btn{position:absolute;top:6px;right:6px;font-size:10px;padding:2px 8px;background:var(--bg2);border:1px solid var(--border);color:var(--muted);border-radius:3px;cursor:pointer}
 .rec-reply .copy-btn:hover{color:var(--accent);border-color:var(--accent)}
-/* v5 画像库面板（纵向切片） */
-.v5-section{background:linear-gradient(180deg,var(--card2),var(--card));border-top:2px solid var(--accent)}
-.v5-person{font-size:12px;padding:6px 8px;background:var(--bg2);border-radius:4px;margin-bottom:6px;color:var(--text);line-height:1.4}
-.v5-person .stage{display:inline-block;padding:1px 6px;border-radius:8px;background:var(--accent);color:#fff;font-size:10px;margin-left:4px}
-.v5-sub{font-size:10px;color:var(--muted);margin:8px 0 4px;text-transform:uppercase;letter-spacing:.5px}
-.v5-mem{font-size:12px;padding:6px 8px;background:var(--bg2);border-radius:4px;margin-bottom:4px;line-height:1.4;position:relative}
-.v5-mem .v5-mem-type{display:inline-block;padding:0 5px;border-radius:3px;background:var(--accent);color:#fff;font-size:9px;margin-right:6px;vertical-align:top}
-.v5-mem .v5-mem-time{font-size:9px;color:var(--muted);margin-top:2px}
-.v5-mem .v5-mem-src{font-size:9px;color:var(--muted);margin-left:6px}
-.v5-mem.v5-pmem{border-left:3px solid var(--pending)}
-.v5-add-row{display:flex;gap:4px;margin-top:8px;align-items:flex-start}
-.v5-add-row .v5-input{background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:4px 6px;color:var(--text);font-size:11px;flex:1}
-.v5-add-row .v5-input:focus{outline:none;border-color:var(--accent)}
-.v5-add-row textarea{resize:vertical;min-height:28px}
-.v5-btn{background:var(--accent);color:#fff;border:none;border-radius:3px;padding:6px 12px;font-size:11px;cursor:pointer;white-space:nowrap}
-.v5-btn:hover{filter:brightness(1.15)}
-.v5-btn:disabled{opacity:.4;cursor:not-allowed}
-.v5-empty{font-size:11px;color:var(--muted);padding:4px 0}
-.v5-loading{font-size:11px;color:var(--muted);padding:4px 0}
-.v5-err{font-size:11px;color:var(--pending);padding:4px 0}
 .rec-reply .pending-tag{font-size:9px;color:var(--pending);margin-top:4px}
 /* Column 5: AI session */
 .col-ai{background:var(--bg);display:flex;flex-direction:column;overflow:hidden}
@@ -542,23 +522,6 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
     <div class="section" id="analysisSection">
       <div class="section-title">客户画像分析</div>
       <div id="analysisList"><div class="empty">选择客户后显示</div></div>
-    </div>
-    <div class="section v5-section" id="v5Section" style="display:none">
-      <div class="section-title">📚 画像库（v5 双层记忆）</div>
-      <div id="v5PersonSummary" class="v5-person"></div>
-      <div class="v5-sub">物理人级 · CustomerMemory</div>
-      <div id="v5Memories"><div class="empty">加载中…</div></div>
-      <div class="v5-sub">平台人设级 · PersonaMemory</div>
-      <div id="v5PersonaMemories"><div class="empty">（暂无）</div></div>
-      <div class="v5-add-row">
-        <input id="v5NewMemType" class="v5-input" style="width:80px" value="note" list="v5MemTypes" title="类型：note/preference/personality/phrasing/media/schedule">
-        <datalist id="v5MemTypes">
-          <option value="note"><option value="preference"><option value="personality">
-          <option value="phrasing"><option value="media"><option value="schedule">
-        </datalist>
-        <textarea id="v5NewMemContent" class="v5-input" rows="2" placeholder="添加记忆碎片 / 备注（手动）"></textarea>
-        <button id="v5AddMemBtn" class="v5-btn">＋ 存入</button>
-      </div>
     </div>
     <div class="section">
       <div class="section-title">推荐回复</div>
