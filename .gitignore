@@ -33,3 +33,7 @@ Desktop.ini
 _commit_msg.txt
 _syntax_check.js
 test-deep-debug*.js
+
+# Python（backend/）
+__pycache__/
+*.pyc
