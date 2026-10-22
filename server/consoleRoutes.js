@@ -871,7 +871,10 @@ register('GET', '/api/console/customers', wrap(async (req, res) => {
   // GET /api/console/mailbox → 轻量轮询：抓收件箱 → 写缓存 → 返回轻量列表（含未读）
   // 模块 1 · 出会消息队列过滤：?includeArchived=1 时含归档/拉黑客户（默认 0 排除）
   // 给 contacts 加 archived/blacklisted 字段 + 按 includeArchived 过滤
-  function applyFlagsAndFilter(contacts, includeArchived) {
+  // 模块1 · applyFlagsAndFilter：liveSet（本次 CDP 真实抓到的 contactId 集合）内的客户
+  //   即使 DB 有 archived/blacklisted 旧标志也强制置 0（真实窗口为准——客户还在窗口里 = 没被删）
+  //   只有 liveSet 之外 + DB 标志=1 的客户才被过滤/灰显（真正已删除的备份）
+  function applyFlagsAndFilter(contacts, includeArchived, liveSet) {
     if (!Array.isArray(contacts) || !contacts.length) return contacts;
     var ids = contacts.map(function(c) { return c.contactId; }).filter(Boolean);
     var flags = {};
@@ -879,13 +882,14 @@ register('GET', '/api/console/customers', wrap(async (req, res) => {
       var m = store.getContactFlags(ids);
       m.forEach(function(v, k) { flags[k] = v; });
     }
-    // 深拷贝避免改原始 cache 对象
     var out = contacts.map(function(c) {
       var f = flags[c.contactId] || { archived: 0, blacklisted: 0 };
-      return Object.assign({}, c, { archived: f.archived, blacklisted: f.blacklisted });
+      var a = f.archived, b = f.blacklisted;
+      // 真实窗口还在 = 未删除，强制清 0（DB 旧标志是历史残留，不可信）
+      if (liveSet && liveSet.has(c.contactId)) { a = 0; b = 0; }
+      return Object.assign({}, c, { archived: a, blacklisted: b });
     });
     if (includeArchived) return out;
-    // 默认：排除归档 + 拉黑
     return out.filter(function(c) { return !c.archived && !c.blacklisted; });
   }
 
@@ -895,7 +899,7 @@ register('GET', '/api/console/customers', wrap(async (req, res) => {
     const includeArchived = qs0.get('includeArchived') === '1';
     if (!deepScrape || typeof deepScrape.mailboxOnly !== 'function') {
       // 降级：直接读缓存
-      if (ichigoCache) return json(res, 200, { ok: true, from: 'cache-only', contacts: applyFlagsAndFilter(ichigoCache.getContacts().map(enrichContact), includeArchived), unread: ichigoCache.unreadTotal() });
+      if (ichigoCache) return json(res, 200, { ok: true, from: 'cache-only', contacts: applyFlagsAndFilter(ichigoCache.getContacts().map(enrichContact), includeArchived, null), unread: ichigoCache.unreadTotal() });
       return json(res, 501, { ok: false, msg: 'deepScrape 未注入' });
     }
     if (!force && ichigoCache) {
@@ -906,13 +910,14 @@ register('GET', '/api/console/customers', wrap(async (req, res) => {
       }, 0);
       // 缓存 90s 内直接用（避免重复打 CDP）
       if (cs.length && Date.now() - newest < 90 * 1000) {
-        return json(res, 200, { ok: true, from: 'cache', contacts: applyFlagsAndFilter(cs.map(enrichContact), includeArchived), unread: ichigoCache.unreadTotal(), cached: true });
+        var cacheLiveSet = new Set(cs.map(function(x) { return x.contactId; }).filter(Boolean));
+        return json(res, 200, { ok: true, from: 'cache', contacts: applyFlagsAndFilter(cs.map(enrichContact), includeArchived, cacheLiveSet), unread: ichigoCache.unreadTotal(), cached: true });
       }
     }
     const scan = await deepScrape.mailboxOnly();
     if (!scan.ok) {
       // 抓取失败：返回缓存，不让前端丢数据
-      if (ichigoCache) return json(res, 200, { ok: true, from: 'cache-fallback', contacts: applyFlagsAndFilter(ichigoCache.getContacts().map(enrichContact), includeArchived), unread: ichigoCache.unreadTotal(), scanReason: scan.reason });
+      if (ichigoCache) return json(res, 200, { ok: true, from: 'cache-fallback', contacts: applyFlagsAndFilter(ichigoCache.getContacts().map(enrichContact), includeArchived, null), unread: ichigoCache.unreadTotal(), scanReason: scan.reason });
       return json(res, 200, { ok: false, reason: scan.reason, msg: scan.msg });
     }
     let up = { changed: [] };
@@ -932,7 +937,7 @@ register('GET', '/api/console/customers', wrap(async (req, res) => {
       }
     }
     const cs = ichigoCache ? ichigoCache.getContacts() : scan.contacts;
-    var enriched = applyFlagsAndFilter(cs.map(enrichContact), includeArchived);
+    var enriched = applyFlagsAndFilter(cs.map(enrichContact), includeArchived, liveIdsSet);
     enriched.forEach(function(c) { c.inLiveInbox = liveIdsSet.has(c.contactId); });
     return json(res, 200, {
       ok: true, from: 'live', contacts: enriched,

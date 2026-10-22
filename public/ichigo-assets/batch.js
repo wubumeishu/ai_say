@@ -5,6 +5,11 @@
 //   ③ 勾选 → 批量栏浮现 → 归档/拉黑/恢复 → 调 POST /api/console/batch → 刷新列表
 //   ④ 拉黑联动真实窗口（后端 realSync 提示 queued/blocked）
 'use strict';
+// 模块1 · 直接 import 业务函数（第 8 刀收口后无 window 桥）
+import { state } from './state.js';
+import { toast, findContact } from './util.js';
+import { renderList, renderHeader } from './ichigo.js';
+import { updateBadge, pollMailbox } from './nav-poll.js';
 
 var SHOW_ARCHIVED = false;   // 「已归档」开关状态
 var EDIT_MODE = false;       // 编辑模式状态

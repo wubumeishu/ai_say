@@ -16,7 +16,7 @@ var tmemoTimer = null;
 export function renderList() {
   var host = document.getElementById('customerList');
   var cc = document.getElementById('custCount'); if (cc) cc.textContent = state.contacts.length;
-  if (!state.contacts.length) { host.innerHTML = '<div class="empty" style="padding:20px;text-align:center">加载中…</div>'; return; }
+  if (!state.contacts.length) { host.innerHTML = '<div class="empty" style="padding:20px;text-align:center">没有正在进行的消息记录<br><span style="font-size:10px;color:var(--muted)">（窗口可达 · 可点「📁 已归档」查看历史备份）</span></div>'; return; }
   var list = state.contacts.slice().sort(function(a, b) {
     var d = timeRank(b.lastMsgTime) - timeRank(a.lastMsgTime);
     if (d !== 0) return d;
