@@ -211,6 +211,10 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 .cust-item:hover{background:var(--bg2)}
 .cust-item.active{background:var(--card2);border-left:3px solid var(--accent);padding-left:9px}
 .cust-item.unread .ci-name{font-weight:700}
+/* 模块2 · 翻译失败/超时态（恢复原文 + 标红 + 可重试提示） */
+.text-zh-failed{color:var(--hot,#ff6b6b)!important;font-style:italic;cursor:pointer;text-decoration:underline dotted}
+.text-zh-failed:hover{opacity:.8}
+.text-zh-failed::after{content:"（点击重试）";font-size:9px;color:var(--muted);margin-left:4px}
 /* 模块1 · 编辑模式：checkbox 平时隐藏，进编辑模式才显示 */
 .cust-item .ci-check{display:none}
 .cust-item.selected .ci-check, .col-customers.editing .ci-check{display:inline-block}

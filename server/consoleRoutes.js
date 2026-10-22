@@ -194,6 +194,48 @@ function mountConsoleRoutes(app, deps = {}) {
     return out.trim();
   }
 
+  // 模块2 · 免密钥翻译（deep_translator 子进程）：替换易超时的旧 LLM 节点
+  // 调用 server/translate_service.py（Python 子进程，stdin 收 JSON 批量 → stdout 出 JSON 结果）
+  // 入参预留 context/personaId（大模型角色扮演管道位），现阶段 deep_translator 透传不消费
+  function callDeepTranslator(items, timeoutMs) {
+    const { spawn } = require('child_process');
+    const pyPath = require('path').join(__dirname, 'translate_service.py');
+    const payload = JSON.stringify({ items: items, timeout_ms: timeoutMs || 8000 });
+    return new Promise(function(resolve) {
+      let settled = false;
+      function done(v) { if (!settled) { settled = true; resolve(v); } }
+      let child;
+      try {
+        child = spawn('python', [pyPath, payload], { cwd: __dirname, stdio: ['ignore', 'pipe', 'pipe'] });
+      } catch (e) {
+        done({ ok: false, reason: 'spawn-error', msg: String((e && e.message) || e), results: {} });
+        return;
+      }
+      let outBuf = '';
+      let errBuf = '';
+      const timer = setTimeout(function() {
+        try { child.kill(); } catch (_) {}
+        done({ ok: false, reason: 'timeout', msg: 'deep_translator 子进程超时（' + (timeoutMs || 8000) + 'ms）', results: {} });
+      }, (timeoutMs || 8000) + 3000);
+      child.stdout.on('data', function(d) { outBuf += d; });
+      child.stderr.on('data', function(d) { errBuf += d; });
+      child.on('close', function(code) {
+        clearTimeout(timer);
+        try {
+          const j = JSON.parse(outBuf || '{}');
+          if (j.ok) { done(Object.assign(j, { code: code, stderr: errBuf.slice(0, 200) })); return; }
+          done({ ok: false, reason: (j && j.reason) || 'py-error', msg: ((j && j.msg) || errBuf || ('exit ' + code)).slice(0, 300), results: {} });
+        } catch (_) {
+          done({ ok: false, reason: 'parse-error', msg: (errBuf || outBuf || ('exit ' + code)).slice(0, 300), results: {} });
+        }
+      });
+      child.on('error', function(e) {
+        clearTimeout(timer);
+        done({ ok: false, reason: 'spawn-fail', msg: String((e && e.message) || e), results: {} });
+      });
+    });
+  }
+
   // 内置词典兜底（会出场景高频词，敬体→简体陈述）
   function dictFallback(text) {
     var t = String(text || '');
@@ -1321,6 +1363,9 @@ register('GET', '/api/console/customers', wrap(async (req, res) => {
     const text = String(qs.get('text') || '');
     const from = String(qs.get('from') || 'ja');
     const to = String(qs.get('to') || 'zh-CN');
+    // 模块2 · 大模型管道预留：context / personaId（现阶段 deep_translator 透传，后续接本地 LLM 角色扮演翻译）
+    const context = String(qs.get('context') || '');
+    const personaId = String(qs.get('personaId') || '');
     if (!text) return json(res, 400, { ok: false, msg: '缺少 text 参数' });
     const activeCfg = modelStore ? modelStore.getUsableActive() : null;
     const settings = deps.settings || {};
@@ -1329,7 +1374,20 @@ register('GET', '/api/console/customers', wrap(async (req, res) => {
     // ① 命中缓存直接返回（切回不用重翻）
     if (translationCache) {
       const hit = translationCache.get(text, from, to, modelConfigured);
-      if (hit) return json(res, 200, { ok: true, source: hit.source, model: hit.model, translated: hit.translated, cached: true });
+      if (hit) return json(res, 200, { ok: true, source: hit.source, model: hit.model, translated: hit.translated, cached: true, context: context, personaId: personaId });
+    }
+    // ①' 模块2 · 免密钥 deep_translator 优先（替换易超时的 LLM 节点；模型未配置或 LLM 失败时走这里）
+    if (!modelConfigured) {
+      try {
+        const dt = await callDeepTranslator([{ text: text, from: from, to: to, context: context, personaId: personaId }], 8000);
+        if (dt.ok && dt.results && dt.results[text]) {
+          const r = dt.results[text];
+          if (r.ok && r.translated) {
+            if (translationCache) translationCache.set(text, from, to, { translated: r.translated, source: r.source || 'google-free' });
+            return json(res, 200, { ok: true, source: r.source || 'google-free', model: 'deep-translator', translated: r.translated, context: context, personaId: personaId });
+          }
+        }
+      } catch (e) { /* deep_translator 不可用 → 落词典兜底 */ }
     }
     // ② 模型翻译
     if (modelConfigured) {
