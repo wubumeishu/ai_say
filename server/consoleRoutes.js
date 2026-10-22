@@ -174,7 +174,16 @@ function mountConsoleRoutes(app, deps = {}) {
   //   + 最近对话流（Conversation/Message 摘要）+ 推荐回复（调 M3 talkEngine.buildTalks，按需懒加载，列表只占位）
     // 模型翻译调用（OpenAI 兼容接口）
   async function callModel(modelCfg, text, from, to, timeoutMs) {
-    const prompt = '把下面' + (from === 'ja' ? '日文' : from) + '翻译成' + (to === 'zh-CN' ? '简体中文' : to) + '，只输出译文：\n' + text;
+    // 模块2 · 总控紧急修复：翻译指令漂移（日翻日）→ 强硬 System Prompt
+    // 原单条 prompt 太弱，模型对"ぜひー！"这类短语气词会原样吐回。现在双角色（system 强硬 + user 任务）
+    var fromLabel = from === 'ja' ? '日语' : from;
+    var toLabel = to === 'zh-CN' ? '简体中文' : (to === 'zh-TW' ? '繁体中文' : to);
+    var systemPrompt =
+      '你是一个专业的「' + fromLabel + '→' + toLabel + '」翻译引擎。你的唯一任务是输出' + toLabel + '。' +
+      '无论输入什么内容（包括语气词、拟声词、无意义字符），绝对禁止输出' + fromLabel + '原文，' +
+      '严禁回复任何解释、前缀、引号、代码块包裹。只输出译文本身，没有译文也输出最接近的' + toLabel + '等价表达。' +
+      '若原文是「ぜひ」→「来吧」；若是「いいですね」→「好的呢」；严禁原样复读。';
+    var userPrompt = '原文（' + fromLabel + '）：\n' + text + '\n请输出' + toLabel + '译文：';
     // 硬超时：单条挂住不能拖垮整批（否则前端会出现"部分消息翻译不完"）
     const ctrl = new AbortController();
     const timer = setTimeout(function() { try { ctrl.abort(); } catch (_) {} }, timeoutMs || 25000);
@@ -183,7 +192,14 @@ function mountConsoleRoutes(app, deps = {}) {
       resp = await fetch(modelCfg.baseUrl + '/chat/completions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + modelCfg.apiKey },
-        body: JSON.stringify({ model: modelCfg.model || 'gpt-4o-mini', messages: [{ role: 'user', content: prompt }], temperature: 0.3 }),
+        body: JSON.stringify({
+          model: modelCfg.model || 'gpt-4o-mini',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+          temperature: 0.2,
+        }),
         signal: ctrl.signal,
       });
     } finally { clearTimeout(timer); }
@@ -191,7 +207,15 @@ function mountConsoleRoutes(app, deps = {}) {
     const data = await resp.json();
     const out = data.choices && data.choices[0] ? data.choices[0].message.content : '';
     if (!out) throw new Error('模型返回空');
-    return out.trim();
+    var cleaned = String(out).trim();
+    // 兜底校验：若模型仍复读日文原文（日翻日漂移），强制标记漂移（前端可走词典兜底）
+    var jaCount = (cleaned.match(/[ぁ-んァ-ヶ]/g) || []).length;
+    var cleanAscii = cleaned.replace(/[ぁ-んァ-ヶ]/g, '');
+    if (cleaned && jaCount > 0 && cleanAscii.length < 4) {
+      // 几乎全是日文字符 + 无其他内容 = 漂移
+      throw new Error('llm-drift: ' + cleaned.slice(0, 30));
+    }
+    return cleaned;
   }
 
   // 模块2 · 免密钥翻译（deep_translator 子进程）：替换易超时的旧 LLM 节点

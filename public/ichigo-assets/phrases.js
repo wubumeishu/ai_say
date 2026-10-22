@@ -1,8 +1,12 @@
 // 第七刀 · phrases.js（常用语管理，复制自 ichigo-console.html L1994-2107）
 // 依赖：util.js(esc/toast) + ichigo.js(translateAll 跨模块保护) + accounts.js(acctState 跨模块保护)
-// 无循环：phrases → ichigo / accounts 单向（accounts.js 对 phrases 也走 window 保护，运行时互不 import）
+// 模块2 · 总控紧急修复：直接 import translateAll（第 8 刀收口后 window 桥已失效，
+// 旧代码 L86 "var _ta = translateAll" 未 import → _ta=undefined → 翻译永不执行 → "翻译中…"死锁）
+// 加固：translateAll 自带 5s AbortController + try/catch/finally + 失败恢复原文，
+// 单条失败不阻塞全局；本层再兜一层 finally 强制清 Loading 态
 'use strict';
 import { esc, toast } from './util.js';
+import { translateAll, retryTranslate } from './ichigo.js'; // 模块2 · 死锁修复：直接 import（无 window 兜底）
 
 // 读 accounts.js 的 acctState（第 8 刀收口：直接 import，无 window 桥）
 import { acctState as accountsAcctState } from './accounts.js';
@@ -82,9 +86,34 @@ export function renderPhrases() {
       fetch('/api/console/phrases/use?id=' + encodeURIComponent(id), { method: 'POST' }).catch(function(e) { console.warn('[phrases] use 上报失败', e); });
     });
   });
-  // 日语下方补中文译文（跨模块 translateAll 走 window 保护）
-  var _ta = translateAll; // 第 8 刀收口：直接 import
-  if (typeof _ta === 'function') _ta(host.querySelectorAll('.pc-zh'));
+  // 模块2 · 常用语死锁修复：直接调 translateAll（已 import），finally 强制清 Loading
+  // translateAll 内部：5s 超时 + 失败节点标 data-failed 恢复原文 + 点击可重试
+  // 这里再包一层 finally，确保无论 translateAll 抛什么错，UI 都不会卡在"翻译中…"
+  var zhNodes = host.querySelectorAll('.pc-zh');
+  if (zhNodes.length) {
+    try {
+      translateAll(zhNodes);
+    } catch (err) {
+      console.warn('[phrases] translateAll 异常（已强制清 Loading）', err);
+    } finally {
+      // finally：强制清除所有仍在 Loading 的节点（兜底防死锁）
+      setTimeout(function() {
+        Array.prototype.forEach.call(zhNodes, function(el) {
+          if (el.getAttribute && el.getAttribute('data-loading') && !el.getAttribute('data-failed')) {
+            // 仍 Loading 且未标失败 → 恢复原文（绝不卡"翻译中…"）
+            var raw = el.getAttribute('data-src') || '';
+            if (el.textContent === '翻译中…' || el.textContent === '译文加载中…') {
+              el.textContent = raw;
+              el.removeAttribute('data-loading');
+              el.classList.add('text-zh-failed');
+              el.setAttribute('data-failed', '1');
+              el.title = '翻译失败，点原文可重试';
+            }
+          }
+        });
+      }, 6000); // 6s（略大于 5s 超时）强制兜底
+    }
+  }
 }
 
 // 开常用语弹窗（复制自 L2064）
