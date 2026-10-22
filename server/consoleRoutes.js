@@ -1036,7 +1036,7 @@ register('GET', '/api/console/customers', wrap(async (req, res) => {
         const realFlag = (action === 'archive') ? 'archived' : 'blacklisted';
         const r = store.batchSetContactFlag(uniq, realFlag);
         // 模块1 · 拉黑/归档联动真实窗口（CDP）：
-        //   * blacklist → 逐个调 deepScrape.blockContact(historyUrl) 触发真实拉黑
+        //   * blacklist → 逐个调 deepScrape.blockContact(customerName) 触发真实 3 步删除（收件箱编辑模式）
         //   * archive   → 仅 DB 打标（归档是本地操作，不触发平台动作）
         //   * CDP 不可用/按钮未找到 → queued 提示（"已排入真实拉黑队列/待同步到窗口"），不当成假拉黑
         let realSync = { queued: 0, blocked: 0, failed: 0, detail: [] };
