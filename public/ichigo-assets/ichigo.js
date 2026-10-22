@@ -7,6 +7,7 @@ import { esc, firstChar, timeRank, hasJa, prettyFields, findContact, toast } fro
 import { isIchigoView } from './view.js';
 import { updateBadge } from './nav-poll.js';
 import { aiHistRestore } from './aisay.js'; // 第 8 刀收口：直接 import（aisay→state/util，无循环）
+import { getCache, setCache } from './translate-cache.js'; // 模块2 · 双层翻译缓存池
 import { getCache, setCache, cacheKey } from './translate-cache.js'; // 模块2 · 前端双层翻译缓存池
 
 // 翻译缓存 + 计时器（原 L1083 区）
@@ -157,11 +158,12 @@ export function paintZh(el, entry) {
   el.className = keep.join(' ');
 }
 
-// 缺失补翻（复制自 L1112）
+// 缺失补翻（模块2 · 只补正在加载节点；已失败节点跳过，用户点重试才再发）
 export function retryMissing(allNodes) {
   var pending = allNodes.filter(function(el) {
+    if (el.getAttribute('data-failed')) return false; // 已失败的不自动补（用户点重试才发）
     var t = el.textContent || '';
-    return t === '翻译中…' || t === '' || t === '译文加载中…';
+    return t === '翻译中…' || t === '译文加载中…' || (t === '' && el.getAttribute('data-loading'));
   });
   if (!pending.length) return;
   var i = 0;
@@ -181,7 +183,10 @@ export function retryMissing(allNodes) {
   return Promise.all(ws).then(function() { tmemoSave(); });
 }
 
-// 批量翻译（复制自 L1136）
+// 批量翻译（模块2 · 总控紧急修复：死锁 + 双层缓存 + 失败恢复原文）
+// 渲染消息/常用语时优先查双层缓存（内存 Map + localStorage），命中瞬间回填；
+// 未命中发请求自动写回两层。5s AbortController 超时 + try/catch + finally，
+// 失败/超时立即退 Loading 态、恢复原文、标 data-failed 允许重试，杜绝永久卡死。
 export function translateAll(nodes) {
   var arr = Array.prototype.slice.call(nodes);
   if (!arr.length) return Promise.resolve();
@@ -189,37 +194,105 @@ export function translateAll(nodes) {
   var missSeen = {};
   arr.forEach(function(el) {
     var src = el.getAttribute('data-src') || '';
+    // ① 双层缓存优先（内存 Map → localStorage）
+    var hit = getCache(src, 'ja', 'zh-CN');
+    if (hit && hit.translated) { paintZh(el, hit); return; }
+    // 兼容老 TMEMO（迁移过渡）
     var m = TMEMO[src];
-    if (m) paintZh(el, m);
-    else {
-      el.textContent = '翻译中…';
-      if (!missSeen[src]) { missSeen[src] = []; miss.push(src); }
-      missSeen[src].push(el);
-    }
+    if (m) { paintZh(el, m); setCache(src, 'ja', 'zh-CN', m); return; }
+    // ② 未命中：显 Loading（带 data-loading，失败可精确恢复）
+    el.textContent = '翻译中…';
+    el.setAttribute('data-loading', '1');
+    if (!missSeen[src]) { missSeen[src] = []; miss.push(src); }
+    missSeen[src].push(el);
   });
   if (!miss.length) return Promise.resolve();
+  // ③ 发批量请求：5s 硬超时（AbortController）
+  var ctrl = new AbortController();
+  var timer = setTimeout(function() { try { ctrl.abort(); } catch (_) {} }, 5000);
+  var done = function() {
+    clearTimeout(timer);
+    // ④ 失败兜底：所有仍 Loading 且未标失败的节点恢复原文（杜绝"翻译中…"死锁）
+    Object.keys(missSeen).forEach(function(t) {
+      (missSeen[t] || []).forEach(function(el) {
+        if (el.getAttribute('data-loading') && !el.getAttribute('data-failed')) {
+          el.removeAttribute('data-loading');
+          el.textContent = el.getAttribute('data-src') || '';
+          el.classList.add('text-zh-failed');
+          el.setAttribute('data-failed', '1');
+          el.title = '翻译失败/超时，点原文可重试';
+        }
+      });
+    });
+    retryMissing(arr);
+  };
   return fetch('/api/console/translate/batch', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ items: miss.map(function(t) { return { text: t, from: 'ja', to: 'zh-CN' }; }) })
+    body: JSON.stringify({ items: miss.map(function(t) { return { text: t, from: 'ja', to: 'zh-CN' }; }) }),
+    signal: ctrl.signal,
   }).then(function(r) { return r.json(); }).then(function(j) {
+    clearTimeout(timer);
     if (j && j.ok && j.results) {
       Object.keys(j.results).forEach(function(t) {
         var e = j.results[t];
-        if (!e || !e.ok) return;
-        TMEMO[t] = { translated: e.translated, source: e.source };
-        (missSeen[t] || []).forEach(function(el) { paintZh(el, TMEMO[t]); });
+        var els = missSeen[t] || [];
+        if (e && e.ok && e.translated) {
+          TMEMO[t] = { translated: e.translated, source: e.source };
+          setCache(t, 'ja', 'zh-CN', TMEMO[t]); // 自动写回双层缓存
+          els.forEach(function(el) { paintZh(el, TMEMO[t]); el.removeAttribute('data-loading'); });
+        } else {
+          // 单条失败：恢复原文 + 标失败（不影响其他成功条目）
+          els.forEach(function(el) {
+            el.removeAttribute('data-loading');
+            el.textContent = el.getAttribute('data-src') || '';
+            el.classList.add('text-zh-failed');
+            el.setAttribute('data-failed', '1');
+            el.title = '翻译失败，点原文可重试';
+          });
+        }
       });
       tmemoSave();
     }
-    retryMissing(arr);
-  }).catch(function() { retryMissing(arr); });
+    done();
+  }).catch(function() {
+    done();
+  });
 }
 
-// 单条翻译（复制自 L1171）
-export function translate(text, from, to) {
-  var qs = new URLSearchParams({ text: text, from: from || 'ja', to: to || 'zh-CN' });
-  return fetch(API.translate + '?' + qs.toString()).then(function(r) { return r.json(); });
+// 模块2 · 失败重试：点失败节点 → 重新 translateAll（缓存未命中才会真发请求）
+export function retryTranslate(el) {
+  if (!el) return;
+  el.removeAttribute('data-failed');
+  el.classList.remove('text-zh-failed');
+  translateAll([el]);
+}
+
+// 单条翻译（模块2 · 死锁修复 + 5s 超时 + 缓存优先）
+// 返回 Promise<{ ok, translated, source, cached?, timeout? }>；失败/超时不 reject
+export function translate(text, from, to, ctx) {
+  from = from || 'ja'; to = to || 'zh-CN';
+  // ① 双层缓存优先
+  var hit = getCache(text, from, to);
+  if (hit && hit.translated) return Promise.resolve({ ok: true, translated: hit.translated, source: hit.source, cached: true });
+  // ② 未命中 → 发请求，5s 硬超时（AbortController）
+  var ctrl = new AbortController();
+  var timer = setTimeout(function() { try { ctrl.abort(); } catch (_) {} }, 5000);
+  var qs = new URLSearchParams({ text: text, from: from, to: to });
+  if (ctx && ctx.context) qs.set('context', ctx.context);
+  if (ctx && ctx.personaId) qs.set('personaId', ctx.personaId);
+  return fetch(API.translate + '?' + qs.toString(), { signal: ctrl.signal })
+    .then(function(r) { return r.json(); })
+    .then(function(j) {
+      clearTimeout(timer);
+      if (j && j.ok && j.translated) setCache(text, from, to, { translated: j.translated, source: j.source });
+      return j || { ok: false };
+    })
+    .catch(function(e) {
+      clearTimeout(timer);
+      var timedOut = (e && e.name === 'AbortError');
+      return { ok: false, timeout: !!timedOut, msg: timedOut ? '翻译超时（5s）' : String((e && e.message) || e) };
+    });
 }
 
 // 画像分析渲染（复制自 L1224）
