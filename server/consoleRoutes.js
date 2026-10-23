@@ -1122,6 +1122,35 @@ if (action === 'blacklist' && deepScrape && typeof deepScrape.blockContact === '
     }
   }));
 
+  // GET /api/console/bbs/posts?page=1&genre=5&board=pure
+  //   模块3 · BBS 帖子查询（只读）：在出会窗口 POST ajax 端点 + 解析卡片 → 结构化帖子列表
+  //   窗口未连上 → 501 cdp-unavailable（不 500）；无帖子 → ok:true + posts:[]（空不报错）
+  register('GET', '/api/console/bbs/posts', wrap(async (req, res) => {
+    if (!deepScrape || typeof deepScrape.queryBbsPosts !== 'function') {
+      return json(res, 501, { ok: false, reason: 'bbs-scraper-not-injected', msg: 'BBS 查询器未注入（deepScrape 未就绪）' });
+    }
+    const qs = new URLSearchParams(String(req.url || '').split('?')[1] || '');
+    const opts = {
+      page: parseInt(qs.get('page') || '1', 10),
+      genre: parseInt(qs.get('genre') || '5', 10),
+      count: parseInt(qs.get('count') || '15', 10),
+      prefId: parseInt(qs.get('prefId') || '24', 10),
+      hokkaidoFlag: parseInt(qs.get('hokkaidoFlag') || '0', 10),
+      board: qs.get('board') || 'pure'
+    };
+    try {
+      const r = await deepScrape.queryBbsPosts(opts);
+      if (!r || !r.ok) {
+        // 空帖子（reason=empty）仍回 200 + 空列表；CDP 不可用回 501
+        if (r && r.reason === 'empty') return json(res, 200, Object.assign({ ok: true, posts: [], total: 0, empty: true }, r));
+        return json(res, 501, Object.assign({ ok: false }, r));
+      }
+      return json(res, 200, Object.assign({ ok: true }, r));
+    } catch (e) {
+      return json(res, 500, { ok: false, reason: 'bbs-query-exception', msg: String((e && e.message) || e) });
+    }
+  }));
+
   // GET /api/console/happy/inbox?force=1&more=1&expand=1
   //   缓存优先（5min 新鲜直接回 cached:true）→ 过期/force 真连 CDP → 成功后回写缓存；
   //   expand=1 时循环点「もっと見る」直到无按钮/不再增长/达 30 位上限（C 自动加载更多）；

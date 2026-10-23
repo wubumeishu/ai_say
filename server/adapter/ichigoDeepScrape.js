@@ -129,6 +129,7 @@ function createIchigoDeepScrape(deps) {
   var profileExprLegacy  = readExpr(path.join(__dirname, 'ichigoProfileExpr.js'));
   var sendExprSrc        = readExpr(path.join(__dirname, 'ichigoSendExpr.js'));
   var networkExprSrc     = readExpr(path.join(__dirname, 'ichigoNetworkExpr.js'));
+  var bbsQueryExprSrc   = readExpr(path.join(__dirname, 'ichigoBbsQueryExpr.js'));
 
   // ---------- 工具 ----------
   function parseContactName(raw) {
@@ -181,7 +182,15 @@ function createIchigoDeepScrape(deps) {
     });
   }
 
-  function fillUrl(exprSrc, url, isAccount, customerName, mode) {
+  
+  // BBS 查询表达式注入（__BBS_OPTS__ = JSON opts）
+  function fillBbsOpts(exprSrc, url, bbsOpts) {
+    var injected = (url === null || url === undefined) ? 'null' : JSON.stringify(String(url));
+    var optsInjected = (bbsOpts === null || bbsOpts === undefined) ? 'null' : JSON.stringify(bbsOpts);
+    return exprSrc.replace('__URL__', injected).replace('__BBS_OPTS__', optsInjected);
+  }
+
+function fillUrl(exprSrc, url, isAccount, customerName, mode) {
     // url 为 null/undefined → 注入 JS null（表示"用当前页面"），不能变成字符串 "null"
     var injected = (url === null || url === undefined) ? 'null' : JSON.stringify(String(url));
     // customerName 支持字符串或数组（JSON.stringify 直接注入，数组保持为 JS 数组字面量）
@@ -498,6 +507,36 @@ function createIchigoDeepScrape(deps) {
   // 传参：customerName（客户显示名，字符串或数组）；opts.refreshMailbox=true 时删除成功后强制重抓收件箱
   // 返回 { ok, step, reason, note, matched, checkedCount, missed, partialMiss, confirmPage, needNavBack, mailboxNav, via }
   //   客户/按钮找不到 → ok:false（不抛错，端点转 queued）
+  // ---------- 模块3 · BBS 帖子查询（只读，POST ajax 端点 + 解析卡片） ----------
+  // queryBbsPosts(opts) → { ok, posts[], total, page, genre, board, via }
+  // opts: { genre, page, count, prefId, hokkaidoFlag, board, ajaxUrl }
+  // 在出会窗口（sp.194964.com）页面上下文执行；窗口未连上 → ok:false + cdp-unavailable
+  function queryBbsPosts(opts) {
+    opts = opts || {};
+    if (!bbsQueryExprSrc) return Promise.resolve({ ok: false, reason: 'no-bbs-expr', msg: 'ichigoBbsQueryExpr.js 缺失' });
+    return withTarget(function(client) {
+      // 确保在 sp.194964.com 域（不强制导航到 show_bbs，fetch 同域即可；但在 menu 页也行）
+      return cdpEval(client, 'location.hostname').then(function(host) {
+        if (String(host || '').indexOf('194964.com') === -1) {
+          // 导航到 show_bbs（拿 ajax 端点需要平台域，menu 页也行）
+          return client.send('Page.navigate', { url: 'https://sp.194964.com/menu.html' })
+            .then(function() { return new Promise(function(r) { setTimeout(r, 3000); }); });
+        }
+        return null;
+      }).then(function() {
+        var expr = fillBbsOpts(bbsQueryExprSrc, null, opts);
+        return cdpEvalAsync(client, expr);
+      }).then(function(v) {
+        v = v || {};
+        v.via = v.via || 'cdp-bbs-query';
+        return v;
+      }).catch(function(e) {
+        return { ok: false, reason: 'cdp-error', msg: String((e && e.message) || e) };
+      });
+    }).catch(function(e) {
+      return { ok: false, reason: 'cdp-unavailable', msg: String((e && e.message) || e) };
+    });
+  }
   function blockContact(customerName, opts) {
     opts = opts || {};
     // 接受字符串或数组（向后兼容）
@@ -626,6 +665,7 @@ function createIchigoDeepScrape(deps) {
     fetchHistory: fetchHistory,
     sendToContact: sendToContact,
     blockContact: blockContact,
+    queryBbsPosts: queryBbsPosts,
     navigateInbox: navigateInbox,
     networkHealth: networkHealth,
     fetchProfile: fetchProfile,
