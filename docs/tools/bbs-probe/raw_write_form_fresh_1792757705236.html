@@ -1,0 +1,230 @@
+<html><head>
+        <meta charset="utf-8">
+        <meta content="width=device-width, initial-scale=1.0,user-scalable=no" name="viewport">
+        
+        <title>イククル</title>
+        <link rel="stylesheet" type="text/css" media="screen" href="/assets/css/Common.css?23">
+        <link href="/assets/css/Bbs.css?4" media="screen" type="text/css" rel="stylesheet">
+        <link href="/assets/css/FooterMenu.css?1" media="screen" type="text/css" rel="stylesheet">
+        
+        <script type="text/javascript" src="/assets/js/jquery.min.js?1"></script>
+        <script src="/assets/js/Common.js?2" type="text/javascript"></script>
+        <script type="text/javascript" src="/assets/js/megapix-image_for_194.js?1"></script>
+        <script type="text/javascript" src="/assets/js/exif.js?1"></script>
+        <script type="text/javascript" src="/assets/js/imageInputFileEdit.js?1"></script>
+        <script type="text/javascript" src="/assets/js/ct.js"></script>
+        <script>
+            function load() {
+                var profileImage = new ImageInputFile({
+                    preview_width: 90,
+                    preview_height: 90,
+                    canvas:       '#profile_preview',
+                    preview_area: ['#preview','#profileWarningAfter', '#profile_preview_message'],
+                    select_area:  ['#profile_select_area', '#profile_select_area','#profileWarningBefore',  '#profile_select_etc_area'],
+                    file_input:   '#fileupload'
+                });
+                profileImage.init(profileImage);
+
+                prop = $("html").prop("outerHTML");
+
+            }
+        </script>
+    <meta http-equiv="Cache-Control" content="no-cache">
+    <meta http-equiv="Pragma" content="no-cache">
+    <link rel="apple-touch-icon" href="/assets/img/favicon/72.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="/assets/img/favicon/72.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="/assets/img/favicon/114.png">
+    <link rel="apple-touch-icon" sizes="120x120" href="/assets/img/favicon/120.png">
+    <link rel="apple-touch-icon" sizes="144x144" href="/assets/img/favicon/144.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="/assets/img/favicon/152.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/assets/img/favicon/180.png">
+
+    <link rel="icon" sizes="192x192" href="/assets/img/favicon/192.png">
+    <link rel="icon" sizes="128x128" href="/assets/img/favicon/128.png">
+    <meta name="robots" content="noindex">
+</head>
+<body class="" onload="load()">
+
+
+<header>
+    <a class="btn-home" href="/menu.html">
+        <img src="/assets/img/site/mainmenu/ic-home-white.png?20201204">
+    </a>
+    <h1 class="header-position"><a href="/menu.html">イククル</a></h1>
+            <a class="btn-tomorrow" href="/sns/snsashiato/show.html">
+                                                <span class="caution">!</span>
+                                        <img src="/assets/img/site/mainmenu/ic-tomorrow.png?20201204">
+        </a>
+    </header>
+
+        
+<div class="head_pt">
+  <div class="head_pt01">
+    <p class="head_pt02">
+      <span class="head_pt03"><img src="/assets/img/site/mainmenu/icon_point.png" width="22px" class="head_middle"></span>
+      <span class="head_font4vw head_middle header_point_value" id="header_point_value">50pt</span>
+    </p>
+    <p class="head_pt04">
+      <span class="head_pta head_pt05 head_middle"><a href="/point/purchase/show_top.html">追加</a></span>
+    </p>
+  </div>
+  <div class="head_pt01 head_pt01a">
+    <p class="head_pt02">
+      <span class="head_pt03"><img src="/assets/img/site/mainmenu/icon_g.png" width="22px" class="head_middle"></span>
+      <span class="head_font4vw head_middle header_gold_value" id="header_gold_value">573G</span>
+    </p>
+    <p class="head_pt04">
+      <span class="head_ptb head_pt05 head_middle"><a href="/point/ptfemale/show_main_menu.html">交換</a></span>
+    </p>
+  </div>
+</div>
+
+
+    <div id="title">ピュア募集</div>
+
+
+
+            <div id="jserror" style="width:100%;margin:0px;padding:0.2rem;" class="center bgText  red">JavaScriptが無効です。<br>ブラウザの設定でJavaScriptを有功にしてください。<br></div>
+            
+
+
+<article>
+		<div class="bgTopBlue">
+			<p>全国男女メル友</p>
+		</div>
+		<div class="bgFrame tabFrame">
+			<div class="bgMiddle">
+
+				<p>
+					<!--▼投稿ジャンル説明-->
+				地域にこだわらず広く全国にお友達がほしい方、男女問わず仲良くなりたい方のコーナーです
+	<br>
+					<!--▲投稿ジャンル説明-->
+					<span class="red">※アダルト禁止です</span>
+				</p>
+			</div>
+			
+			<form name="confirm" id="formID" method="post" action="/bbs/exec_routing_bbs_write.html" enctype="multipart/form-data">
+<input type="hidden" name="identifier" value="confirm">
+<input type="hidden" name="targetGenreId" value="1">
+<input type="hidden" name="prefId" value="24">
+<input type="hidden" name="is_edit" value="0">
+<input type="hidden" name="point" value="50">
+				<!--▼全国男女メル友表示-->
+				<div class="bgMiddle">
+					<p class="leftTitle w30">地域</p>
+					<p class="left w60">三重</p>
+				</div>
+				<!--▲全国男女メル友表示-->
+				
+				<div class="bgMiddle">
+					<p class="leftTitle w30">名前</p>
+					
+					<p class="left w60">ともね</p>
+				</div>
+
+				<div class="bgMiddle pd06">
+					<p class="titleNormal">タイトル 30文字以内&nbsp;&nbsp;</p>
+
+<textarea name="title" class="inputTextAreaRd titleBbs"></textarea>
+					<p class="titleNormal">内容 500文字以内&nbsp;&nbsp;</p>
+<textarea name="body" class="inputTextAreaRd"></textarea>
+					<p class="leftTitle w50">画像を添付する</p>
+					<div class="contentsContributeImg">
+						<div class="contentsContributeImg2">
+							<div id="bbs_image_select">
+								<div class="contentsImgContribute3--camera cameraBox margin-bottom10" id="profile_select_area">
+											<img alt="ここをタップして ファイル選択" src="/assets/img/common/icon/icon_camera_blue.png" class="contentsImg-camera_icon">
+									<div class="contentsImg-camera_txt bold">
+										ココをタップ
+									</div>
+									</div>
+							</div>
+							<div id="preview" class="contentsContributeImg--camera_preview cursorPointer" style="display: none;">
+								<canvas id="profile_preview" class="preview"></canvas>
+								<div class="changeBtn">変更する</div>
+							</div>
+							<div class="image_cancel" style="display: none;">
+								<img src="/assets/img/site/bbs/icon_bbs_image_cancel.png" class="image_delete_btn cursorPointer">
+							</div>
+						</div>
+						<div class="contentsText1">
+							<img src="/assets/img/site/bbs/icon_light-bulb.png" class="icon_light">
+							<div class="contentsText2 bold">画像に関するご注意</div>
+							<div class="contentsText3">
+								<div class="contentsText4">あなた自身が写った写真のみ</div>掲載できます ※本人以外の人が写っている場合は必ず加工してください
+							</div>
+						</div>
+					</div>
+					<div class="imageFileClass">
+<input type="file" name="imageFile" id="fileupload" accept="image/*">
+					</div>
+				</div>
+
+	<input type="hidden" name="uploadFlg" value="0">
+<input type="hidden" name="imageDeleteFlg" value="0">
+
+				<div class="bgMiddle">
+					<button type="submit" class="greenButton width60" name="write" value="1">募集する</button>
+				</div>
+
+				<div class="bgMiddle noBorder">
+					<button type="submit" class="button width60" name="confirm" value="1">確認する</button>
+				</div>
+			</form>
+			<div class="bgMiddle">
+				<p>※特定情報（電話番号やメアド等の連絡先、会う為に指定する具体的な日時、場所）の書き込みは禁止致します</p>
+			</div>
+		</div>
+
+		<div class="bgFrame">
+			<div class="bgMiddle btn">
+				<a href="/static/contents/show.html?q=M1NzcERMNGhrN3VZVERoUWxlZFlHYjJJZUNpZjFHbEtiNVk5d29rY0FCK3NnTXNFSGVVQTMwQ0xGTHVMdHFXYUVTclZIMm9KY3M2VG5VQzQ0UlJXeUYxNWFmTzVyWktiRDl6VnZyeEdKU0k9">
+					<p class="btn2"><img src="/assets/img/common/icon/icon_hint_gray.png" class="icon" alt="">&nbsp;<span>書き込みについて</span></p>
+				</a>
+			</div>
+			<div class="bgMiddle btn">
+				<a href="/bbs/show_bbs_write_list.html">
+					<p class="btn2"><img src="/assets/img/common/icon/icon_comment.png" class="icon" alt="">&nbsp;<span>募集履歴</span></p>
+				</a>
+			</div>
+		</div>
+	
+	<span id="submitDisableTime" data-timer="10000"></span>
+
+</article>
+
+            <nav class="bottom-nav">
+            
+                            <div class="bottom-nav-item">
+                                <a href="/sns/snssearch/show_faces.html" class="bottom-nav-item-txt nav-search">お相手探し</a>
+                </div>
+
+            
+                            <div class="bottom-nav-item item-active">
+                                <a href="/bbs/show_bbs.html" class="bottom-nav-item-txt nav-recruit">募集</a>
+                </div>
+
+            
+                            <div class="bottom-nav-item relative">
+                                                    <a href="/mail/inbox/show_mailbox.html" class="bottom-nav-item-txt nav-mail">メッセージ</a>
+                </div>
+
+            
+                            <div class="bottom-nav-item relative">
+                                                                                    <span class="caution">99</span>
+                                                                <a href="/sns/snstype/show_typed_list.html" class="bottom-nav-item-txt nav-type">タイプ</a>
+                </div>
+                
+            
+                            <div class="bottom-nav-item relative">
+                                                        <span class="caution">!</span>
+                                        <a href="/mypage.html" class="bottom-nav-item-txt nav-mypage">
+                        マイページ
+                    </a>
+                </div>
+        </nav>
+        
+                
+
+</body></html>

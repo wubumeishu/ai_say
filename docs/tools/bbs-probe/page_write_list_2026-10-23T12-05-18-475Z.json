@@ -1,0 +1,109 @@
+{
+ "url": "https://sp.194964.com/bbs/show_bbs_write_list.html",
+ "title": "イククル",
+ "bodyLen": 3838,
+ "linkCount": 13,
+ "internalLinks": [
+  {
+   "h": "/menu.html",
+   "t": ""
+  },
+  {
+   "h": "/sns/snsashiato/show.html",
+   "t": "!"
+  },
+  {
+   "h": "/point/purchase/show_top.html",
+   "t": "追加"
+  },
+  {
+   "h": "/point/ptfemale/show_main_menu.html",
+   "t": "交換"
+  },
+  {
+   "h": "/bbs/bbs/show_bbs_write_list.html?q=Zlo2amdMTXZtcnQveUZYWVF2YlAyZz09",
+   "t": "ピュア募集"
+  },
+  {
+   "h": "/bbs/bbs/show_bbs_write_list.html?q=cm1BMmxOeU8zZE1tbnFkUzFmUWs3dz09",
+   "t": "大人の募集"
+  },
+  {
+   "h": "/calendar/show_mylist.html",
+   "t": "会える日"
+  },
+  {
+   "h": "/sns/snssearch/show_faces.html",
+   "t": "お相手探し"
+  },
+  {
+   "h": "/bbs/show_bbs.html",
+   "t": "募集"
+  },
+  {
+   "h": "/mail/inbox/show_mailbox.html",
+   "t": "メッセージ"
+  },
+  {
+   "h": "/sns/snstype/show_typed_list.html",
+   "t": "タイプ"
+  },
+  {
+   "h": "/mypage.html",
+   "t": "マイページ"
+  }
+ ],
+ "buttons": [],
+ "forms": [],
+ "classTop": [
+  {
+   "c": "bottom-nav-item",
+   "n": 5
+  },
+  {
+   "c": "nav-recruitment-item",
+   "n": 3
+  },
+  {
+   "c": "relative",
+   "n": 3
+  },
+  {
+   "c": "head_pt01",
+   "n": 2
+  },
+  {
+   "c": "head_pt",
+   "n": 1
+  },
+  {
+   "c": "head_pt01a",
+   "n": 1
+  },
+  {
+   "c": "center",
+   "n": 1
+  },
+  {
+   "c": "bgText",
+   "n": 1
+  },
+  {
+   "c": "red",
+   "n": 1
+  },
+  {
+   "c": "nav-recruitment",
+   "n": 1
+  },
+  {
+   "c": "noMessage",
+   "n": 1
+  },
+  {
+   "c": "item-active",
+   "n": 1
+  }
+ ],
+ "mainContainers": []
+}

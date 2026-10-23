@@ -1,0 +1,1113 @@
+<html lang="ja"><head>
+        <meta charset="utf-8">
+        <meta content="width=device-width, initial-scale=1.0,user-scalable=no" name="viewport">
+        
+        <title>イククル</title>
+        <link rel="stylesheet" type="text/css" media="screen" href="/assets/css/Common.css?23">
+        <link rel="stylesheet" type="text/css" media="screen" href="/assets/css/bbsslider/style.css?10">
+        <link rel="stylesheet" href="/assets/css/OnlineIcon.css?1">
+        <link href="/assets/css/Pappy.css?5" rel="stylesheet">
+        <link rel="stylesheet" type="text/css" media="screen" href="/assets/css/mytemplate/style.css?38">
+        
+        <script type="text/javascript" src="/assets/js/jquery.min.js?1"></script>
+        <script type="text/javascript" src="/assets/js/bbsslider/bootstrap.min.js?0"></script>
+        <script src="/assets/js/Common.js?2" type="text/javascript"></script>
+        <script src="/assets/js/searchSlider3.js?2"></script>
+        <script src="/assets/js/ct.js?18" type="text/javascript"></script>
+
+
+    <meta http-equiv="Cache-Control" content="no-cache">
+    <meta http-equiv="Pragma" content="no-cache">
+    <link rel="apple-touch-icon" href="/assets/img/favicon/72.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="/assets/img/favicon/72.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="/assets/img/favicon/114.png">
+    <link rel="apple-touch-icon" sizes="120x120" href="/assets/img/favicon/120.png">
+    <link rel="apple-touch-icon" sizes="144x144" href="/assets/img/favicon/144.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="/assets/img/favicon/152.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/assets/img/favicon/180.png">
+
+    <link rel="icon" sizes="192x192" href="/assets/img/favicon/192.png">
+    <link rel="icon" sizes="128x128" href="/assets/img/favicon/128.png">
+    <meta name="robots" content="noindex">
+</head>
+<body class="">
+
+
+<header>
+    <a class="btn-home" href="/menu.html">
+        <img src="/assets/img/site/mainmenu/ic-home-white.png?20201204">
+    </a>
+    <h1 class="header-position"><a href="/menu.html">イククル</a></h1>
+                                                <a class="btn-bbs-search" href="/bbs/show_search_condition_detail.html">
+            <img src="/assets/img/site/mainmenu/recruit-search.png?20201204">
+        </a>
+        
+        <a class="btn-bbs-write" href="/bbs/show_write_list.html?q=Zlo2amdMTXZtcnQveUZYWVF2YlAyZz09">
+            <img src="/assets/img/site/mainmenu/recruit-write.png?20201204">
+        </a>
+    
+</header>
+
+        
+<div class="head_pt">
+  <div class="head_pt01">
+    <p class="head_pt02">
+      <span class="head_pt03"><img src="/assets/img/site/mainmenu/icon_point.png" width="22px" class="head_middle"></span>
+      <span class="head_font4vw head_middle header_point_value" id="header_point_value">50pt</span>
+    </p>
+    <p class="head_pt04">
+      <span class="head_pta head_pt05 head_middle"><a href="/point/purchase/show_top.html">追加</a></span>
+    </p>
+  </div>
+  <div class="head_pt01 head_pt01a">
+    <p class="head_pt02">
+      <span class="head_pt03"><img src="/assets/img/site/mainmenu/icon_g.png" width="22px" class="head_middle"></span>
+      <span class="head_font4vw head_middle header_gold_value" id="header_gold_value">573G</span>
+    </p>
+    <p class="head_pt04">
+      <span class="head_ptb head_pt05 head_middle"><a href="/point/ptfemale/show_main_menu.html">交換</a></span>
+    </p>
+  </div>
+</div>
+
+
+
+
+            <div id="jserror" style="width:100%;margin:0px;padding:0.2rem;" class="center bgText  red">JavaScriptが無効です。<br>ブラウザの設定でJavaScriptを有功にしてください。<br></div>
+            <script>
+$(document).ready(function(){
+   $(window).on("pageshow", function(){
+      if ( $('#storedTab').val() !== '') {
+        var tempData = $('#storedTab').val();
+        $('.tab-wrapper').html(tempData);
+        $("#nav-tab").onCenter($(".nav-link4-txt.active").parent(), 400);
+        $("#storedTab").val(tempData);
+      }
+      if ( $('#storedData').val() !== "" ) {
+        var tempData = $('#storedData').val();
+        $('#storedDisplay').html(tempData);
+        $('#storedData').val(tempData);
+      }
+      if ( $('#storedRequestParams').val() !== '') {
+        var tempData = $('#storedRequestParams').val();
+        $('#reqParams').html(tempData);
+        $("#storedRequestParams").val(tempData);
+      }
+   });
+
+   $("#nav-tab").onCenter($(".nav-link4-txt.active").parent(), 400);
+   changeBorderColor($(".nav-link4-txt.active"));
+  
+  $(document).on("click", ".nav-link4-item", function(e){
+     $(".nav-link4-txt").removeClass("active");
+     $(this).children("a").addClass("active");
+     changeBorderColor($(".nav-link4-txt.active"));
+     $("#nav-tab").scrollCenter($(this), 400);
+
+    var tempData = $('.tab-wrapper').html();
+    $("#storedTab").val(tempData);
+
+    var count        = 15;
+    var page         = 1;
+    var prefId       = 24;
+    var hokkaidoFlag = 0;
+    var url          = $('#nav-tab').data('url');
+    var genreId      = $(this).children("a").data('genre');
+
+
+    $.ajax({
+        "url": url,
+        "type": "POST",
+        "data": {"count": count, "page": page, "prefId": prefId, "targetGenreId": genreId, "hokkaidoFlag": hokkaidoFlag}
+    }).done(function( result, textStatus, jqXHR ) {
+        $('#storedDisplay').html(result["subject"]);
+        // 保管する
+        $('#storedData').val(result["subject"]);
+        
+        $('input[name="page"]').val(2);
+        $('input[name="targetGenreId"]').val(genreId);
+        
+        var tempRequestParams = $('#reqParams').html();
+        $("#storedRequestParams").val(tempRequestParams);
+        
+        // スクロールをリストの一番上にする
+        $scrollTop = $('header').outerHeight() + $('.head_pt').outerHeight() + $('.title-page1').outerHeight() + Number($('.blog-recruitment').css('padding-top').replace('px', '')) + $('pre').outerHeight();
+        if ( $('#pc_iframe').length ) {
+            if ( $('#pc_iframe').scrollTop() > $scrollTop ) {
+                $('#pc_iframe').scrollTop($scrollTop);
+            }
+        } else {
+            if ( $('html,body').scrollTop() > $scrollTop ) {
+                $('html,body').scrollTop($scrollTop);
+            }
+        }
+    }).fail(function( jqXHR, textStatus, errorThrown ){
+       var uri = '/log/xhr/'
+              +encodeURIComponent(textStatus)+'/'
+              +encodeURIComponent(jqXHR.readyState)+'/'
+              +encodeURIComponent(jqXHR.status)+'.html';
+        $('body').append('<img style="display:none;" src="'+uri+'">');
+
+                setTimeout(function(){alert("まことに申し訳ございませんが、通信に失敗しました。今一度お試しください。")},500);
+    });
+
+
+  });
+});
+
+jQuery.fn.scrollCenter = function(elem, speed) {
+  var active = elem;
+  var activeWidth = active.width() / 2;
+  var pos = active.position().left + activeWidth;
+  var elpos = jQuery(this).scrollLeft();
+  var elW = jQuery(this).width();
+  pos = pos + elpos - elW / 2;
+
+  jQuery(this).animate({
+    scrollLeft: pos
+  }, speed == undefined ? 1000 : speed);
+  return this;
+};
+
+jQuery.fn.onCenter = function(elem, speed) {
+  if (!elem.length) {
+      return;
+  }
+
+  var active = elem;
+  var activeWidth = active.width() / 2;
+  var pos = active.position().left + activeWidth;
+  var elpos = jQuery(this).scrollLeft();
+  var elW = jQuery(this).width();
+  pos = pos + elpos - elW / 2;
+
+  jQuery(this).scrollLeft(pos);
+  return this;
+};
+
+function changeBorderColor (elem) {
+   var activeClass = elem.attr("class");
+   var borderColor;
+   if ( activeClass.match(/item1 /) ) {
+       borderColor = "#0099cc";
+   } else if ( activeClass.match(/item2 /) ) {
+       borderColor = "#28b23f";
+   } else if ( activeClass.match(/item3/) ) {
+       borderColor = "#ee1025";
+   } else if ( activeClass.match(/item4/) ) {
+       borderColor = "#33bef2";
+   } else if ( activeClass.match(/item5/) ) {
+       borderColor = "#ff7e28";
+   } else if ( activeClass.match(/item6/) ) {
+       borderColor = "#f965c3";
+   } else if ( activeClass.match(/item7/) ) {
+       borderColor = "#ab4bd8";
+   } else if ( activeClass.match(/item8/) ) {
+       borderColor = "#f45497";
+   } else if ( activeClass.match(/item9/) ) {
+       borderColor = "#53c92c";
+   } else if ( activeClass.match(/item10/) ) {
+       borderColor = "#0099cc";
+   } else if ( activeClass.match(/item11/) ) {
+       borderColor = "#ff6666";
+   } else if ( activeClass.match(/item12/) ) {
+       borderColor = "#02ccff";
+   } else if ( activeClass.match(/item13/) ) {
+       borderColor = "#ff9900";
+   } else if ( activeClass.match(/item14/) ) {
+       borderColor = "#6699cc";
+   } else if ( activeClass.match(/item15/) ) {
+       borderColor = "#fe3338";
+   } else if ( activeClass.match(/item16/) ) {
+       borderColor = "#9900cc";
+   } else if ( activeClass.match(/item17/) ) {
+       borderColor = "#cc0066";
+   } else if ( activeClass.match(/item18/) ) {
+       borderColor = "#8b4513";
+   } else if ( activeClass.match(/item19/) ) {
+       borderColor = "#f45497";
+   } else if ( activeClass.match(/item20/) ) {
+       borderColor = "#00cc99";
+   }
+   $(".nav-link4").css("border-bottom-color", borderColor);
+}
+
+</script>
+<div class="wrap">
+  <main class="main-area">
+            
+            
+    
+    
+    <div class="title-page1"><span class="ml6 bold">三重の募集</span><a href="/bbs/show_bbs_area_move.html?q=QXRTSGZjWFpwUUVzZU9PWEI4UDZMZz09">地域を移動</a></div>
+
+    <div class="blog-recruitment">
+
+      <div class="bbs-local-menu">    
+          <!-- ピュアor大人のタブ -->
+                                      
+                                                                  
+          <div class="nav-link1 has-pappy-link">
+            
+            
+            
+            <div class="nav-link1-item"><a href="/bbs/show_bbs.html?q=V1I5cG16VU4vdnpWVnFMQnhjTTIzMklpcE9JcXFnam9qY05nbzNDZUg5OD0%3D" class="nav-link1-txt pure active">ピュア</a></div>
+
+            
+            
+            
+            <div class="nav-link1-item"><a href="/bbs/show_bbs.html?q=V1I5cG16VU4vdnpWVnFMQnhjTTIzN1l3TWkveG9adGV5NXl1SDU4WUhCST0%3D" class="nav-link1-txt adult ">大人</a></div>
+
+            <div class="nav-link1-item"><a href="/calendar/show_list.html" class="nav-link1-txt">日付から</a></div>
+
+                            <div class="pappy-link-tab">
+                                      <a href="/pappy/exec_pappy_redirect.html" target="_blank">
+                        Pappyで探す
+                    </a>
+                                                    </div>
+                      </div>
+          <!-- /ピュアor大人のタブ -->
+
+        <div class="tab-wrapper">
+            <div class="nav-link4" id="nav-tab" data-url="/bbs/ajax_show_slider_list.html" style="border-bottom-color: rgb(40, 178, 63);">
+                <!-- ピュア -->
+                                    <div class="nav-link4-item">
+                        <a class="nav-link4-txt item2 active" id="tab-content-2" data-toggle="tab" href="" role="tab" aria-controls="tab-nav-2" aria-selected="true" data-genre="5">今から遊ぼ</a>
+                    </div>
+                    <div class="nav-link4-item">
+                        <a class="nav-link4-txt item3 " id="tab-content-3" data-toggle="tab" href="" role="tab" aria-controls="tab-nav-3" aria-selected="false" data-genre="1">全国男女メル友</a>
+                    </div>
+                    <div class="nav-link4-item">
+                        <a class="nav-link4-txt item4 " id="tab-content-4" data-toggle="tab" href="" role="tab" aria-controls="tab-nav-4" aria-selected="false" data-genre="3">地域メル友</a>
+                    </div>
+                    <div class="nav-link4-item">
+                        <a class="nav-link4-txt item5 " id="tab-content-5" data-toggle="tab" href="" role="tab" aria-controls="tab-nav-5" aria-selected="false" data-genre="4">友達・恋人・合コン</a>
+                    </div>
+                    <div class="nav-link4-item">
+                        <a class="nav-link4-txt item6 " id="tab-content-6" data-toggle="tab" href="" role="tab" aria-controls="tab-nav-6" aria-selected="false" data-genre="19">まずは食事から</a>
+                    </div>
+                    <div class="nav-link4-item">
+                        <a class="nav-link4-txt item7 " id="tab-content-7" data-toggle="tab" href="" role="tab" aria-controls="tab-nav-7" aria-selected="false" data-genre="6">ミドルエイジ</a>
+                    </div>
+                    <div class="nav-link4-item">
+                        <a class="nav-link4-txt item8 " id="tab-content-8" data-toggle="tab" href="" role="tab" aria-controls="tab-nav-8" aria-selected="false" data-genre="17">画像付きの募集</a>
+                    </div>
+                    <div class="nav-link4-item">
+                        <a class="nav-link4-txt item9 " id="tab-content-9" data-toggle="tab" href="" role="tab" aria-controls="tab-nav-9" aria-selected="false" data-genre="98">出会いチャンス</a>
+                    </div>
+                <!-- その他 -->
+                            </div><!-- /#nav-tab -->
+            <textarea id="storedTab" style="display:none;"></textarea>
+        </div><!-- /.tab-wrapper -->
+                </div><!-- /#bbs-local-menu -->
+
+      <div class="tab-content" id="nav-tabContent">
+        <div class="tab-pane fade show active" id="tab-nav-1" role="tabpanel" aria-labelledby="tab-content-1">
+          <div class="list-inside">
+            <div id="storedDisplay">
+                                <!-- 募集 -->
+                  <div class="recruit-list">
+                      <!-- 時間と閲覧回数 -->
+                      <div class="recruit-1">
+                          <span class="cat-btn cat5">今から遊ぼ</span>
+                          <div class="view-date">
+                              <span class="view"><img src="/assets/img/site/bbs/view.png" height="14">0</span>
+                              <span class="date"><img src="/assets/img/site/bbs/time.png" height="14">10/22 22:45</span>
+                          </div>
+                      </div><!-- /時間と閲覧回数 -->
+                      <div class="recruit-list-link">
+                          <!-- プロフ画像 -->
+                          <div class="recruit-list-img">
+                              <div class="recruit-list-thumb">
+                                  
+                                                                        
+                                                                    
+
+                                                                                                      
+                                  <a href="/sns/snsprofile/show_profile.html?q=MEVKdnNDMkVoVDRTdFRTMXgwajBKZVJrWHlxbjQxbzZ5SFZCZjdVUzhIUVRzWVd2TUF6M0QzWGpNNmIrWFUwUQ%3D%3D">
+                                                                                <img src="//images.194964.com/snsprofr/956edfc8de819f9933df698ac8b017a8_08c39ae957_4_200.jpg" alt="">
+                                                                        </a>
+                              </div>
+                          </div><!-- /プロフ画像 -->
+                          
+                          
+                          
+                          <a href="/bbs/show_bbs_detail.html?q=NTdjeERVMTVHMjRLMERORjRSd3llNHRROGlHeEY4SXAzcGhabEV2N2JUcjZFczZpNEdCNlRwNXlJMk82dlpJUQ%3D%3D" class="recruit-list-txt">
+                                                                <div class="recruit-list-name man-title-color">なにか...</div>
+                                                            <div class="recruit-list-age">
+                                
+                                                                    <span id="online-icon" class="online-icon online-icon-size-margin3 online-icon1"></span>
+                                                                
+                                かっちゃん 56歳
+                              </div>
+                              
+                                                                                                      <div class="recruit-list-home">
+                                          <span><img src="/assets/img/site/bbs/home.png" height="14">伊勢市</span>
+                                      </div>
+                                                                                              
+                              <!-- 画像枚数 -->
+                              <div class="recruit-list-photo">
+                                                                        <span><img src="/assets/img/site/bbs/ic-camera-black.png" height="12"><img src="/assets/img/site/bbs/ic-x-x.png" width="8">2</span>
+                                                                    
+                                                                    
+                                                                </div><!-- /画像枚数 -->
+                          </a>
+                          
+                      </div>
+                  </div><!-- /募集 -->
+                  <!-- 募集 -->
+                  <div class="recruit-list">
+                      <!-- 時間と閲覧回数 -->
+                      <div class="recruit-1">
+                          <span class="cat-btn cat5">今から遊ぼ</span>
+                          <div class="view-date">
+                              <span class="view"><img src="/assets/img/site/bbs/view.png" height="14">3</span>
+                              <span class="date"><img src="/assets/img/site/bbs/time.png" height="14">10/18 12:37</span>
+                          </div>
+                      </div><!-- /時間と閲覧回数 -->
+                      <div class="recruit-list-link">
+                          <!-- プロフ画像 -->
+                          <div class="recruit-list-img">
+                              <div class="recruit-list-thumb">
+                                  
+                                                                        
+                                                                    
+
+                                                                                                                                                                              
+                                  <a href="/sns/snsprofile/show_profile.html?q=MEVKdnNDMkVoVDRTdFRTMXgwajBKVndjZWlYajBlUGY3RVJiREwrcW9qNWNyQ2JSUU82QklPVVUyTWJCSk01Uw%3D%3D">
+                                                                                <img src="//images.194964.com/images/no_image_man.png">
+                                                                        </a>
+                              </div>
+                          </div><!-- /プロフ画像 -->
+                          
+                          
+                          
+                          <a href="/bbs/show_bbs_detail.html?q=NTdjeERVMTVHMjRLMERORjRSd3llMGhFYjNTS0VaQ2UxbUJsa0syMkFRS0VOR3I2RmdxMGhCYXpKL1hmSHorTw%3D%3D" class="recruit-list-txt">
+                                                                <div class="recruit-list-name man-title-color">だれかいませんか</div>
+                                                            <div class="recruit-list-age">
+                                
+                                                                    <span id="online-icon" class="online-icon online-icon-size-margin3 online-icon4"></span>
+                                                                
+                                かず 32歳
+                              </div>
+                              
+                                                                                                      <div class="recruit-list-home">
+                                          <span><img src="/assets/img/site/bbs/home.png" height="14">伊勢市</span>
+                                      </div>
+                                                                                              
+                              <!-- 画像枚数 -->
+                              <div class="recruit-list-photo">
+                                                                    
+                                                                        <span>掲載 <img src="/assets/img/site/bbs/ic-camera-black.png" height="12"></span>
+                                                                    
+                                                                </div><!-- /画像枚数 -->
+                          </a>
+                          
+                      </div>
+                  </div><!-- /募集 -->
+                  <!-- 募集 -->
+                  <div class="recruit-list">
+                      <!-- 時間と閲覧回数 -->
+                      <div class="recruit-1">
+                          <span class="cat-btn cat5">今から遊ぼ</span>
+                          <div class="view-date">
+                              <span class="view"><img src="/assets/img/site/bbs/view.png" height="14">2</span>
+                              <span class="date"><img src="/assets/img/site/bbs/time.png" height="14">10/14 07:37</span>
+                          </div>
+                      </div><!-- /時間と閲覧回数 -->
+                      <div class="recruit-list-link">
+                          <!-- プロフ画像 -->
+                          <div class="recruit-list-img">
+                              <div class="recruit-list-thumb">
+                                  
+                                                                        
+                                                                    
+
+                                                                                                      
+                                  <a href="/sns/snsprofile/show_profile.html?q=MEVKdnNDMkVoVDRTdFRTMXgwajBKU1B2Z2Nnc1B5YmhrTDVwM3RDY1k5NjlxcmJwR2ZyTGFLQTZGTkszZ3JwTQ%3D%3D">
+                                                                                <img src="//images.194964.com/snsprofr/5319f177e600d3f23d6891451aa14ba6_a4d6cb0523_4_200.jpg" alt="">
+                                                                        </a>
+                              </div>
+                          </div><!-- /プロフ画像 -->
+                          
+                          
+                          
+                          <a href="/bbs/show_bbs_detail.html?q=NTdjeERVMTVHMjRLMERORjRSd3llNFFIcmdVM3Qyb245eTRkWHdJQW1PYkg3bW5IRVRLdGJLN0UyRVpoc1BZaA%3D%3D" class="recruit-list-txt">
+                                                                <div class="recruit-list-name man-title-color">彼女募集中</div>
+                                                            <div class="recruit-list-age">
+                                
+                                                                    <span id="online-icon" class="online-icon online-icon-size-margin3 online-icon4"></span>
+                                                                
+                                たくや 29歳
+                              </div>
+                              
+                                                                                                      <div class="recruit-list-home">
+                                          <span><img src="/assets/img/site/bbs/home.png" height="14">松阪市</span>
+                                      </div>
+                                                                                              
+                              <!-- 画像枚数 -->
+                              <div class="recruit-list-photo">
+                                                                        <span><img src="/assets/img/site/bbs/ic-camera-black.png" height="12"><img src="/assets/img/site/bbs/ic-x-x.png" width="8">1</span>
+                                                                    
+                                                                    
+                                                                </div><!-- /画像枚数 -->
+                          </a>
+                          
+                      </div>
+                  </div><!-- /募集 -->
+                  <!-- 募集 -->
+                  <div class="recruit-list">
+                      <!-- 時間と閲覧回数 -->
+                      <div class="recruit-1">
+                          <span class="cat-btn cat5">今から遊ぼ</span>
+                          <div class="view-date">
+                              <span class="view"><img src="/assets/img/site/bbs/view.png" height="14">1</span>
+                              <span class="date"><img src="/assets/img/site/bbs/time.png" height="14">10/12 21:08</span>
+                          </div>
+                      </div><!-- /時間と閲覧回数 -->
+                      <div class="recruit-list-link">
+                          <!-- プロフ画像 -->
+                          <div class="recruit-list-img">
+                              <div class="recruit-list-thumb">
+                                  
+                                                                        
+                                                                    
+
+                                                                                                                                                                              
+                                  <a href="/sns/snsprofile/show_profile.html?q=MEVKdnNDMkVoVDRTdFRTMXgwajBKZCtsazQ2WHRscHpNVHl2Qm8yaUdJZ2NueThVZUVYTCtQWmhVSk1MOTZGUA%3D%3D">
+                                                                                <img src="//images.194964.com/images/no_image_man.png">
+                                                                        </a>
+                              </div>
+                          </div><!-- /プロフ画像 -->
+                          
+                          
+                          
+                          <a href="/bbs/show_bbs_detail.html?q=NTdjeERVMTVHMjRLMERORjRSd3llMWV4bytiV3JsTzI1dGM5ek05MGtQN3FoZEl6dEVtMndiZk9YdTF0ZlZtUQ%3D%3D" class="recruit-list-txt">
+                                                                <div class="recruit-list-name man-title-color">今から遊べるかた！</div>
+                                                            <div class="recruit-list-age">
+                                
+                                                                    <span id="online-icon" class="online-icon online-icon-size-margin3 online-icon4"></span>
+                                                                
+                                ゆう 24歳
+                              </div>
+                              
+                                                                                                      <div class="recruit-list-home">
+                                          <span><img src="/assets/img/site/bbs/home.png" height="14">津市</span>
+                                      </div>
+                                                                                              
+                              <!-- 画像枚数 -->
+                              <div class="recruit-list-photo">
+                                                                    
+                                                                    
+                                                                </div><!-- /画像枚数 -->
+                          </a>
+                          
+                      </div>
+                  </div><!-- /募集 -->
+                  <!-- 募集 -->
+                  <div class="recruit-list">
+                      <!-- 時間と閲覧回数 -->
+                      <div class="recruit-1">
+                          <span class="cat-btn cat5">今から遊ぼ</span>
+                          <div class="view-date">
+                              <span class="view"><img src="/assets/img/site/bbs/view.png" height="14">3</span>
+                              <span class="date"><img src="/assets/img/site/bbs/time.png" height="14">10/06 16:38</span>
+                          </div>
+                      </div><!-- /時間と閲覧回数 -->
+                      <div class="recruit-list-link">
+                          <!-- プロフ画像 -->
+                          <div class="recruit-list-img">
+                              <div class="recruit-list-thumb">
+                                  
+                                                                        
+                                                                    
+
+                                                                                                      
+                                  <a href="/sns/snsprofile/show_profile.html?q=MEVKdnNDMkVoVDRTdFRTMXgwajBKZXhabnNmeHlPbnVjTmU2dnJidEZxZ2pBQ3RhdDhXZGg1K25xVllBOUU1Kw%3D%3D">
+                                                                                <img src="//images.194964.com/snsprofr/b18b5939ade239c95a05c25d1b2265a9_38b17e55d3_4_200.jpg" alt="">
+                                                                        </a>
+                              </div>
+                          </div><!-- /プロフ画像 -->
+                          
+                          
+                          
+                          <a href="/bbs/show_bbs_detail.html?q=NTdjeERVMTVHMjRLMERORjRSd3llemFpS0tCMDR2NUFIdWNkeFBiVHlteUVlS09mdENDSUxFZ2xlOXl6NEFWUA%3D%3D" class="recruit-list-txt">
+                                                                <div class="recruit-list-name man-title-color">会える人</div>
+                                                            <div class="recruit-list-age">
+                                
+                                                                    <span id="online-icon" class="online-icon online-icon-size-margin3 online-icon4"></span>
+                                                                
+                                みっちゃん 28歳
+                              </div>
+                              
+                                                                                                      <div class="recruit-list-home">
+                                          <span><img src="/assets/img/site/bbs/home.png" height="14">桑名市</span>
+                                      </div>
+                                                                                              
+                              <!-- 画像枚数 -->
+                              <div class="recruit-list-photo">
+                                                                        <span><img src="/assets/img/site/bbs/ic-camera-black.png" height="12"><img src="/assets/img/site/bbs/ic-x-x.png" width="8">1</span>
+                                                                    
+                                                                    
+                                                                </div><!-- /画像枚数 -->
+                          </a>
+                          
+                      </div>
+                  </div><!-- /募集 -->
+                  <!-- 募集 -->
+                  <div class="recruit-list">
+                      <!-- 時間と閲覧回数 -->
+                      <div class="recruit-1">
+                          <span class="cat-btn cat5">今から遊ぼ</span>
+                          <div class="view-date">
+                              <span class="view"><img src="/assets/img/site/bbs/view.png" height="14">1</span>
+                              <span class="date"><img src="/assets/img/site/bbs/time.png" height="14">10/04 09:51</span>
+                          </div>
+                      </div><!-- /時間と閲覧回数 -->
+                      <div class="recruit-list-link">
+                          <!-- プロフ画像 -->
+                          <div class="recruit-list-img">
+                              <div class="recruit-list-thumb">
+                                  
+                                                                        
+                                                                    
+
+                                                                                                      
+                                  <a href="/sns/snsprofile/show_profile.html?q=MEVKdnNDMkVoVDRTdFRTMXgwajBKU0Urb0Y4TlR2NXA3Z1prRll0cGVKUTV4MzhhdTVnMnZsZ0cxOHlkR050MQ%3D%3D">
+                                                                                <img src="//images.194964.com/snsprofr/59c4bfd5e9c2cad3bc682e0fd2d239a6_27ff3be0fd_4_200.jpg" alt="">
+                                                                        </a>
+                              </div>
+                          </div><!-- /プロフ画像 -->
+                          
+                          
+                          
+                          <a href="/bbs/show_bbs_detail.html?q=NTdjeERVMTVHMjRLMERORjRSd3llN1ArRk4zeEF1NzFmTXFmUHZOUkF0cStwdUFMRmxRRGQ2RjlvU1g5eVY0TQ%3D%3D" class="recruit-list-txt">
+                                                                <div class="recruit-list-name man-title-color">明日</div>
+                                                            <div class="recruit-list-age">
+                                
+                                                                    <span id="online-icon" class="online-icon online-icon-size-margin3 online-icon2"></span>
+                                                                
+                                ぐんじょいも 46歳
+                              </div>
+                              
+                                                                                                      <div class="recruit-list-home">
+                                          <span><img src="/assets/img/site/bbs/home.png" height="14">静岡</span>
+                                          <span><img src="/assets/img/site/bbs/car.png" height="14">四日市市</span>
+                                      </div>
+                                                                                              
+                              <!-- 画像枚数 -->
+                              <div class="recruit-list-photo">
+                                                                        <span><img src="/assets/img/site/bbs/ic-camera-black.png" height="12"><img src="/assets/img/site/bbs/ic-x-x.png" width="8">1</span>
+                                                                    
+                                                                    
+                                                                </div><!-- /画像枚数 -->
+                          </a>
+                          
+                      </div>
+                  </div><!-- /募集 -->
+                  <!-- 募集 -->
+                  <div class="recruit-list">
+                      <!-- 時間と閲覧回数 -->
+                      <div class="recruit-1">
+                          <span class="cat-btn cat5">今から遊ぼ</span>
+                          <div class="view-date">
+                              <span class="view"><img src="/assets/img/site/bbs/view.png" height="14">1</span>
+                              <span class="date"><img src="/assets/img/site/bbs/time.png" height="14">10/03 13:37</span>
+                          </div>
+                      </div><!-- /時間と閲覧回数 -->
+                      <div class="recruit-list-link">
+                          <!-- プロフ画像 -->
+                          <div class="recruit-list-img">
+                              <div class="recruit-list-thumb">
+                                  
+                                                                        
+                                                                    
+
+                                                                                                      
+                                  <a href="/sns/snsprofile/show_profile.html?q=MEVKdnNDMkVoVDRTdFRTMXgwajBKU0Urb0Y4TlR2NXA3Z1prRll0cGVKUTV4MzhhdTVnMnZsZ0cxOHlkR050MQ%3D%3D">
+                                                                                <img src="//images.194964.com/snsprofr/59c4bfd5e9c2cad3bc682e0fd2d239a6_27ff3be0fd_4_200.jpg" alt="">
+                                                                        </a>
+                              </div>
+                          </div><!-- /プロフ画像 -->
+                          
+                          
+                          
+                          <a href="/bbs/show_bbs_detail.html?q=NTdjeERVMTVHMjRLMERORjRSd3llN1ArRk4zeEF1NzFmTXFmUHZOUkF0cWtZOHNQeUxDNS85S2xmODVXTEJKQg%3D%3D" class="recruit-list-txt">
+                                                                <div class="recruit-list-name man-title-color">明後日</div>
+                                                            <div class="recruit-list-age">
+                                
+                                                                    <span id="online-icon" class="online-icon online-icon-size-margin3 online-icon2"></span>
+                                                                
+                                ぐんじょいも 46歳
+                              </div>
+                              
+                                                                                                      <div class="recruit-list-home">
+                                          <span><img src="/assets/img/site/bbs/home.png" height="14">静岡</span>
+                                          <span><img src="/assets/img/site/bbs/car.png" height="14">四日市市</span>
+                                      </div>
+                                                                                              
+                              <!-- 画像枚数 -->
+                              <div class="recruit-list-photo">
+                                                                        <span><img src="/assets/img/site/bbs/ic-camera-black.png" height="12"><img src="/assets/img/site/bbs/ic-x-x.png" width="8">1</span>
+                                                                    
+                                                                    
+                                                                </div><!-- /画像枚数 -->
+                          </a>
+                          
+                      </div>
+                  </div><!-- /募集 -->
+                  <!-- 募集 -->
+                  <div class="recruit-list">
+                      <!-- 時間と閲覧回数 -->
+                      <div class="recruit-1">
+                          <span class="cat-btn cat5">今から遊ぼ</span>
+                          <div class="view-date">
+                              <span class="view"><img src="/assets/img/site/bbs/view.png" height="14">1</span>
+                              <span class="date"><img src="/assets/img/site/bbs/time.png" height="14">10/02 11:51</span>
+                          </div>
+                      </div><!-- /時間と閲覧回数 -->
+                      <div class="recruit-list-link">
+                          <!-- プロフ画像 -->
+                          <div class="recruit-list-img">
+                              <div class="recruit-list-thumb">
+                                  
+                                                                        
+                                                                    
+
+                                                                                                      
+                                  <a href="/sns/snsprofile/show_profile.html?q=MEVKdnNDMkVoVDRTdFRTMXgwajBKU0Urb0Y4TlR2NXA3Z1prRll0cGVKUTV4MzhhdTVnMnZsZ0cxOHlkR050MQ%3D%3D">
+                                                                                <img src="//images.194964.com/snsprofr/59c4bfd5e9c2cad3bc682e0fd2d239a6_27ff3be0fd_4_200.jpg" alt="">
+                                                                        </a>
+                              </div>
+                          </div><!-- /プロフ画像 -->
+                          
+                          
+                          
+                          <a href="/bbs/show_bbs_detail.html?q=NTdjeERVMTVHMjRLMERORjRSd3llMFF0VWV4VFQ4U1FRZFlUNTJVMlpsZXpGclJQSEt5TVhVNktlRjBSTHNkRA%3D%3D" class="recruit-list-txt">
+                                                                <div class="recruit-list-name man-title-color">月曜日</div>
+                                                            <div class="recruit-list-age">
+                                
+                                                                    <span id="online-icon" class="online-icon online-icon-size-margin3 online-icon2"></span>
+                                                                
+                                ぐんじょいも 46歳
+                              </div>
+                              
+                                                                                                      <div class="recruit-list-home">
+                                          <span><img src="/assets/img/site/bbs/home.png" height="14">静岡</span>
+                                          <span><img src="/assets/img/site/bbs/car.png" height="14">四日市市</span>
+                                      </div>
+                                                                                              
+                              <!-- 画像枚数 -->
+                              <div class="recruit-list-photo">
+                                                                        <span><img src="/assets/img/site/bbs/ic-camera-black.png" height="12"><img src="/assets/img/site/bbs/ic-x-x.png" width="8">1</span>
+                                                                    
+                                                                    
+                                                                </div><!-- /画像枚数 -->
+                          </a>
+                          
+                      </div>
+                  </div><!-- /募集 -->
+                  <!-- 募集 -->
+                  <div class="recruit-list">
+                      <!-- 時間と閲覧回数 -->
+                      <div class="recruit-1">
+                          <span class="cat-btn cat5">今から遊ぼ</span>
+                          <div class="view-date">
+                              <span class="view"><img src="/assets/img/site/bbs/view.png" height="14">5</span>
+                              <span class="date"><img src="/assets/img/site/bbs/time.png" height="14">10/01 08:43</span>
+                          </div>
+                      </div><!-- /時間と閲覧回数 -->
+                      <div class="recruit-list-link">
+                          <!-- プロフ画像 -->
+                          <div class="recruit-list-img">
+                              <div class="recruit-list-thumb">
+                                  
+                                                                        
+                                                                    
+
+                                                                                                                                                                              
+                                  <a href="/sns/snsprofile/show_profile.html?q=MEVKdnNDMkVoVDRTdFRTMXgwajBKVEljd2NrY3hLWUxKTW1yL05FbjVNMFkxaXIwaXVyakZBRXBpQzNkWHdEOA%3D%3D">
+                                                                                <img src="//images.194964.com/images/no_image_man.png">
+                                                                        </a>
+                              </div>
+                          </div><!-- /プロフ画像 -->
+                          
+                          
+                          
+                          <a href="/bbs/show_bbs_detail.html?q=NTdjeERVMTVHMjRLMERORjRSd3llMFF0VWV4VFQ4U1FRZFlUNTJVMlpsZVBzK3lWQWJoN1dqRlZFRmhWRS9YWQ%3D%3D" class="recruit-list-txt">
+                                                                <div class="recruit-list-name man-title-color">今から会える人募集してます！</div>
+                                                            <div class="recruit-list-age">
+                                
+                                                                    <span id="online-icon" class="online-icon online-icon-size-margin3 online-icon4"></span>
+                                                                
+                                かずき 20歳
+                              </div>
+                              
+                                                                                                      <div class="recruit-list-home">
+                                          <span><img src="/assets/img/site/bbs/home.png" height="14">桑名市</span>
+                                      </div>
+                                                                                              
+                              <!-- 画像枚数 -->
+                              <div class="recruit-list-photo">
+                                                                    
+                                                                    
+                                                                </div><!-- /画像枚数 -->
+                          </a>
+                          
+                      </div>
+                  </div><!-- /募集 -->
+                  <!-- 募集 -->
+                  <div class="recruit-list">
+                      <!-- 時間と閲覧回数 -->
+                      <div class="recruit-1">
+                          <span class="cat-btn cat5">今から遊ぼ</span>
+                          <div class="view-date">
+                              <span class="view"><img src="/assets/img/site/bbs/view.png" height="14">1</span>
+                              <span class="date"><img src="/assets/img/site/bbs/time.png" height="14">10/01 08:19</span>
+                          </div>
+                      </div><!-- /時間と閲覧回数 -->
+                      <div class="recruit-list-link">
+                          <!-- プロフ画像 -->
+                          <div class="recruit-list-img">
+                              <div class="recruit-list-thumb">
+                                  
+                                                                        
+                                                                    
+
+                                                                                                      
+                                  <a href="/sns/snsprofile/show_profile.html?q=MEVKdnNDMkVoVDRTdFRTMXgwajBKU0Urb0Y4TlR2NXA3Z1prRll0cGVKUTV4MzhhdTVnMnZsZ0cxOHlkR050MQ%3D%3D">
+                                                                                <img src="//images.194964.com/snsprofr/59c4bfd5e9c2cad3bc682e0fd2d239a6_27ff3be0fd_4_200.jpg" alt="">
+                                                                        </a>
+                              </div>
+                          </div><!-- /プロフ画像 -->
+                          
+                          
+                          
+                          <a href="/bbs/show_bbs_detail.html?q=NTdjeERVMTVHMjRLMERORjRSd3llMFF0VWV4VFQ4U1FRZFlUNTJVMlpsY2xrTU02RWduYmt2RFF3azlzTTJ1bg%3D%3D" class="recruit-list-txt">
+                                                                <div class="recruit-list-name man-title-color">月曜日</div>
+                                                            <div class="recruit-list-age">
+                                
+                                                                    <span id="online-icon" class="online-icon online-icon-size-margin3 online-icon2"></span>
+                                                                
+                                ぐんじょいも 46歳
+                              </div>
+                              
+                                                                                                      <div class="recruit-list-home">
+                                          <span><img src="/assets/img/site/bbs/home.png" height="14">静岡</span>
+                                          <span><img src="/assets/img/site/bbs/car.png" height="14">伊勢市</span>
+                                      </div>
+                                                                                              
+                              <!-- 画像枚数 -->
+                              <div class="recruit-list-photo">
+                                                                        <span><img src="/assets/img/site/bbs/ic-camera-black.png" height="12"><img src="/assets/img/site/bbs/ic-x-x.png" width="8">1</span>
+                                                                    
+                                                                    
+                                                                </div><!-- /画像枚数 -->
+                          </a>
+                          
+                      </div>
+                  </div><!-- /募集 -->
+                  <!-- 募集 -->
+                  <div class="recruit-list">
+                      <!-- 時間と閲覧回数 -->
+                      <div class="recruit-1">
+                          <span class="cat-btn cat5">今から遊ぼ</span>
+                          <div class="view-date">
+                              <span class="view"><img src="/assets/img/site/bbs/view.png" height="14">4</span>
+                              <span class="date"><img src="/assets/img/site/bbs/time.png" height="14">09/29 14:49</span>
+                          </div>
+                      </div><!-- /時間と閲覧回数 -->
+                      <div class="recruit-list-link">
+                          <!-- プロフ画像 -->
+                          <div class="recruit-list-img">
+                              <div class="recruit-list-thumb">
+                                  
+                                                                        
+                                                                    
+
+                                                                                                                                                                              
+                                  <a href="/sns/snsprofile/show_profile.html?q=MEVKdnNDMkVoVDRTdFRTMXgwajBKVXFwbmlJMXNzVGJodXQwQ2dXcnZCVHZHYW56djBBa3BLN3FGb001QUZlZA%3D%3D">
+                                                                                <img src="//images.194964.com/images/no_image_man.png">
+                                                                        </a>
+                              </div>
+                          </div><!-- /プロフ画像 -->
+                          
+                          
+                          
+                          <a href="/bbs/show_bbs_detail.html?q=NTdjeERVMTVHMjRLMERORjRSd3llNHF4MjN5R3plT0JsVHZNT1RTL3djc1cwdGs3aTNPSnFOb0tYMnZYRVE2Mw%3D%3D" class="recruit-list-txt">
+                                                                <div class="recruit-list-name man-title-color">何か暇ー</div>
+                                                            <div class="recruit-list-age">
+                                
+                                                                    <span id="online-icon" class="online-icon online-icon-size-margin3 online-icon2"></span>
+                                                                
+                                ふく 44歳
+                              </div>
+                              
+                                                                                                      <div class="recruit-list-home">
+                                          <span><img src="/assets/img/site/bbs/home.png" height="14">鈴鹿市</span>
+                                      </div>
+                                                                                              
+                              <!-- 画像枚数 -->
+                              <div class="recruit-list-photo">
+                                                                    
+                                                                    
+                                                                </div><!-- /画像枚数 -->
+                          </a>
+                          
+                      </div>
+                  </div><!-- /募集 -->
+                  <!-- 募集 -->
+                  <div class="recruit-list">
+                      <!-- 時間と閲覧回数 -->
+                      <div class="recruit-1">
+                          <span class="cat-btn cat5">今から遊ぼ</span>
+                          <div class="view-date">
+                              <span class="view"><img src="/assets/img/site/bbs/view.png" height="14">4</span>
+                              <span class="date"><img src="/assets/img/site/bbs/time.png" height="14">09/29 08:01</span>
+                          </div>
+                      </div><!-- /時間と閲覧回数 -->
+                      <div class="recruit-list-link">
+                          <!-- プロフ画像 -->
+                          <div class="recruit-list-img">
+                              <div class="recruit-list-thumb">
+                                  
+                                                                        
+                                                                    
+
+                                                                                                      
+                                  <a href="/sns/snsprofile/show_profile.html?q=MEVKdnNDMkVoVDRTdFRTMXgwajBKVnhEZUZtWEZmZzk5Qm52ZStMUWg0Y3pMSEdMc1JyczRxK2dJODM2azlPWA%3D%3D">
+                                                                                <img src="//images.194964.com/snsprofr/5db0a1296b8536bffddfac875d90c5ab_23e3e660e1_4_200.jpg" alt="">
+                                                                        </a>
+                              </div>
+                          </div><!-- /プロフ画像 -->
+                          
+                          
+                          
+                          <a href="/bbs/show_bbs_detail.html?q=NTdjeERVMTVHMjRLMERORjRSd3llNHF4MjN5R3plT0JsVHZNT1RTL3djdDVvNkRtYmxLcjBVOEdYaGpOdzVROA%3D%3D" class="recruit-list-txt">
+                                                                <div class="recruit-list-name man-title-color">旅のモンです。</div>
+                                                            <div class="recruit-list-age">
+                                
+                                                                    <span id="online-icon" class="online-icon online-icon-size-margin3 online-icon3"></span>
+                                                                
+                                ミスターフルスイング 49歳
+                              </div>
+                              
+                                                                                                      <div class="recruit-list-home">
+                                          <span><img src="/assets/img/site/bbs/home.png" height="14">兵庫</span>
+                                          <span><img src="/assets/img/site/bbs/car.png" height="14">鳥羽市</span>
+                                      </div>
+                                                                                              
+                              <!-- 画像枚数 -->
+                              <div class="recruit-list-photo">
+                                                                        <span><img src="/assets/img/site/bbs/ic-camera-black.png" height="12"><img src="/assets/img/site/bbs/ic-x-x.png" width="8">1</span>
+                                                                    
+                                                                    
+                                                                </div><!-- /画像枚数 -->
+                          </a>
+                          
+                      </div>
+                  </div><!-- /募集 -->
+                  <!-- 募集 -->
+                  <div class="recruit-list">
+                      <!-- 時間と閲覧回数 -->
+                      <div class="recruit-1">
+                          <span class="cat-btn cat5">今から遊ぼ</span>
+                          <div class="view-date">
+                              <span class="view"><img src="/assets/img/site/bbs/view.png" height="14">6</span>
+                              <span class="date"><img src="/assets/img/site/bbs/time.png" height="14">09/25 19:34</span>
+                          </div>
+                      </div><!-- /時間と閲覧回数 -->
+                      <div class="recruit-list-link">
+                          <!-- プロフ画像 -->
+                          <div class="recruit-list-img">
+                              <div class="recruit-list-thumb">
+                                  
+                                                                        
+                                                                    
+
+                                                                                                      
+                                  <a href="/sns/snsprofile/show_profile.html?q=MEVKdnNDMkVoVDRTdFRTMXgwajBKYlRJMnFqZS9Sdm1JdnlhTnFjSnI0bnIyZHo0UU9ZemF2Q3dZNXJDVjcwVQ%3D%3D">
+                                                                                <img src="//images.194964.com/snsprofr/8d0d8eed85b23137c2029a6bc3d5e912_3f854d61eb_4_200.jpg" alt="">
+                                                                        </a>
+                              </div>
+                          </div><!-- /プロフ画像 -->
+                          
+                          
+                          
+                          <a href="/bbs/show_bbs_detail.html?q=NTdjeERVMTVHMjRLMERORjRSd3llekxQYkhrb2NsZ1Z2dVZHcnhhQ2Zoc3hXczQ2U1piamF0bVREa3FjaE5zYw%3D%3D" class="recruit-list-txt">
+                                                                <div class="recruit-list-name man-title-color">ほんとに会える人だけ！！！！！</div>
+                                                            <div class="recruit-list-age">
+                                
+                                                                    <span id="online-icon" class="online-icon online-icon-size-margin3 online-icon4"></span>
+                                                                
+                                りょう 26歳
+                              </div>
+                              
+                                                                                                      <div class="recruit-list-home">
+                                          <span><img src="/assets/img/site/bbs/home.png" height="14">四日市市</span>
+                                      </div>
+                                                                                              
+                              <!-- 画像枚数 -->
+                              <div class="recruit-list-photo">
+                                                                        <span><img src="/assets/img/site/bbs/ic-camera-black.png" height="12"><img src="/assets/img/site/bbs/ic-x-x.png" width="8">1</span>
+                                                                    
+                                                                    
+                                                                </div><!-- /画像枚数 -->
+                          </a>
+                          
+                      </div>
+                  </div><!-- /募集 -->
+                  <!-- 募集 -->
+                  <div class="recruit-list">
+                      <!-- 時間と閲覧回数 -->
+                      <div class="recruit-1">
+                          <span class="cat-btn cat5">今から遊ぼ</span>
+                          <div class="view-date">
+                              <span class="view"><img src="/assets/img/site/bbs/view.png" height="14">1</span>
+                              <span class="date"><img src="/assets/img/site/bbs/time.png" height="14">09/20 09:39</span>
+                          </div>
+                      </div><!-- /時間と閲覧回数 -->
+                      <div class="recruit-list-link">
+                          <!-- プロフ画像 -->
+                          <div class="recruit-list-img">
+                              <div class="recruit-list-thumb">
+                                  
+                                                                        
+                                                                    
+
+                                                                                                                                                                              
+                                  <a href="/sns/snsprofile/show_profile.html?q=MEVKdnNDMkVoVDRTdFRTMXgwajBKZjZ6R1hFNnA4V29CRjdlajVJT1B2UDFaMFZnR3NFM09nT0V1ZEdhY1ZKSQ%3D%3D">
+                                                                                <img src="//images.194964.com/images/no_image_man.png">
+                                                                        </a>
+                              </div>
+                          </div><!-- /プロフ画像 -->
+                          
+                          
+                          
+                          <a href="/bbs/show_bbs_detail.html?q=NTdjeERVMTVHMjRLMERORjRSd3llOUdiMzNpaldaUjF0aFl0anpQZ3J6R0NxaFZ4aUFRa1VRNW9DZWh0Y2ZtQw%3D%3D" class="recruit-list-txt">
+                                                                <div class="recruit-list-name man-title-color">楽しく会いたい^_^</div>
+                                                            <div class="recruit-list-age">
+                                
+                                                                    <span id="online-icon" class="online-icon online-icon-size-margin3 online-icon2"></span>
+                                                                
+                                ま(^ω^)さ 44歳
+                              </div>
+                              
+                                                                                                      <div class="recruit-list-home">
+                                          <span><img src="/assets/img/site/bbs/home.png" height="14">津市</span>
+                                      </div>
+                                                                                              
+                              <!-- 画像枚数 -->
+                              <div class="recruit-list-photo">
+                                                                    
+                                                                    
+                                                                </div><!-- /画像枚数 -->
+                          </a>
+                          
+                      </div>
+                  </div><!-- /募集 -->
+                  <!-- 募集 -->
+                  <div class="recruit-list">
+                      <!-- 時間と閲覧回数 -->
+                      <div class="recruit-1">
+                          <span class="cat-btn cat5">今から遊ぼ</span>
+                          <div class="view-date">
+                              <span class="view"><img src="/assets/img/site/bbs/view.png" height="14">1</span>
+                              <span class="date"><img src="/assets/img/site/bbs/time.png" height="14">09/19 13:48</span>
+                          </div>
+                      </div><!-- /時間と閲覧回数 -->
+                      <div class="recruit-list-link">
+                          <!-- プロフ画像 -->
+                          <div class="recruit-list-img">
+                              <div class="recruit-list-thumb">
+                                  
+                                                                        
+                                                                    
+
+                                                                                                      
+                                  <a href="/sns/snsprofile/show_profile.html?q=MEVKdnNDMkVoVDRTdFRTMXgwajBKZnQ1VEgrRHRORVhzWGJjMHFheXYzWUxhMkN3NFFSckdkaDJKVytNTFdGUA%3D%3D">
+                                                                                <img src="//images.194964.com/snsprofr/937b594b65fdd7621cab29827f6a089f_33f9fb7796_4_200.jpg" alt="">
+                                                                        </a>
+                              </div>
+                          </div><!-- /プロフ画像 -->
+                          
+                          
+                          
+                          <a href="/bbs/show_bbs_detail.html?q=NTdjeERVMTVHMjRLMERORjRSd3lleE1IdDY3YVhYOUpNN0FDZE5MM1A2TUxBYXdQSDRSMFhhY2tIWXA5WGZFRA%3D%3D" class="recruit-list-txt">
+                                                                <div class="recruit-list-name man-title-color">これから</div>
+                                                            <div class="recruit-list-age">
+                                
+                                                                
+                                隆二 65歳
+                              </div>
+                              
+                                                                                                      <div class="recruit-list-home">
+                                          <span><img src="/assets/img/site/bbs/home.png" height="14">松阪市</span>
+                                      </div>
+                                                                                              
+                              <!-- 画像枚数 -->
+                              <div class="recruit-list-photo">
+                                                                        <span><img src="/assets/img/site/bbs/ic-camera-black.png" height="12"><img src="/assets/img/site/bbs/ic-x-x.png" width="8">1</span>
+                                                                    
+                                                                    
+                                                                </div><!-- /画像枚数 -->
+                          </a>
+                          
+                      </div>
+                  </div><!-- /募集 -->
+
+            </div>
+            <div id="endFlag"></div>
+          </div>
+        </div>
+      </div>
+      
+        <input type="hidden" id="apiURL" value="/bbs/ajax_show_slider_list.html">
+        <textarea id="storedData" style="display:none;"></textarea>
+        <div id="reqParams">
+            <input type="text" style="display:none;" id="storedPage" name="page" value="2">
+            <input type="hidden" name="targetGenreId" value="5">
+            <input type="hidden" name="prefId" value="24">
+            <input type="hidden" name="count" value="15">
+            <input type="hidden" name="hokkaidoFlag" value="0">
+        </div>
+        <textarea id="storedRequestParams" style="display:none;"></textarea> 
+    </div><!-- /.blog-recruitment -->
+  </main>
+</div>
+
+
+            <nav class="bottom-nav">
+            
+                            <div class="bottom-nav-item">
+                                <a href="/sns/snssearch/show_faces.html" class="bottom-nav-item-txt nav-search">お相手探し</a>
+                </div>
+
+            
+                            <div class="bottom-nav-item item-active">
+                                <a href="/bbs/show_bbs.html" class="bottom-nav-item-txt nav-recruit">募集</a>
+                </div>
+
+            
+                            <div class="bottom-nav-item relative">
+                                                    <a href="/mail/inbox/show_mailbox.html" class="bottom-nav-item-txt nav-mail">メッセージ</a>
+                </div>
+
+            
+                            <div class="bottom-nav-item relative">
+                                                                                    <span class="caution">99</span>
+                                                                <a href="/sns/snstype/show_typed_list.html" class="bottom-nav-item-txt nav-type">タイプ</a>
+                </div>
+                
+            
+                            <div class="bottom-nav-item relative">
+                                                        <span class="caution">!</span>
+                                        <a href="/mypage.html" class="bottom-nav-item-txt nav-mypage">
+                        マイページ
+                    </a>
+                </div>
+        </nav>
+        
+                
+
+</body></html>
