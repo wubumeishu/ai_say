@@ -506,20 +506,26 @@ function createIchigoDeepScrape(deps) {
       // 先确保窗口在普通收件箱页（show_mailbox.html，非编辑模式）
       return cdpEval(client, 'location.href').then(function(cur) {
         var u = String(cur || '');
-        // 已在编辑模式（?q=）→ 先退回收件箱普通模式
-        if (u.indexOf('show_mailbox.html?q=') !== -1) {
-          return cdpEval(client, 'location.href=' + JSON.stringify('https://sp.194964.com/mail/inbox/show_mailbox.html') + ';')
-            .then(function() { return new Promise(function(r) { setTimeout(r, 3000); }); });
-        }
-        if (u.indexOf('show_mailbox') === -1) {
+        // 2026-10-23 实测：窗口可能残留在 show_mail_delete.html（前次删除未走完）
+        //   或编辑模式（?q=）/ 其他页 → 一律先回普通收件箱
+        if (u.indexOf('show_mail_delete') !== -1 || u.indexOf('show_mailbox.html?q=') !== -1 || u.indexOf('show_mailbox') === -1) {
           return cdpEval(client, 'location.href=' + JSON.stringify('https://sp.194964.com/mail/inbox/show_mailbox.html') + ';')
             .then(function() { return new Promise(function(r) { setTimeout(r, 3000); }); });
         }
         return new Promise(function(r) { setTimeout(r, 500); });
       }).then(function() {
         // Step1 preflight：拿编辑模式 href（不导航，避免销毁 CDP 上下文）
+        // stuck-confirm-page 自愈：窗口残留 show_mail_delete.html 时，nav 回 inbox 后重试 preflight 1 次
         var preExpr = fillUrl(blockExprSrc, null, false, null, 'preflight');
         return cdpEvalAsync(client, preExpr);
+      }).then(function(pre) {
+        pre = pre || {};
+        if (pre.step === 'stuck-confirm-page') {
+          return client.send('Page.navigate', { url: 'https://sp.194964.com/mail/inbox/show_mailbox.html' })
+            .then(function() { return new Promise(function(r) { setTimeout(r, 3000); }); })
+            .then(function() { return cdpEvalAsync(client, preExpr); });
+        }
+        return pre;
       }).then(function(pre) {
         pre = pre || {};
         if (!pre.ok) return { ok: false, step: pre.step || 'preflight', reason: pre.reason || 'preflight-failed', note: pre.note || '', via: 'cdp-block-expr-5step' };
@@ -546,6 +552,7 @@ function createIchigoDeepScrape(deps) {
           confirmPage: !!v.confirmPage,
           stillOnConfirm: !!v.stillOnConfirm,
           needNavBack: !!v.needNavBack,
+          stuckConfirmPage: v.step === 'stuck-confirm-page',
           via: 'cdp-block-expr-5step'
         };
         // 2026-10-23 实测：点「削除する」后平台不一定自动回 inbox（同时删 2 客户停在确认页），

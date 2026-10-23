@@ -39,6 +39,18 @@
   //       若先查 editBtn 会因按钮消失而误报 edit-btn-not-found。
   var alreadyEditMode = doc.querySelectorAll('label[for^="checkbox"]').length > 0;
 
+  // 2026-10-23 实测：窗口可能停在 show_mail_delete.html（二次确认页残留，前次删除未走完）
+  // 此时既无 checkbox 也无「編集」按钮，直接报 edit-btn-not-found 是误导。
+  // 先检测并回普通 inbox（自 愈），让调用方重新走 preflight → 编辑模式链路
+  if (String(location.href || '').indexOf('show_mail_delete') !== -1) {
+    return {
+      ok: false, step: 'stuck-confirm-page', reason: 'window-on-confirm-page',
+      needNavBack: true,
+      note: '窗口停在 show_mail_delete.html（前次删除的确认页残留，可能上轮未点「削除する」/「キャンセル」），deepScrape 需先回普通 inbox 再重新执行'
+    };
+  }
+
+
   if (mode === 'preflight') {
     // 预检模式：必须拿「編集」按钮的编辑模式 href（不点击，避免 CDP 上下文销毁；由 deepScrape 导航）
     var editBtn = null;
@@ -60,7 +72,6 @@
     }
     return { ok: true, step: 'preflight', editHref: editBtn.href || (editBtn.parentElement && editBtn.parentElement.href) || '', foundEditBtn: true };
   }
-
   // execute 模式：若当前不在编辑模式（无 checkbox），先点「編集」触发导航
   if (!alreadyEditMode) {
     var editBtn2 = null;
@@ -133,7 +144,7 @@
     }
     var partialMiss = missed.length > 0;
 
-    return sleep(600).then(function() {
+    return sleep(600).then(async function() {
       // ---- Step3：点「チェックを削除する」提交按钮 ----
       var delBtn = null;
       var submitBtns = doc.querySelectorAll('button[type="submit"], input[type="submit"], .button.width70');
@@ -157,63 +168,85 @@
         };
       }
       delBtn.click();
-      // ---- Step4：等待并检测二次确认页（show_mail_delete.html）----
-      return sleep(1500).then(function() {
-        var curUrl = String(location.href || '');
-        var onConfirmPage = curUrl.indexOf('show_mail_delete') !== -1;
-        var confirmBtn = null;
-        if (onConfirmPage) {
-          var allBtns = doc.querySelectorAll('button, a, input[type="submit"]');
-          for (var x = 0; x < allBtns.length; x++) {
-            var pt = String(allBtns[x].textContent || allBtns[x].value || '').trim();
-            if (pt === '削除する') { confirmBtn = allBtns[x]; break; }
+      // ---- Step4：轮询检测二次确认页（show_mail_delete.html）----
+      // 实测：button[type=submit].click() 触发 form submit 是异步的，固定 sleep(1500) 可能不够
+      // （平台跳确认页的时间因网络/平台负载浮动），改为每 500ms 轮询一次、最长 6s
+      var _step4 = null;
+      var _pollTimer = null;
+      var _pollStart = Date.now();
+      _step4 = new Promise(function(resolve) {
+        function poll() {
+          var u = String(location.href || '');
+          if (u.indexOf('show_mail_delete') !== -1) {
+            resolve(true);
+            return;
           }
-        } else {
-          var pops = doc.querySelectorAll('.popup, .modal, [class*="confirm"], [class*="popup"]');
-          var scope = (pops.length > 0 ? pops[0].querySelectorAll('button, a, input[type="submit"]') : doc.querySelectorAll('button, a, input[type="submit"]'));
-          for (var y = 0; y < scope.length; y++) {
-            var pt2 = String(scope[y].textContent || scope[y].value || '').trim();
-            if (pt2 === 'はい' || pt2 === 'OK' || pt2.indexOf('確認') !== -1 || pt2.indexOf('実行') !== -1) { confirmBtn = scope[y]; break; }
+          // 也可能平台无确认页直接跳走（回到 inbox / 其他页）
+          if (u.indexOf('show_mailbox.html') !== -1 && u.indexOf('?q=') === -1) {
+            resolve(false); // 已离开编辑模式，可能直接删完了
+            return;
           }
+          if (Date.now() - _pollStart > 6000) {
+            resolve(String(location.href || '').indexOf('show_mail_delete') !== -1);
+            return;
+          }
+          _pollTimer = setTimeout(poll, 500);
         }
-        if (confirmBtn) {
-          // ---- Step5：点「削除する」确认删除 ----
-          confirmBtn.click();
-          return sleep(1000).then(function() {
-            var finalUrl = String(location.href || '');
-            var stillOnConfirm = finalUrl.indexOf('show_mail_delete') !== -1;
-            return {
-              ok: true, step: 'deleted',
-              matched: checked.map(function(c2) { return c2.matched; }),
-              checkedCount: checked.length,
-              missed: missed,
-              partialMiss: partialMiss,
-              confirmed: true,
-              confirmPage: onConfirmPage,
-              stillOnConfirm: stillOnConfirm,
-              needNavBack: true,
-              note: (partialMiss
-                ? ('已真实删除 ' + checked.length + ' 位（' + checked.map(function(c2) { return c2.matched; }).join('、') + '），另有 ' + missed.length + ' 位未匹配：' + missed.join('、') + '；需 deepScrape 显式回收件箱')
-                : ('已真实删除 ' + checked.length + ' 位（' + checked.map(function(c2) { return c2.matched; }).join('、') + '）；需 deepScrape 显式回收件箱'))
-            };
-          });
-        }
-        var finalUrl2 = String(location.href || '');
-        var leftConfirm = finalUrl2.indexOf('show_mail_delete') === -1;
-        return {
-          ok: leftConfirm, step: leftConfirm ? 'deleted' : 'confirm-stuck',
-          matched: checked.map(function(c2) { return c2.matched; }),
-          checkedCount: checked.length,
-          missed: missed,
-          confirmed: false,
-          confirmPage: onConfirmPage,
-          needNavBack: true,
-          reason: leftConfirm ? '' : 'confirm-btn-not-found',
-          note: leftConfirm
-            ? ('已勾选 ' + checked.length + ' 位并提交，平台无二次确认直接跳转；需 deepScrape 显式回收件箱')
-            : ('已勾选 ' + checked.length + ' 位并提交，但仍在 show_mail_delete.html 未找到「削除する」按钮（DOM 结构可能变化）；需人工确认')
-        };
+        poll();
       });
+      var onConfirmPage = await _step4;
+      var confirmBtn = null;
+      if (onConfirmPage) {
+        var allBtns = doc.querySelectorAll('button, a, input[type="submit"]');
+        for (var x = 0; x < allBtns.length; x++) {
+          var pt = String(allBtns[x].textContent || allBtns[x].value || '').trim();
+          if (pt === '削除する') { confirmBtn = allBtns[x]; break; }
+        }
+      } else {
+        var pops = doc.querySelectorAll('.popup, .modal, [class*="confirm"], [class*="popup"]');
+        var scope = (pops.length > 0 ? pops[0].querySelectorAll('button, a, input[type="submit"]') : doc.querySelectorAll('button, a, input[type="submit"]'));
+        for (var y = 0; y < scope.length; y++) {
+          var pt2 = String(scope[y].textContent || scope[y].value || '').trim();
+          if (pt2 === 'はい' || pt2 === 'OK' || pt2.indexOf('確認') !== -1 || pt2.indexOf('実行') !== -1) { confirmBtn = scope[y]; break; }
+        }
+      }
+      if (confirmBtn) {
+        // ---- Step5：点「削除する」确认删除 ----
+        confirmBtn.click();
+        return sleep(1000).then(function() {
+          var finalUrl = String(location.href || '');
+          var stillOnConfirm = finalUrl.indexOf('show_mail_delete') !== -1;
+          return {
+            ok: true, step: 'deleted',
+            matched: checked.map(function(c2) { return c2.matched; }),
+            checkedCount: checked.length,
+            missed: missed,
+            partialMiss: partialMiss,
+            confirmed: true,
+            confirmPage: onConfirmPage,
+            stillOnConfirm: stillOnConfirm,
+            needNavBack: true,
+            note: (partialMiss
+              ? ('已真实删除 ' + checked.length + ' 位（' + checked.map(function(c2) { return c2.matched; }).join('、') + '），另有 ' + missed.length + ' 位未匹配：' + missed.join('、') + '；需 deepScrape 显式回收件箱')
+              : ('已真实删除 ' + checked.length + ' 位（' + checked.map(function(c2) { return c2.matched; }).join('、') + '）；需 deepScrape 显式回收件箱'))
+          };
+        });
+      }
+      var finalUrl2 = String(location.href || '');
+      var leftConfirm = finalUrl2.indexOf('show_mail_delete') === -1;
+      return {
+        ok: leftConfirm, step: leftConfirm ? 'deleted' : 'confirm-stuck',
+        matched: checked.map(function(c2) { return c2.matched; }),
+        checkedCount: checked.length,
+        missed: missed,
+        confirmed: false,
+        confirmPage: onConfirmPage,
+        needNavBack: true,
+        reason: leftConfirm ? '' : 'confirm-btn-not-found',
+        note: leftConfirm
+          ? ('已勾选 ' + checked.length + ' 位并提交，平台无二次确认直接跳转；需 deepScrape 显式回收件箱')
+          : ('已勾选 ' + checked.length + ' 位并提交，但仍在 show_mail_delete.html 未找到「削除する」按钮（DOM 结构可能变化）；需人工确认')
+      };
     });
   });
 })(__URL__, __CUSTOMER_NAME__, __MODE__);

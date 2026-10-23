@@ -235,6 +235,47 @@ test('execute 空 customerName → ok:false + no-customer-named（拒盲勾）',
   assert.equal(m.state.checked.size, 0);
 });
 
+
+test('execute 窗口停在 show_mail_delete.html（确认页残留）→ 返回 stuck-confirm-page（自愈信号）', async () => {
+  const m = makeMock(['ケイタ']);
+  // 模拟窗口残留在确认页（URL=show_mail_delete，无 checkbox）
+  m.state.location.href = 'https://sp.194964.com/mail/inbox/show_mail_delete.html';
+  m.state.phase = 'confirm';
+  // mock：确认页里 label[for^=checkbox] 应返回 0 个（alreadyEditMode=false）
+  m.qsa = (function(orig) {
+    return function(sel) {
+      const s = String(sel);
+      if (s.indexOf('label[for^="checkbox"]') !== -1 || s === 'label[for^=checkbox]') return []; // 确认页无 checkbox
+      return orig(sel);
+    };
+  })(m.qsa.bind(m));
+  const r = await runExpr('execute', ['ケイタ'], m);
+  assert.equal(r.ok, false, 'got: ' + JSON.stringify(r));
+  assert.equal(r.step, 'stuck-confirm-page');
+  assert.equal(r.reason, 'window-on-confirm-page');
+  assert.equal(r.needNavBack, true);
+  assert.match(r.note, /show_mail_delete/);
+  // 不应勾任何 checkbox
+  assert.equal(m.state.checked.size, 0);
+});
+
+test('preflight 在确认页残留时 → 也返回 stuck-confirm-page（不误报 edit-btn-not-found）', async () => {
+  const m = makeMock(['ケイタ']);
+  m.state.location.href = 'https://sp.194964.com/mail/inbox/show_mail_delete.html';
+  m.state.phase = 'confirm';
+  m.qsa = (function(orig) {
+    return function(sel) {
+      const s = String(sel);
+      if (s.indexOf('label[for^="checkbox"]') !== -1 || s === 'label[for^=checkbox]') return [];
+      return orig(sel);
+    };
+  })(m.qsa.bind(m));
+  const r = await runExpr('preflight', null, m);
+  assert.equal(r.ok, false, 'got: ' + JSON.stringify(r));
+  assert.equal(r.step, 'stuck-confirm-page');
+  assert.equal(r.needNavBack, true);
+});
+
 test('fillUrl 的 __MODE__ 占位符替换（ichigoDeepScrape.js）', async () => {
   const src = fs.readFileSync(path.join(rootDir, 'server', 'adapter', 'ichigoDeepScrape.js'), 'utf8');
   const i = src.indexOf('function fillUrl(');
