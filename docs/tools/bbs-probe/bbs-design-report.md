@@ -203,3 +203,28 @@
 - **大人の募集 的 9 个 genre ID 未抓全**（只有名称，缺数字 ID）——需在该板块 show_write_list 抓 .subMenu a.jump 的 data-genre
 - **招募帖子「下架/非公开」后的恢复入口**未探（exec_bbs_close.html 是下架，恢复在哪未抓）
 - **类型/足迹的删除确认页**未单独抓（推测与拉黑同构，需实测）
+
+
+## 十二、RPA 表达式实现（2026-10-23 落地）
+
+| 操作 | 表达式文件 | 注入占位符 | 触发页 | 提交 |
+|---|---|---|---|---|
+| 查（列表） | ichigoBbsQueryExpr.js | __BBS_OPTS__ | 任意 194964 域 | POST /bbs/ajax_show_slider_list.html |
+| 改/增（编辑） | ichigoBbsWriteExpr.js | __BBS_WRITE_OPTS__ | show_bbs_write_edit.html?targetBbsId= | 填 textarea → button[name=write]「募集する」→ button[name=confirm]「確認する」 |
+
+### 改/增 执行边界（总控定死）
+- 目标帖：targetBbsId=178898703
+- **删**：首行「はじめまして！真面目な出会いを探して登録しました。」
+- **加**：结尾「少しでも気になっていただけたら、お気軽にメッセージをいただけると嬉しいです。」
+- 其他一字不动。字数 125/500 ✓
+
+### 防封（模块3 核心）
+- 招募 1h 冷却（明写）→ GovernanceRule 待落库
+- 帖子消耗 50pt → 发帖前查点数
+- 改帖 is_edit=1 复用表单，推测不额外耗冷却（需实测坐实）
+- token 全时效 → preflight 实时导航拿新鲜 token
+
+### 待补
+- 删帖 RPA（勾选 checkbox → POST show_bbs_confirm_delete.html → 确认页「削除する」）— 与拉黑 5 步同构，ichigoBlockExpr.js selector 直接套，未写（总控未指定测试数据）
+- 类型/足迹删除 RPA（同构）— 未写
+- 冷却 1h 规则落 GovernanceRule — 未做
