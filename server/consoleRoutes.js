@@ -1040,32 +1040,58 @@ register('GET', '/api/console/customers', wrap(async (req, res) => {
         //   * archive   → 仅 DB 打标（归档是本地操作，不触发平台动作）
         //   * CDP 不可用/按钮未找到 → queued 提示（"已排入真实拉黑队列/待同步到窗口"），不当成假拉黑
         let realSync = { queued: 0, blocked: 0, failed: 0, detail: [] };
-        if (action === 'blacklist' && deepScrape && typeof deepScrape.blockContact === 'function') {
-          // 模块1整改 · 真实 3 步 RPA：收件箱页「編集」→ 勾客户 checkboxN →「チェックを削除する」
+if (action === 'blacklist' && deepScrape && typeof deepScrape.blockContact === 'function') {
+          // 模块1整改 · 真实 5 步 RPA（2026-10-23 实测）：
+          //   收件箱页「編集」→ 编辑模式勾 N 个 checkbox（按客户名）→「チェックを削除する」
+          //   → show_mail_delete.html 二次确认页 →「削除する」→ 显式导航回收件箱
+          // 批量一次调用（customerName 传数组，平台合并成 1 个确认页，不是逐人 N 次循环）
           // 按客户名定位 checkbox（Step2 需要 customerName）
+          const named = [];   // { contactId, custName }
           for (const id of uniq) {
             const c = ichigoCache ? ichigoCache.getContact(id) : null;
-            const custName = c ? (c.name || c.displayName || '') : '';
             if (!c) {
               realSync.queued += 1;
               realSync.detail.push({ contactId: id, status: 'queued', note: '客户缓存缺失，待窗口重新抓取后同步删除' });
               continue;
             }
+            named.push({ contactId: id, custName: c.name || c.displayName || '' });
+          }
+          if (named.length > 0) {
+            // 一次传数组，blockContact 内部：preflight 拿编辑 href → 导航编辑模式 → execute 勾 N 个 → 删除 → 确认 → 显式回 inbox
+            const nameArr = named.map((n) => n.custName).filter(Boolean);
             try {
-              const br = await deepScrape.blockContact(custName, { refreshMailbox: true });
+              const br = await deepScrape.blockContact(nameArr, { refreshMailbox: true, verify: true });
               if (br && br.ok) {
-                realSync.blocked += 1;
-                realSync.detail.push({ contactId: id, status: 'blocked', matched: br.matched, checkboxIndex: br.checkboxIndex, note: br.note });
+                // 映射 br.matched 回 contactId
+                const matchedSet = new Set(br.matched || []);
+                for (const n of named) {
+                  if (matchedSet.has(n.custName)) {
+                    realSync.blocked += 1;
+                    realSync.detail.push({ contactId: n.contactId, status: 'blocked', matched: n.custName, note: br.note });
+                  } else {
+                    realSync.queued += 1;
+                    realSync.detail.push({ contactId: n.contactId, status: 'queued', reason: 'customer-not-in-list', note: '窗口编辑模式下未匹配到「' + n.custName + '」（可能名称漂移/缓存缺失）' });
+                  }
+                }
+                realSync.missed = br.missed || [];
+                realSync.partialMiss = !!br.partialMiss;
+                realSync.confirmPage = !!br.confirmPage;
+                realSync.mailboxNav = !!br.mailboxNav;
+                realSync.remainingCount = br.remainingCount != null ? br.remainingCount : null;
               } else {
-                realSync.queued += 1;
-                realSync.detail.push({ contactId: id, status: 'queued', reason: br ? br.reason : 'cdp-unavailable', note: br ? (br.note || br.msg || '删除未触发') : 'CDP 不可用，待窗口打开后同步' });
+                // CDP 不可用 / 客户不在列表 → 全部 queued
+                for (const n of named) {
+                  realSync.queued += 1;
+                  realSync.detail.push({ contactId: n.contactId, status: 'queued', reason: br ? br.reason : 'cdp-unavailable', note: br ? (br.note || br.msg || '删除未触发') : 'CDP 不可用，待窗口打开后同步' });
+                }
+                realSync.missed = br && br.missed ? br.missed : [];
               }
             } catch (e) {
               realSync.failed += 1;
-              realSync.detail.push({ contactId: id, status: 'failed', note: String((e && e.message) || e) });
+              realSync.detail.push({ contactId: named.map((n) => n.contactId).join(','), status: 'failed', note: String((e && e.message) || e) });
             }
           }
-          // 真·自动同步：任一真实删除成功 → 强制重抓收件箱（刷新前端+DB+真实窗口三方）
+          // 真·自动同步：真实删除成功 → 强制重抓收件箱（刷新前端+DB+真实窗口三方；blockContact 内已显式回 inbox，这里重抓 DB 快照）
           if (realSync.blocked > 0) {
             try {
               await deepScrape.mailboxOnly({ allPages: false, maxPages: 1 });
@@ -1073,10 +1099,6 @@ register('GET', '/api/console/customers', wrap(async (req, res) => {
               realSync.mailboxRefreshed = true;
             } catch (_) { realSync.mailboxRefreshed = false; }
           }
-        } else if (action === 'blacklist') {
-          // CDP 不可用 → 全部 queued
-          realSync.queued = uniq.length;
-          realSync.detail = uniq.map((id) => ({ contactId: id, status: 'queued', note: 'CDP 未注入，删除待同步到窗口' }));
         }
         return json(res, 200, {
           ok: true, action: action, flag: realFlag,

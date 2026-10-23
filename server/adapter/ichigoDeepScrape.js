@@ -181,11 +181,17 @@ function createIchigoDeepScrape(deps) {
     });
   }
 
-  function fillUrl(exprSrc, url, isAccount, customerName) {
+  function fillUrl(exprSrc, url, isAccount, customerName, mode) {
     // url 为 null/undefined → 注入 JS null（表示"用当前页面"），不能变成字符串 "null"
     var injected = (url === null || url === undefined) ? 'null' : JSON.stringify(String(url));
-    var nameInjected = (customerName === null || customerName === undefined) ? 'null' : JSON.stringify(String(customerName));
-    return exprSrc.replace('__URL__', injected).replace('__CUSTOMER_NAME__', nameInjected).replace('__ACCOUNT__', isAccount ? 'true' : 'false');
+    // customerName 支持字符串或数组（JSON.stringify 直接注入，数组保持为 JS 数组字面量）
+    var nameInjected = (customerName === null || customerName === undefined) ? 'null' : JSON.stringify(customerName);
+    // 2026-10-23 实测补：__MODE__ 占位符替换（ichigoBlockExpr.js 尾参；缺省 'execute'）
+    var modeInjected = (mode === null || mode === undefined) ? JSON.stringify('execute') : JSON.stringify(String(mode));
+    return exprSrc.replace('__URL__', injected)
+      .replace('__CUSTOMER_NAME__', nameInjected)
+      .replace('__ACCOUNT__', isAccount ? 'true' : 'false')
+      .replace('__MODE__', modeInjected);
   }
 
   // ---------- 统一目标会话（自动清理 + 硬超时） ----------
@@ -482,41 +488,86 @@ function createIchigoDeepScrape(deps) {
   }
   // ---------- ⑦ 切回收件箱（发送后 / 需要静止窗口时使用） ----------
   // navigateInbox() → 把出会窗口 location 切到 show_mailbox.html，避免停留在会话页中断后续操作。
-  // 模块1 · 拉黑/删除联动真实窗口：在收件箱（show_mailbox.html）页执行真实 3 步 DOM 链路
-  //   Step1 点「編集」→ Step2 按客户名勾 checkboxN → Step3 点「チェックを削除する」
-  // 删除成功后强制 navigateInbox + 刷新收件箱快照，保持前端/DB/真实窗口三方 100% 同步。
-  // 传参：customerName（客户显示名，用于 Step2 定位 checkbox）；不传则按首个可见 checkbox 兜底
-  // 返回 { ok, step, reason, note, mailboxRefreshed }；按钮/客户找不到 → ok:false（不抛错，端点转 queued）
+  // 模块1 · 拉黑/删除联动真实窗口：在收件箱（show_mailbox.html）页执行真实 5 步 DOM 链路
+  //   Step1 点「編集」→ Step2 按客户名勾 N 个 checkbox → Step3 点「チェックを削除する」
+  //   → Step4 检测 show_mail_delete.html 二次确认页 → Step5 点「削除する」确认删除
+  // 2026-10-23 实测（总控）：
+  //   * 同时勾 2 客户 → 平台合并成 1 个确认页（不是逐人 N 次）
+  //   * 点「削除する」后平台不一定自动回 inbox（实测停在确认页），必须显式导航回收件箱
+  //   * 客户名 customerName 支持字符串或数组（一次删多位）
+  // 传参：customerName（客户显示名，字符串或数组）；opts.refreshMailbox=true 时删除成功后强制重抓收件箱
+  // 返回 { ok, step, reason, note, matched, checkedCount, missed, partialMiss, confirmPage, needNavBack, mailboxNav, via }
+  //   客户/按钮找不到 → ok:false（不抛错，端点转 queued）
   function blockContact(customerName, opts) {
     opts = opts || {};
+    // 接受字符串或数组（向后兼容）
+    var names = Array.isArray(customerName) ? customerName : [customerName];
     return withTarget(function(client) {
-      // 先确保窗口在收件箱页（show_mailbox.html）
+      // 先确保窗口在普通收件箱页（show_mailbox.html，非编辑模式）
       return cdpEval(client, 'location.href').then(function(cur) {
-        var onMailbox = String(cur || '').indexOf('show_mailbox') !== -1;
-        if (!onMailbox) {
-          var INBOX = 'https://sp.194964.com/mail/inbox/show_mailbox.html';
-          return cdpEval(client, 'location.href=' + JSON.stringify(INBOX) + ';')
+        var u = String(cur || '');
+        // 已在编辑模式（?q=）→ 先退回收件箱普通模式
+        if (u.indexOf('show_mailbox.html?q=') !== -1) {
+          return cdpEval(client, 'location.href=' + JSON.stringify('https://sp.194964.com/mail/inbox/show_mailbox.html') + ';')
+            .then(function() { return new Promise(function(r) { setTimeout(r, 3000); }); });
+        }
+        if (u.indexOf('show_mailbox') === -1) {
+          return cdpEval(client, 'location.href=' + JSON.stringify('https://sp.194964.com/mail/inbox/show_mailbox.html') + ';')
             .then(function() { return new Promise(function(r) { setTimeout(r, 3000); }); });
         }
         return new Promise(function(r) { setTimeout(r, 500); });
       }).then(function() {
-        // 在收件箱页执行 3 步删除表达式（url=null 表当前页，customerName 传入）
-        var expr = fillUrl(blockExprSrc, null, false, customerName);
+        // Step1 preflight：拿编辑模式 href（不导航，避免销毁 CDP 上下文）
+        var preExpr = fillUrl(blockExprSrc, null, false, null, 'preflight');
+        return cdpEvalAsync(client, preExpr);
+      }).then(function(pre) {
+        pre = pre || {};
+        if (!pre.ok) return { ok: false, step: pre.step || 'preflight', reason: pre.reason || 'preflight-failed', note: pre.note || '', via: 'cdp-block-expr-5step' };
+        if (!pre.editHref) return { ok: false, step: 'preflight', reason: 'no-edit-href', note: 'preflight 成功但未返回 editHref', via: 'cdp-block-expr-5step' };
+        // 导航到编辑模式（浏览器自带 session，token 新鲜）
+        return client.send('Page.enable').then(function() {
+          return client.send('Page.navigate', { url: pre.editHref });
+        }).then(function() {
+          return new Promise(function(r) { setTimeout(r, 4000); });
+        });
+      }).then(function() {
+        // Step2~5 execute：勾 checkbox + 删除 + 确认页处理
+        var expr = fillUrl(blockExprSrc, null, false, names, 'execute');
         return cdpEvalAsync(client, expr);
       }).then(function(v) {
         v = v || {};
         var result = {
           ok: !!v.ok, step: v.step || null, reason: v.reason || '',
-          note: v.note || '', matched: v.matched || null,
-          checkboxIndex: v.checkboxIndex != null ? v.checkboxIndex : null,
-          via: 'cdp-block-expr-3step'
+          note: v.note || '',
+          matched: v.matched || null,
+          checkedCount: v.checkedCount != null ? v.checkedCount : (v.matched ? v.matched.length : null),
+          missed: v.missed || [],
+          partialMiss: !!v.partialMiss,
+          confirmPage: !!v.confirmPage,
+          stillOnConfirm: !!v.stillOnConfirm,
+          needNavBack: !!v.needNavBack,
+          via: 'cdp-block-expr-5step'
         };
-        // 真·自动同步：删除成功 → 强制重抓收件箱 + 回导航（三方同步）
-        if (result.ok && opts.refreshMailbox !== false) {
-          return cdpEval(client, 'location.href=' + JSON.stringify('https://sp.194964.com/mail/inbox/show_mailbox.html') + ';')
-            .then(function() { return new Promise(function(r) { setTimeout(r, 2000); }); })
+        // 2026-10-23 实测：点「削除する」后平台不一定自动回 inbox（同时删 2 客户停在确认页），
+        // 因此 needNavBack=true 或 refreshMailbox !== false 时，强制显式导航回收件箱
+        var mustNavBack = result.needNavBack || (opts.refreshMailbox !== false && result.ok);
+        if (mustNavBack) {
+          return client.send('Page.navigate', { url: 'https://sp.194964.com/mail/inbox/show_mailbox.html' })
+            .then(function() { return new Promise(function(r) { setTimeout(r, 3000); }); })
             .then(function() {
               result.mailboxNav = true;
+              // 验证回收件箱后客户列表（可选，verify 默认开）
+              if (opts.verify !== false && result.ok) {
+                return cdpEvalAsync(client, "(function(){var conts=document.querySelectorAll('.contentsContribute');var names=[];conts.forEach(function(c){var p=c.querySelector('.namelstProf, p');if(p)names.push(String(p.textContent||'').trim().replace(/\\s+/g,' ').slice(0,30));});return JSON.stringify({count:conts.length,names:names});})()")
+                  .then(function(verifyRaw) {
+                    try {
+                      var vr = JSON.parse(String(verifyRaw || '{}'));
+                      result.remaining = vr.names || [];
+                      result.remainingCount = vr.count || 0;
+                    } catch (_) { result.verifyFailed = true; }
+                    return result;
+                  });
+              }
               return result;
             });
         }
