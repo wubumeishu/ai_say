@@ -1125,6 +1125,38 @@ if (action === 'blacklist' && deepScrape && typeof deepScrape.blockContact === '
   // GET /api/console/bbs/posts?page=1&genre=5&board=pure
   //   模块3 · BBS 帖子查询（只读）：在出会窗口 POST ajax 端点 + 解析卡片 → 结构化帖子列表
   //   窗口未连上 → 501 cdp-unavailable（不 500）；无帖子 → ok:true + posts:[]（空不报错）
+  // POST /api/console/bbs/post/edit  模块3 阶段2 · 改帖（强副作用，需 confirmed=true）
+  //   body: { targetBbsId, title?, body?, confirmed: true }
+  //   铁律 1/2：confirmed 必须显式 true 且 body 非空才执行；否则 409 + 提示待确认
+  //   执行 → deepScrape.bbsWritePost(targetBbsId, { title, body }) → 真实窗口改帖
+  register('POST', '/api/console/bbs/post/edit', wrap(async (req, res, body) => {
+    if (!deepScrape || typeof deepScrape.bbsWritePost !== 'function') {
+      return json(res, 501, { ok: false, reason: 'bbs-writer-not-injected', msg: 'BBS 改帖器未注入（deepScrape 未就绪）' });
+    }
+    const targetBbsId = body && body.targetBbsId;
+    const writeOpts = {};
+    if (body && typeof body.title === 'string') writeOpts.title = body.title;
+    if (body && typeof body.body === 'string') writeOpts.body = body.body;
+    if (!targetBbsId) return json(res, 400, { ok: false, reason: 'missing-targetBbsId', msg: '缺少 targetBbsId（帖子 ID）' });
+    if (!writeOpts.title && !writeOpts.body) return json(res, 400, { ok: false, reason: 'nothing-to-write', msg: '未提供 title/body，无改动内容' });
+    // 铁律 2：确认闸门
+    if (!body || body.confirmed !== true) {
+      return json(res, 409, {
+        ok: false,
+        reason: 'confirmation-required',
+        msg: '改帖是强副作用，需 body.confirmed=true 才执行；当前未确认。复述：改 targetBbsId=' + targetBbsId + '，改字段：' + Object.keys(writeOpts).join('/'),
+        pending: { targetBbsId: String(targetBbsId), title: writeOpts.title || null, body: writeOpts.body || null }
+      });
+    }
+    try {
+      const r = await deepScrape.bbsWritePost(targetBbsId, writeOpts);
+      if (!r || !r.ok) return json(res, 200, Object.assign({ ok: false }, r, { note: '改帖未成功，窗口状态未变；可重试' }));
+      return json(res, 200, Object.assign({ ok: true }, r, { note: '已在真实窗口改帖 targetBbsId=' + targetBbsId }));
+    } catch (e) {
+      return json(res, 500, { ok: false, reason: 'bbs-edit-exception', msg: String((e && e.message) || e) });
+    }
+  }));
+
   register('GET', '/api/console/bbs/posts', wrap(async (req, res) => {
     if (!deepScrape || typeof deepScrape.queryBbsPosts !== 'function') {
       return json(res, 501, { ok: false, reason: 'bbs-scraper-not-injected', msg: 'BBS 查询器未注入（deepScrape 未就绪）' });

@@ -130,6 +130,7 @@ function createIchigoDeepScrape(deps) {
   var sendExprSrc        = readExpr(path.join(__dirname, 'ichigoSendExpr.js'));
   var networkExprSrc     = readExpr(path.join(__dirname, 'ichigoNetworkExpr.js'));
   var bbsQueryExprSrc   = readExpr(path.join(__dirname, 'ichigoBbsQueryExpr.js'));
+  var bbsWriteExprSrc   = readExpr(path.join(__dirname, 'ichigoBbsWriteExpr.js'));
 
   // ---------- 工具 ----------
   function parseContactName(raw) {
@@ -184,7 +185,14 @@ function createIchigoDeepScrape(deps) {
 
   
   // BBS 查询表达式注入（__BBS_OPTS__ = JSON opts）
-  function fillBbsOpts(exprSrc, url, bbsOpts) {
+  
+  // BBS 改/增帖表达式注入（__BBS_WRITE_OPTS__ = JSON { title, body }）
+  function fillBbsWriteOpts(exprSrc, url, writeOpts) {
+    var injected = (url === null || url === undefined) ? 'null' : JSON.stringify(String(url));
+    var o = (writeOpts === null || writeOpts === undefined) ? 'null' : JSON.stringify(writeOpts);
+    return exprSrc.replace('__URL__', injected).replace('__BBS_WRITE_OPTS__', o);
+  }
+function fillBbsOpts(exprSrc, url, bbsOpts) {
     var injected = (url === null || url === undefined) ? 'null' : JSON.stringify(String(url));
     var optsInjected = (bbsOpts === null || bbsOpts === undefined) ? 'null' : JSON.stringify(bbsOpts);
     return exprSrc.replace('__URL__', injected).replace('__BBS_OPTS__', optsInjected);
@@ -537,6 +545,43 @@ function fillUrl(exprSrc, url, isAccount, customerName, mode) {
       return { ok: false, reason: 'cdp-unavailable', msg: String((e && e.message) || e) };
     });
   }
+  // ---------- 模块3 阶段2 · BBS 改/增帖（强副作用，需总控确认后才调） ----------
+  // bbsWritePost(targetBbsId, writeOpts) → 导航到该帖编辑页 → 跑 write 表达式 → 回列表页
+  // writeOpts: { title?, body? }（只传要改的字段；不传的保持平台原值）
+  // 返回 { ok, step, reason, note, submitted, resultUrl, via }
+  function bbsWritePost(targetBbsId, writeOpts) {
+    writeOpts = writeOpts || {};
+    if (!bbsWriteExprSrc) return Promise.resolve({ ok: false, reason: 'no-bbs-write-expr', msg: 'ichigoBbsWriteExpr.js 缺失' });
+    if (!targetBbsId) return Promise.resolve({ ok: false, reason: 'missing-targetBbsId', msg: '缺少 targetBbsId（帖子 ID）' });
+    return withTarget(function(client) {
+      return cdpEval(client, 'location.href').then(function(cur) {
+        var u = String(cur || '');
+        // 已在该帖编辑页 → 直接跑；否则导航
+        if (u.indexOf('show_bbs_write_edit.html?targetBbsId=' + targetBbsId) === -1) {
+          return client.send('Page.navigate', { url: 'https://sp.194964.com/bbs/show_bbs_write_edit.html?targetBbsId=' + encodeURIComponent(String(targetBbsId)) })
+            .then(function() { return new Promise(function(r) { setTimeout(r, 4000); }); });
+        }
+        return new Promise(function(r) { setTimeout(r, 500); });
+      }).then(function() {
+        var expr = fillBbsWriteOpts(bbsWriteExprSrc, null, writeOpts);
+        return cdpEvalAsync(client, expr);
+      }).then(function(v) {
+        v = v || {};
+        v.via = v.via || 'cdp-bbs-write';
+        // 提交后回招募历史列表页（窗口静止，便于后续操作）
+        if (v.ok) {
+          return client.send('Page.navigate', { url: 'https://sp.194964.com/bbs/show_bbs_write_list.html' })
+            .then(function() { return new Promise(function(r) { setTimeout(r, 2000); }); })
+            .then(function() { v.backToList = true; return v; });
+        }
+        return v;
+      }).catch(function(e) {
+        return { ok: false, reason: 'cdp-error', msg: String((e && e.message) || e) };
+      });
+    }).catch(function(e) {
+      return { ok: false, reason: 'cdp-unavailable', msg: String((e && e.message) || e) };
+    });
+  }
   function blockContact(customerName, opts) {
     opts = opts || {};
     // 接受字符串或数组（向后兼容）
@@ -666,6 +711,7 @@ function fillUrl(exprSrc, url, isAccount, customerName, mode) {
     sendToContact: sendToContact,
     blockContact: blockContact,
     queryBbsPosts: queryBbsPosts,
+    bbsWritePost: bbsWritePost,
     navigateInbox: navigateInbox,
     networkHealth: networkHealth,
     fetchProfile: fetchProfile,
