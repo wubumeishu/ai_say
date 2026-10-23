@@ -100,3 +100,106 @@
 - 平台明写 **1 小时冷却**（再募集可能）→ 应落库为 GovernanceRule 或 AccountPersona 发帖冷却字段
 - 帖子消耗 point（表单有 point 字段，当前账号 50pt）→ 发帖有成本，RPA 应带点数检查
 - 编辑复用表单 → 「改帖」不额外消耗冷却时间（推测，需实测）
+
+## 七、Genre 分类纠正（总控 2026-10-23 指正）
+
+帖子分 **2 个板块**，genre 列表各自独立（不是 8 个统一列表）：
+
+**ピュア募集**（7 个 genre，show_write_list.html?q=Zlo2amdM...）：
+| genreId | 名称 |
+|---|---|
+| 1 | 全国男女メル友 |
+| 3 | 地域メル友 |
+| 5 | 今から遊ぼ |
+| 4 | 友達・恋人・合コン |
+| 19 | まずは食事から |
+| 6 | ミドルエイジ |
+| 17 | 画像付きの募集 |
+
+**大人の募集**（9 个 genre，show_write_list.html?q=cm1BMlxO...）：
+| 名称（show_bbs.html 列表页可见） |
+|---|
+| すぐ会いたい / 大人の出会い / まずは食事から / 既婚者募集 / メールH / メールH(全国) / ミドルエイジ / アブノーマル / 同性愛 / 同性愛(全国) / 画像付きの募集
+
+⚠️ 大人の募集 的 genre 数字 ID 未抓全（需从该板块 show_write_list 的 .subMenu a.jump 抓 data-genre 或 href）。
+
+## 八、扩展探测（非招募模块的同类页面，总控 2026-10-23 要求）
+
+> 这些页面的**删除机制全部同构**（checkbox + チェックを削除 + 确认页），
+> 模块 1 拉黑 5 步 RPA 的 selector 可直接套用。
+
+### 8.1 タイプ（点赞）模块 — /sns/snstype/
+
+| 页 | URL | 设计 |
+|---|---|---|
+| タイプされた | /sns/snstype/show_typed_list.html | 10 条/页，.type--list 条目 + checkbox + 删除表单 |
+| タイプした | /sns/snstype/show_type_list.html | 同上（我点赞的人） |
+| 両想い | /sns/snstype/show_mutual_list.html | 同上（互相点赞） |
+
+- 条目容器：.type--list（含 .type-list-check > input[type=checkbox][name=targetSnsMemberId[]] + .type-list-link > .type-list-img / .type-list-name / .type-list-age / .type-list-date）
+- 删除：勾选 checkbox → form POST /sns/snstype/delete_type_list.html → button「チェックを削除する」（.button.width70）
+- **与出会拉黑 5 步完全同构**（checkbox + 提交按钮 + 确认页），可直接复用 ichigoBlockExpr.js 的 Step2/3/4/5 逻辑，只改 selector（targetSnsMemberId[] vs targetReMemberId[]）
+- 条目跳转：.type-list-link → /profile/typesearch/ajax_set_type_read.html?q=（AJAX 已读标记）或 /sns/snsprofile/show_profile.html?q=（资料页）
+
+### 8.2 お相手探し（资料搜索）— /sns/snssearch/
+
+| 页 | URL | 设计 |
+|---|---|---|
+| 顔面検索 | /sns/snssearch/show_faces.html | 48 张头像九宫格（.photo-item-new × 48），3 tab（津市を表示中 / ログイン順 / 登録順） |
+| 综合搜索 | /profile/profilesearch/show_profile_search.html | **大表单 44 输入**：地区/年龄/身高/婚姻(married[] 多选)/孩子/眼睛(eyes[])/收入/空闲时间…，POST /profile/profilesearch/exec_routing_profile_search |
+
+- 头像九宫格：.photo-item-new > .photo-item-thumb（img）+ .photo-name + .photo-desc，跳 snsprofile/show_profile.html?q=
+- 综合搜索表单可复用为「按条件找客户」RPA（填 select/checkbox → 点 検索する → 抓结果页），但模块 3 暂不需要
+- 新人搜索：/sns/snssearch/show_search.html?q=
+
+### 8.3 あしあと（足迹/访客）— /sns/snsashiato/
+
+| 页 | URL | 设计 |
+|---|---|---|
+| 足迹列表 | /sns/snsashiato/show.html | 20 条/页，.type--list 条目（**与タイプ页同结构**）+ 删除表单 |
+| 自己的足迹 | /sns/snsashiato/show_mine.html | 我访问过的人 |
+| 全删确认 | /sns/snsashiato/show_delete_all_confirm.html | 批量删除确认页 |
+
+- 条目：.type-list-check > checkbox + .type-list-link → snsprofile（访问来源：プロフィール検索・その他より / タイプより）
+- 删除：勾选 → form POST /other/javascript/show_popup.html（22 输入）→「チェックを削除」+「すべて削除する」
+
+### 8.4 日記（SNS 动态）— /sns/snsdiary/
+
+| 页 | URL | 设计 |
+|---|---|---|
+| 看（全部） | /sns/snsdiary/show_search.html | 地区筛选 + .list-item 日记条目（.type-list-title / .type-list-view） |
+| 写 | /sns/snsdiary/show_mydiary_form.html | **表单 POST /sns/snsdiary/show_write_confirm.html**（8 输入）：标题 + 本文 + アダルト要素 checkbox + 公开范围（全体/会員/友達/非公开）+ 下書き + 评论设置 |
+| 写确认 | /sns/snsdiary/show_write_confirm.html | 二次确认（写帖子同款 2 按钮） |
+| 我的日记 | /sns/snsdiary/show_mydiaries.html | 我的帖子列表（编辑/删除入口） |
+| 日记详情 | /sns/snsdiary/show_diary_detail.html?q= | 日记正文 + 「いいね！」（POST /sns/snsdiary/exec_cheer.html?q=）+ 评论区（POST show_comment_diary_confir，250 字限制，按钮「内容確認」「投稿する」）+「サポートに通報する」 |
+
+- 日记 = 出会平台的「动态」模块，和招募帖子是**两套独立系统**（招募=bbs/，日记=snsdiary/）
+- 写日记表单 4 公开范围 + アダルト 必须勾选（「違反する場合は通告なく削除します」），RPA 写日记时要带上
+
+## 九、全部删除/下架端点汇总（模块 3 RPA 总表）
+
+| 操作 | 触发页 | 确认页 | 提交 | 备注 |
+|---|---|---|---|---|
+| 招募帖子编辑 | show_bbs_write_detail.html | show_bbs_write_edit.html?targetBbsId= | POST exec_routing_bbs_write.html（is_edit=1） | title≤30/body≤500，2 按钮 |
+| 招募帖子下架（非公开） | show_bbs_write_detail.html「掲載停止」 | exec_bbs_close.html | POST | 不删除，停止展示 |
+| 招募帖子删除（单） | 招募历史勾选 checkbox「チェックを削除」 | show_bbs_confirm_delete.html?identifier=delete&targetBbsId= | POST | 确认页「削除する/キャンセル」 |
+| 招募帖子删除（全部） | 招募历史「すべて削除する」 | show_bbs_confirm_delete_all.html | POST | 「すべての募集を削除します よろしいですか？」 |
+| 类型点赞删除 | タイプされた/した/両想い 勾选 | delete_type_list.html | POST | 同拉黑 5 步 |
+| 足迹删除 | あしято 勾选 | show_delete_all_confirm.html | POST | 同类型 |
+| 日记点赞 | 日记详情「いいね！」 | exec_cheer.html?q= | POST | 无确认页 |
+| 日记评论 | 日记详情评论区 | show_comment_diary_confir.html | POST | 250 字限制 |
+
+## 十、防封设计总结（模块 3 核心机制）
+
+1. **招募 1 小时冷却**（明写「投稿した募集は1時間経過後に再募集可能です」）→ GovernanceRule 落库
+2. **帖子消耗 50pt**（point 字段）→ RPA 发帖前检查点数余额
+3. **日记/招募分开限频**：两套独立系统，冷却规则可能不同（日记未明写）
+4. **编辑复用表单**：改帖 is_edit=1，不额外消耗冷却（推测，需实测）
+5. **token 全时效**：?q= 动态生成，RPA preflight 必须实时导航拿新鲜 token
+6. **删除确认页仅 POST 可达**：GET 访问 confirm_delete.html 会重定向回列表页，RPA 必须走表单 POST 流程
+
+## 十一、遗留盲区
+
+- **大人の募集 的 9 个 genre ID 未抓全**（只有名称，缺数字 ID）——需在该板块 show_write_list 抓 .subMenu a.jump 的 data-genre
+- **招募帖子「下架/非公开」后的恢复入口**未探（exec_bbs_close.html 是下架，恢复在哪未抓）
+- **类型/足迹的删除确认页**未单独抓（推测与拉黑同构，需实测）
