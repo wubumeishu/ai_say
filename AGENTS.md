@@ -177,6 +177,7 @@
   - 编辑：POST `show_bbs_write_edit.html?targetBbsId=` → 表单 POST `exec_routing_bbs_write.html`（is_edit=1）
   - 下架（掲載停止，不删只隐藏）：POST `exec_bbs_close.html`（identifier=status + targetBbsId）
   - 删除：POST `show_bbs_confirm_delete.html`（identifier=delete + targetBbsId）→ 确认页
+  - 确认页提交：确认页「削除する」实际在 `form action=exec_bbs_delete.html` 里，**直接 form.submit()**（按钮 click 可能被事件拦截不触发表单提交，2026-10-25 端到端实测坐实）；deepScrape.bbsDeletePosts 默认开 confirmSubmit + 显式回列表页 + 验证 checkbox 消失（verifiedDeleted）
 - 安全铁律：删帖是强副作用，执行前必须用户在对话明确同意 + 复述删哪条（targetBbsId + 帖子标题）；只删数据边界内指定的那一条，不动其他帖子
 - 防封：招募帖子 1 小时冷却期内不能重新发帖（删帖本身不受限，但平台可能限频操作）
 
