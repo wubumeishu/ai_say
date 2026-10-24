@@ -1157,6 +1157,35 @@ if (action === 'blacklist' && deepScrape && typeof deepScrape.blockContact === '
     }
   }));
 
+  // POST /api/console/bbs/post/delete  模块3 阶段2 · 删帖（强副作用，需 confirmed=true + 复述 ID）
+  //   body: { targetBbsIds: [id,...] | id, board?, confirmed: true }
+  //   铁律 1/2：confirmed 必须显式 true + targetBbsIds 非空才执行；否则 409 回显待确认
+  //   执行 → deepScrape.bbsDeletePosts → 勾选 → 点「チェックを削除」→ 确认页「削除する」→ 回列表页验证
+  register('POST', '/api/console/bbs/post/delete', wrap(async (req, res, body) => {
+    if (!deepScrape || typeof deepScrape.bbsDeletePosts !== 'function') {
+      return json(res, 501, { ok: false, reason: 'bbs-deleter-not-injected', msg: 'BBS 删帖器未注入（deepScrape 未就绪）' });
+    }
+    let ids = body && body.targetBbsIds;
+    if (!ids && body && body.targetBbsId) ids = [body.targetBbsId];
+    ids = Array.isArray(ids) ? ids.map(String).filter(Boolean) : (ids ? [String(ids)] : []);
+    if (ids.length === 0) return json(res, 400, { ok: false, reason: 'missing-targetBbsIds', msg: '缺少 targetBbsIds（拒绝盲删）' });
+    if (!body || body.confirmed !== true) {
+      return json(res, 409, {
+        ok: false,
+        reason: 'confirmation-required',
+        msg: '删帖是强副作用（不可逆），需 body.confirmed=true 才执行；当前未确认。复述：删 ' + ids.length + ' 帖（ID: ' + ids.join(', ') + '）',
+        pending: { targetBbsIds: ids, board: (body && body.board) || 'pure' }
+      });
+    }
+    try {
+      const r = await deepScrape.bbsDeletePosts(ids, { board: (body && body.board) || 'pure' });
+      if (!r || !r.ok) return json(res, 200, Object.assign({ ok: false }, r, { note: '删帖未成功，窗口状态未变；可重试' }));
+      return json(res, 200, Object.assign({ ok: true }, r, { note: '已在真实窗口删 ' + (r.matched ? r.matched.length : ids.length) + ' 帖' + (r.verifiedDeleted ? '（验证已消失）' : '（验证状态未知，请人工确认）') }));
+    } catch (e) {
+      return json(res, 500, { ok: false, reason: 'bbs-delete-exception', msg: String((e && e.message) || e) });
+    }
+  }));
+
   register('GET', '/api/console/bbs/posts', wrap(async (req, res) => {
     if (!deepScrape || typeof deepScrape.queryBbsPosts !== 'function') {
       return json(res, 501, { ok: false, reason: 'bbs-scraper-not-injected', msg: 'BBS 查询器未注入（deepScrape 未就绪）' });

@@ -131,6 +131,7 @@ function createIchigoDeepScrape(deps) {
   var networkExprSrc     = readExpr(path.join(__dirname, 'ichigoNetworkExpr.js'));
   var bbsQueryExprSrc   = readExpr(path.join(__dirname, 'ichigoBbsQueryExpr.js'));
   var bbsWriteExprSrc   = readExpr(path.join(__dirname, 'ichigoBbsWriteExpr.js'));
+  var bbsDeleteExprSrc  = readExpr(path.join(__dirname, 'ichigoBbsDeleteExpr.js'));
 
   // ---------- 工具 ----------
   function parseContactName(raw) {
@@ -187,7 +188,13 @@ function createIchigoDeepScrape(deps) {
   // BBS 查询表达式注入（__BBS_OPTS__ = JSON opts）
   
   // BBS 改/增帖表达式注入（__BBS_WRITE_OPTS__ = JSON { title, body }）
-  function fillBbsWriteOpts(exprSrc, url, writeOpts) {
+    // BBS 删帖表达式注入（__BBS_DELETE_OPTS__ = JSON { targetBbsIds: [...] }）
+  function fillBbsDeleteOpts(exprSrc, url, delOpts) {
+    var injected = (url === null || url === undefined) ? 'null' : JSON.stringify(String(url));
+    var o = (delOpts === null || delOpts === undefined) ? 'null' : JSON.stringify(delOpts);
+    return exprSrc.replace('__URL__', injected).replace('__BBS_DELETE_OPTS__', o);
+  }
+function fillBbsWriteOpts(exprSrc, url, writeOpts) {
     var injected = (url === null || url === undefined) ? 'null' : JSON.stringify(String(url));
     var o = (writeOpts === null || writeOpts === undefined) ? 'null' : JSON.stringify(writeOpts);
     return exprSrc.replace('__URL__', injected).replace('__BBS_WRITE_OPTS__', o);
@@ -582,6 +589,71 @@ function fillUrl(exprSrc, url, isAccount, customerName, mode) {
       return { ok: false, reason: 'cdp-unavailable', msg: String((e && e.message) || e) };
     });
   }
+  // ---------- 模块3 阶段2 · BBS 删帖（强副作用，需总控 confirmed=true 才调） ----------
+  // 构造「回列表页后验证被删 ID 是否还在」的 CDP 表达式（纯函数，便于单测）
+  // 单引号通过 JSON 编码避免转义地狱（' → '\\'' 在 CDP 表达式里合法）
+function buildBbsVerifyExpr() {
+    // 只读验证：返回当前列表页所有 name=targetBbsId[] 的 checkbox 的 value 数组
+    // 不用属性选择器（含 [] 嵌套引号易踩坑）；querySelectorAll('input[type=checkbox]')
+    // 拿全部 checkbox，JS 层再按 attribute name 过滤。
+    var expr = [
+      "(function(){",
+      "var boxes=document.querySelectorAll('input[type=checkbox]');",
+      "var out=[];",
+      "for(var i=0;i<boxes.length;i++){",
+      "if(boxes[i].getAttribute && boxes[i].getAttribute('name')==='targetBbsId[]'){out.push(boxes[i].value);}",
+      "}",
+      "return JSON.stringify(out);})()"
+    ].join('');
+    return expr;
+  }
+
+  function bbsDeletePosts(targetBbsIds, opts) {
+    opts = opts || {};
+    var ids = Array.isArray(targetBbsIds) ? targetBbsIds : [targetBbsIds];
+    ids = ids.map(String).filter(Boolean);
+    if (ids.length === 0) return Promise.resolve({ ok: false, reason: 'no-target-ids', msg: 'targetBbsIds 为空，拒绝删除' });
+    if (!bbsDeleteExprSrc) return Promise.resolve({ ok: false, reason: 'no-bbs-delete-expr', msg: 'ichigoBbsDeleteExpr.js 缺失' });
+    return withTarget(function(client) {
+      return cdpEval(client, 'location.href').then(function(cur) {
+        var u = String(cur || '');
+        if (u.indexOf('show_bbs_write_list.html') === -1) {
+          return client.send('Page.navigate', { url: 'https://sp.194964.com/bbs/show_bbs_write_list.html' })
+            .then(function() { return new Promise(function(r) { setTimeout(r, 4000); }); });
+        }
+        return new Promise(function(r) { setTimeout(r, 500); });
+      }).then(function() {
+        var expr = fillBbsDeleteOpts(bbsDeleteExprSrc, null, { targetBbsIds: ids });
+        return cdpEvalAsync(client, expr);
+      }).then(function(v) {
+        v = v || {};
+        v.via = v.via || 'cdp-bbs-delete';
+        if (v.needNavBack || v.ok) {
+          return cdpEval(client, 'location.href=' + JSON.stringify('https://sp.194964.com/bbs/show_bbs_write_list.html') + ';')
+            .then(function() { return new Promise(function(r) { setTimeout(r, 3000); }); })
+            .then(function() {
+              v.backToList = true;
+              var verifyExpr = buildBbsVerifyExpr();
+              return cdpEvalAsync(client, verifyExpr).then(function(raw) {
+                try {
+                  var vr = JSON.parse(String(raw || '[]'));
+                  v.verifiedDeleted = !vr.some(function(x){ return ids.indexOf(String(x)) !== -1; });
+                  v.stillThere = vr.filter(function(x){ return ids.indexOf(String(x)) !== -1; });
+                  v.pageCount = vr.length;
+                } catch (_) { v.verifyFailed = true; }
+                return v;
+              });
+            });
+        }
+        return v;
+      }).catch(function(e) {
+        return { ok: false, reason: 'cdp-error', msg: String((e && e.message) || e) };
+      });
+    }).catch(function(e) {
+      return { ok: false, reason: 'cdp-unavailable', msg: String((e && e.message) || e) };
+    });
+  }
+
   function blockContact(customerName, opts) {
     opts = opts || {};
     // 接受字符串或数组（向后兼容）
@@ -712,6 +784,8 @@ function fillUrl(exprSrc, url, isAccount, customerName, mode) {
     blockContact: blockContact,
     queryBbsPosts: queryBbsPosts,
     bbsWritePost: bbsWritePost,
+    bbsDeletePosts: bbsDeletePosts,
+    buildBbsVerifyExpr: buildBbsVerifyExpr,
     navigateInbox: navigateInbox,
     networkHealth: networkHealth,
     fetchProfile: fetchProfile,

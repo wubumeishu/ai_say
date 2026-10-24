@@ -169,6 +169,16 @@
   → 点 #submitBtn（はい）才 POST /mail/inbox/ajax_mail_send.html
 - 页面不会清空 textarea；成功判定靠 POST 网络事件，不要靠 textarea 变空。
 - 发送后把窗口切回 show_mailbox.html（navigateInbox）。
+**删帖机制（BBS 招募帖子，已验证 2026-10-25）**
+- 目标：只删**自己的**招募帖子（BBS 招募历史页 show_bbs_write_list.html），绝不删他人帖子/消息/客户
+- 链路 3 步：① 招募历史页勾 `input[type=checkbox][name="targetBbsId[]"]`（每帖 1 个 checkbox，value=帖子ID）→ ② 点「チェックを削除」按钮 → ③ 跳 `show_bbs_confirm_delete.html` 确认页 → 点「削除する」（确认页文案「一度削除すると元に戻せません」）
+- 批量删全部：招募历史页点「すべて削除する」→ `show_bbs_confirm_delete_all.html` 确认页 →「削除する」
+- 单帖 3 个操作 form（在 show_bbs_write_detail.html 写详情页，按 targetBbsId）：
+  - 编辑：POST `show_bbs_write_edit.html?targetBbsId=` → 表单 POST `exec_routing_bbs_write.html`（is_edit=1）
+  - 下架（掲載停止，不删只隐藏）：POST `exec_bbs_close.html`（identifier=status + targetBbsId）
+  - 删除：POST `show_bbs_confirm_delete.html`（identifier=delete + targetBbsId）→ 确认页
+- 安全铁律：删帖是强副作用，执行前必须用户在对话明确同意 + 复述删哪条（targetBbsId + 帖子标题）；只删数据边界内指定的那一条，不动其他帖子
+- 防封：招募帖子 1 小时冷却期内不能重新发帖（删帖本身不受限，但平台可能限频操作）
 
 ---
 
