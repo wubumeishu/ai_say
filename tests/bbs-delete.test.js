@@ -28,6 +28,20 @@ function makeListPage(opts) {
       state.location = 'https://sp.194964.com/bbs/show_bbs_confirm_delete.html?identifier=delete&targetBbsId=' + postIds[0];
     }
   };
+  var delForm = {
+    action: 'https://sp.194964.com/bbs/exec_bbs_delete.html',
+    submit: function() {
+      // 模拟提交后跳回列表页
+      state.location = 'https://sp.194964.com/bbs/show_bbs_write_list.html?q=T2';
+      state.deleted = true;
+    },
+    querySelector: function(sel) {
+      if (sel && sel.indexOf('button') !== -1) {
+        return { textContent: '削除する', click: function() { delForm.submit(); } };
+      }
+      return null;
+    }
+  };
   var confirmBtn = {
     textContent: '削除する',
     click: function() {
@@ -40,6 +54,11 @@ function makeListPage(opts) {
       sel = String(sel);
       if (sel.indexOf('input[type="checkbox"][name="targetBbsId[]"]') !== -1) return boxes;
       if (sel.indexOf('button') !== -1) return [delBtn, confirmBtn];
+      // 确认页的 form（action=exec_bbs_delete.html）
+      if (sel === 'form') {
+        if (state.location.indexOf('show_bbs_confirm_delete') !== -1) return [delForm];
+        return [];
+      }
       return [];
     },
     body: { innerText: '' }
@@ -77,6 +96,8 @@ test('删帖表达式：命中 1 个 ID → 勾选 + 点删除 + 确认（mock�
   assert.equal(r.missed.length, 0, '无 missed');
   assert.equal(r.confirmed, true, '应点过確認（削除する）');
   assert.equal(env.state.confirmClicked, 1, '删除按钮点 1 次');
+  assert.equal(env.state.deleted, true, 'form.submit 已调');
+  assert.ok(env.state.location.indexOf('show_bbs_write_list') !== -1, '跳回列表页');
 });
 
 test('删帖表达式：ID 全不在列表 → 拒删（不盲勾）', async () => {
