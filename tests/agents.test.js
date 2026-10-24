@@ -66,3 +66,42 @@ test('assistant.js 的 TOOL_WHITELIST 来自 registry（动态）', () => {
   assert.ok(src.includes('agentRegistry.toLlmToolList()'), 'TOOL_WHITELIST 从 registry 生成');
   assert.ok(src.includes("require('../agents/registry')"), 'require registry');
 });
+
+// ===== 模块3 · BBS 1h 冷却规则落库 =====
+test('store.ensureBbsCooldownRule 幂等落库（os.tmpdir db）', async () => {
+  const os = require('node:os');
+  const { createStore } = require(path.join(rootDir, 'server', 'db', 'store.js'));
+  const dbPath = path.join(os.tmpdir(), 'aisay-bbs-cooldown-test-' + Date.now() + '.db');
+  const store = createStore({ dbPath });
+  try {
+    // 首次：created=true
+    const r1 = store.ensureBbsCooldownRule({ ruleId: 'bbs-post-cooldown', cooldownMinutes: 60, platform: 'ichigo' });
+    assert.equal(r1.created, true, '首次应插入：' + JSON.stringify(r1));
+    assert.equal(r1.status, 'active');
+    // 二次：幂等 created=false
+    const r2 = store.ensureBbsCooldownRule({ ruleId: 'bbs-post-cooldown', cooldownMinutes: 60, platform: 'ichigo' });
+    assert.equal(r2.created, false, '二次应跳过：' + JSON.stringify(r2));
+    // getEffectiveRules 能读到（rateLimit 类 + bbsPostCooldown）
+    const eff = store.getEffectiveRules({ platform: 'ichigo' });
+    const cd = (eff.rules || []).filter(function (r) { return r.ruleType === 'rateLimit'; });
+    assert.ok(cd.some(function (r) { return String(r.rule || '').indexOf('bbsPostCooldown') !== -1; }), 'getEffectiveRules 含 bbsPostCooldown');
+  } finally {
+    try { store.close && store.close(); } catch (_) {}
+    try { fs.unlinkSync(dbPath); } catch (_) {}
+    try { fs.unlinkSync(dbPath + '-wal'); } catch (_) {}
+    try { fs.unlinkSync(dbPath + '-shm'); } catch (_) {}
+  }
+});
+
+test('consoleRoutes 有 GET/POST /api/console/bbs/cooldown 端点', () => {
+  const src = fs.readFileSync(path.join(rootDir, 'server', 'consoleRoutes.js'), 'utf8');
+  assert.ok(src.includes("'/api/console/bbs/cooldown'"), 'cooldown 端点路径在');
+  assert.ok(src.includes('ensureBbsCooldownRule'), '调 store.ensureBbsCooldownRule');
+  assert.ok(src.includes('getEffectiveRules'), '读 getEffectiveRules');
+});
+
+test('index.js 启动时落库 BBS 冷却规则', () => {
+  const src = fs.readFileSync(path.join(rootDir, 'server', 'index.js'), 'utf8');
+  assert.ok(src.includes('ensureBbsCooldownRule'), '启动调用 ensureBbsCooldownRule');
+  assert.ok(src.includes('bbs-post-cooldown'), 'ruleId bbs-post-cooldown');
+});

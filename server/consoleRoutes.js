@@ -1220,7 +1220,63 @@ if (action === 'blacklist' && deepScrape && typeof deepScrape.blockContact === '
   //   按 memberID 键缓存 profile+messages（TTL 5min），无缓存/force 才真连拉。
   // GET /api/console/happy/inbox/brief
   //   从缓存取最近 1 个 messages>0 的客户 → 返回其 profile+messages（B 客户详情自动获取）；
-  //   全客户无 messages → { ok:true, empty:true }。
+  //   全客户无 messages → { ok:true, empty:true }。  // GET /api/console/bbs/cooldown  模块3 · 读 BBS 1h 冷却规则 + 当前冷却剩余
+  //   读 GovernanceRule bbs-post-cooldown → 算自上次 BBS 操作（SentLog/操作日志）以来是否仍在冷却期
+  //   返回 { ruleId, cooldownMinutes, lastBbsOpAt?, inCooldown, cooldownRemainingSec? }
+  register('GET', '/api/console/bbs/cooldown', wrap(async (req, res) => {
+    if (!store || typeof store.getEffectiveRules !== 'function') {
+      return json(res, 501, { ok: false, reason: 'store-not-ready', msg: 'store 未就绪' });
+    }
+    const nowIso = new Date().toISOString();
+    const rules = store.getEffectiveRules({ platform: 'ichigo' }).rules || [];
+    const cd = rules.find(function (r) { return r.ruleId === 'bbs-post-cooldown' || (r.ruleType === 'rateLimit' && r.rule && String(r.rule).indexOf('bbsPostCooldown') !== -1); });
+    if (!cd) {
+      return json(res, 200, { ok: true, found: false, note: 'bbs-post-cooldown 规则未落库（跑 migrate + 重启服务落库，或 POST 本端点）' });
+    }
+    let spec = {};
+    try { spec = JSON.parse(String(cd.rule || '{}')); } catch (_) { spec = {}; }
+    // 算冷却剩余（从 BBS 操作日志取 lastBbsOpAt；没有则 unknown）
+    let inCooldown = false, cooldownRemainingSec = null, lastBbsOpAt = null;
+    try {
+      const logs = store.db ? store.db.prepare("SELECT MAX(createdAt) as m FROM SentLog WHERE accountId LIKE '%ichigo%' LIMIT 1").get() : null;
+      if (logs && logs.m) {
+        lastBbsOpAt = logs.m;
+        const elapsed = Math.floor((Date.now() - new Date(logs.m).getTime()) / 1000);
+        const cool = (spec.cooldownMinutes || 60) * 60;
+        if (elapsed < cool) { inCooldown = true; cooldownRemainingSec = cool - elapsed; }
+      }
+    } catch (_) { /* 日志表缺则 unknown */ }
+    return json(res, 200, {
+      ok: true, found: true,
+      ruleId: cd.ruleId,
+      cooldownMinutes: spec.cooldownMinutes || 60,
+      status: cd.status,
+      lastBbsOpAt: lastBbsOpAt,
+      inCooldown: inCooldown,
+      cooldownRemainingSec: cooldownRemainingSec
+    });
+  }));
+
+  // POST /api/console/bbs/cooldown  模块3 · 落库/更新 BBS 1h 冷却规则（weak：配置操作，非强副作用）
+  //   body: { cooldownMinutes? }（缺省 60）；幂等，已存在则跳过
+  register('POST', '/api/console/bbs/cooldown', wrap(async (req, res, body) => {
+    if (!store || typeof store.ensureBbsCooldownRule !== 'function') {
+      return json(res, 501, { ok: false, reason: 'store-not-ready', msg: 'store 未就绪或无 ensureBbsCooldownRule' });
+    }
+    try {
+      const r = store.ensureBbsCooldownRule({
+        ruleId: 'bbs-post-cooldown',
+        cooldownMinutes: (body && body.cooldownMinutes) || 60,
+        platform: 'ichigo',
+        accountId: process.env.AISAY_ACCOUNT_ID
+      });
+      return json(res, 200, Object.assign({ ok: true }, r));
+    } catch (e) {
+      return json(res, 500, { ok: false, reason: 'cooldown-rule-exception', msg: String((e && e.message) || e) });
+    }
+  }));
+
+
 
   register('GET', '/api/console/happy/inbox', wrap(async (req, res) => {
     const qs = new URLSearchParams(String(req.url || '').split('?')[1] || '');

@@ -341,6 +341,47 @@ function createStore({ dbPath = path.join(__dirname, '..', '..', 'data', 'aisay.
    * compliance 类未命中默认拒绝（返回的 denyByDefault 标记）。
    * 返回：{ rules: [...], denyByDefault: bool }
    */
+  /**
+   * ensureBbsCooldownRule(spec) — 模块3 防封：招募帖子 1h 冷却期落库为 rateLimit 类 GovernanceRule
+   * spec: { ruleId?, cooldownMinutes?, platform?, accountId? }
+   * 幂等：ruleId 已存在（任意 status）→ 不插入，返回 { created: false, ruleId, status }
+   * 未带 status 约束 → INSERT 默认 active；活库无表由调用方先 migrate（_migration 挂）
+   * @returns {{ created: boolean, ruleId: string, status?: string }}
+   */
+  function ensureBbsCooldownRule(spec = {}) {
+    spec = spec || {};
+    const ruleId = spec.ruleId || 'bbs-post-cooldown';
+    const minutes = spec.cooldownMinutes || 60;
+    const scope = spec.accountId ? 'account' : (spec.platform ? 'platform' : 'global');
+    const scopeKey = spec.accountId || spec.platform || null;
+    const ruleJson = JSON.stringify({
+      kind: 'bbsPostCooldown',
+      cooldownMinutes: minutes,
+      desc: '出会 BBS 招募帖子发帖/改帖/删帖后 ' + minutes + ' 分钟冷却期内不可再发帖（平台明写 1h）',
+      appliesTo: ['bbs_createPost', 'bbs_editPost', 'bbs_deletePost']
+    });
+    const nowIso = now();
+    // 幂等：先查 ruleId 是否存在（任意 status）
+    const existing = db.prepare('SELECT ruleId, status FROM GovernanceRule WHERE ruleId = ?').get(ruleId);
+    if (existing) return { created: false, ruleId: ruleId, status: existing.status };
+    db.prepare(
+      'INSERT INTO GovernanceRule (ruleId, ruleType, scope, scopeKey, rule, priority, status, effectiveFrom, createdAt, updatedAt) ' +
+      'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    ).run(
+      ruleId,
+      'rateLimit',
+      scope,
+      scopeKey,
+      ruleJson,
+      100, // account 层 priority
+      'active',
+      nowIso,
+      nowIso,
+      nowIso
+    );
+    return { created: true, ruleId: ruleId, status: 'active' };
+  }
+
   function getEffectiveRules(scope = {}) {
     const { accountId, platform, channel } = scope;
     // 查询：scope IN ('global')  OR (scope='platform' AND scopeKey=?)
@@ -693,6 +734,8 @@ function createStore({ dbPath = path.join(__dirname, '..', '..', 'data', 'aisay.
     batchSetContactFlag,
     batchClearContactFlag,
     getContactFlags,
+    // 模块3 · BBS 1h 冷却规则落库（幂等）
+    ensureBbsCooldownRule,
   };
 }
 

@@ -94,6 +94,15 @@ const dbPath = path.join(__dirname, '..', 'data', 'aisay.db');
 fs.mkdirSync(path.dirname(dbPath), { recursive: true });
 const store = createStore({ dbPath });
 
+// 模块3 · BBS 1h 冷却规则落库（幂等：已存在不重复插；活库无 GovernanceRule 表时由 migrate 先建表）
+try {
+  const cdRes = store.ensureBbsCooldownRule({ ruleId: 'bbs-post-cooldown', cooldownMinutes: 60, platform: 'ichigo', accountId: process.env.AISAY_ACCOUNT_ID });
+  if (cdRes.created) console.log('[bbs-cooldown] 冷却规则已落库:', cdRes.ruleId, '(' + cdRes.status + ')');
+  else console.log('[bbs-cooldown] 冷却规则已存在:', cdRes.ruleId, '(status=' + cdRes.status + ')');
+} catch (e) {
+  console.warn('[bbs-cooldown] 落库失败（表未建？跑 migrate）:', e.message);
+}
+
 // --- M1: 意向评分 ---
 const { createLeadScoring } = require('./db/leadScoring');
 const leadScoring = createLeadScoring({ store });
