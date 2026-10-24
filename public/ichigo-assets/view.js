@@ -29,6 +29,15 @@ export function switchView(view) {
   };
   var mp = document.getElementById('modelPage');
   var ap = document.getElementById('agentPage');
+  var apk = document.getElementById('agentPkgPage');
+  // 跨列页显隐：showWhich ∈ { 'agentPkgPage', 'modelPage', 'agentPage', null }，其余全隐藏
+  function setCrossPages(showWhich) {
+    var map = { agentPkgPage: apk, modelPage: mp, agentPage: ap };
+    Object.keys(map).forEach(function (k) {
+      var el = map[k];
+      if (el) el.style.display = (k === showWhich) ? '' : 'none';
+    });
+  }
   // 第 8 刀收口：直接 import 调用（无 window 桥）
   if (view === 'agentPkg') {
     cols.customers.style.display = 'none';
@@ -36,10 +45,7 @@ export function switchView(view) {
     cols.analysis.style.display = 'none';
     if (cols.account) cols.account.style.display = 'none';
     cols.ai.style.display = 'none';
-    var apk = document.getElementById('agentPkgPage');
-    if (ap) ap.style.display = 'none';
-    if (mp) mp.style.display = 'none';
-    if (apk) apk.style.display = '';
+    setCrossPages('agentPkgPage');
     Array.prototype.forEach.call(document.querySelectorAll('.nav-item'), function(i) {
       i.classList.toggle('active', i.getAttribute('data-view') === view);
     });
@@ -52,8 +58,7 @@ export function switchView(view) {
     cols.analysis.style.display = 'none';
     if (cols.account) cols.account.style.display = 'none';
     cols.ai.style.display = 'none';
-    if (ap) ap.style.display = 'none';
-    if (mp) mp.style.display = '';
+    setCrossPages('modelPage');
     Array.prototype.forEach.call(document.querySelectorAll('.nav-item'), function(i) {
       i.classList.toggle('active', i.getAttribute('data-view') === view);
     });
@@ -66,8 +71,7 @@ export function switchView(view) {
     cols.analysis.style.display = 'none';
     if (cols.account) cols.account.style.display = 'none';
     cols.ai.style.display = 'none';
-    if (ap) ap.style.display = '';
-    if (mp) mp.style.display = 'none';
+    setCrossPages('agentPage');
     Array.prototype.forEach.call(document.querySelectorAll('.nav-item'), function(i) {
       i.classList.toggle('active', i.getAttribute('data-view') === view);
     });
@@ -79,8 +83,7 @@ export function switchView(view) {
     cols.analysis.style.display = 'none';
     if (cols.account) cols.account.style.display = 'none';
     cols.ai.style.display = 'none';
-    if (ap) ap.style.display = 'none';
-    if (mp) mp.style.display = 'none';
+    setCrossPages(null);
     cols.customers.style.display = '';
     Array.prototype.forEach.call(document.querySelectorAll('.nav-item'), function(i) {
       i.classList.toggle('active', i.getAttribute('data-view') === view);
@@ -88,8 +91,7 @@ export function switchView(view) {
     renderList();
     return;
   }
-  if (ap) ap.style.display = 'none';
-  if (mp) mp.style.display = 'none';
+  setCrossPages(null);
   cols.analysis.style.display = '';
   if (cols.account) cols.account.style.display = '';
   cols.ai.style.display = '';
