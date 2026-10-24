@@ -162,6 +162,9 @@ export function switchView(view) {
   } else if (view === '17098' || view === 'ichigo') {
     try { localStorage.setItem('aisay:platform:v1', 'ichigo194964'); } catch (e) { console.warn('platform save failed', e); }
   }
+  // 防回归：未知 view 不再静默（未来加视图忘接 switchView 时会告警）
+  var knownViews = ['kanban', 'sessions', 'ichigo', '17098', 'kairaku', '18595', 'models', 'agents', 'agentPkg'];
+  if (knownViews.indexOf(view) === -1) console.warn('[switchView] 未知视图未处理:', view, '（确认 switchView 已加对应分支）');
 }
 
 // 过渡桥接（第 4~7 刀保留，第 8 刀删）：老经典脚本的 switchView/isIchigoView 由 module 桥接管
