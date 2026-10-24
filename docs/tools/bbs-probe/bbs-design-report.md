@@ -101,9 +101,9 @@
 - 帖子消耗 point（表单有 point 字段，当前账号 50pt）→ 发帖有成本，RPA 应带点数检查
 - 编辑复用表单 → 「改帖」不额外消耗冷却时间（推测，需实测）
 
-## 七、Genre 分类纠正（总控 2026-10-23 指正）
+## 七、Genre 分类纠正（总控 2026-10-23 指正 + 2026-10-25 数字 ID 补齐）
 
-帖子分 **2 个板块**，genre 列表各自独立（不是 8 个统一列表）：
+帖子分 **2 个板块**，genre 列表各自独立：
 
 **ピュア募集**（7 个 genre，show_write_list.html?q=Zlo2amdM...）：
 | genreId | 名称 |
@@ -116,12 +116,21 @@
 | 6 | ミドルエイジ |
 | 17 | 画像付きの募集 |
 
-**大人の募集**（9 个 genre，show_write_list.html?q=cm1BMlxO...）：
-| 名称（show_bbs.html 列表页可见） |
-|---|
-| すぐ会いたい / 大人の出会い / まずは食事から / 既婚者募集 / メールH / メールH(全国) / ミドルエイジ / アブノーマル / 同性愛 / 同性愛(全国) / 画像付きの募集
+**大人の募集**（9 个 genre，show_write_list.html?q=cm1BMlxO...，数字 ID 于 2026-10-25 实测补齐）：
+| genreId | 名称 |
+|---|---|
+| 7 | すぐ会いたい |
+| 8 | 大人の出会い |
+| 9 | 既婚者募集 |
+| 10 | メールＨ |
+| 11 | ミドルエイジ |
+| 12 | アブノーマル |
+| 14 | 同性愛 |
+| 18 | 画像付きの募集 |
+| 20 | まずは食事から |
 
-⚠️ 大人の募集 的 genre 数字 ID 未抓全（需从该板块 show_write_list 的 .subMenu a.jump 抓 data-genre 或 href）。
+⚠️ 注意：大人的 genre ID 数字与ピュア**不连续**（7/8/9/10/11/12/14/18/20），13/15/16/17 缺号——说明平台全局 genre 字典是统一编号，ピュア/大人の只是按板块展示子集。RPA 发帖时 targetGenreId 直接传对应数字即可（POST /bbs/ajax_show_slider_list.html 与 exec_routing_bbs_write.html 都认）。
+数字 ID 实测方法：导航到各 show_write.html 编辑表单页（等待 9s 让 input[name=targetGenreId] 渲染）→ 读该 hidden input 的 value。
 
 ## 八、扩展探测（非招募模块的同类页面，总控 2026-10-23 要求）
 
