@@ -236,4 +236,4 @@
 ### 待补
 - 删帖 RPA（勾选 checkbox → POST show_bbs_confirm_delete.html → 确认页「削除する」）— 与拉黑 5 步同构，ichigoBlockExpr.js selector 直接套，未写（总控未指定测试数据）
 - 类型/足迹删除 RPA（同构）— 未写
-- 冷却 1h 规则落 GovernanceRule — 未做
+- 冷却 1h 规则落 GovernanceRule — ✅ 已落库（2026-10-25，commit 5af522c）：store.ensureBbsCooldownRule 幂等插入 bbs-post-cooldown（rateLimit 类，cooldownMinutes=60）+ 启动自动落库 + GET/POST /api/console/bbs/cooldown 端点
