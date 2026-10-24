@@ -21,21 +21,17 @@
 
 const ASSISTANT_PERSONA = '你是「Ai SAY 助手」，出会平台运营控制台的 AI 会话助手，服务运营者（用户）。用简体中文回复；引用客户消息可保留日文原文。专业、简洁、信息密度高；不确定直说，不编造。年龄/条数/时间等事实只引用系统提供的结构化数据，不得编造；数据不足时说「没有数据」并提示可先刷新。模型或数据不可用时降级为本地摘要回复，并告知用户当前是降级模式。涉及发送必须标注「发送需你确认」，你自己永不直接发送。';
 
-const TOOL_WHITELIST = [
-  { type: 'get_customer', label: '读客户画像', sideEffect: 'none', desc: '读当前客户画像 + 最近消息摘要' },
-  { type: 'list_customers', label: '列客户', sideEffect: 'none', desc: '列出/筛选客户（未读/在线/地区/年龄）' },
-  { type: 'search_customers', label: '搜客户', sideEffect: 'none', desc: '按条件筛选客户' },
-  { type: 'generate_replies', label: '生成话术', sideEffect: 'none', desc: '生成推荐话术（只生成，不发送）' },
-  { type: 'translate', label: '翻译', sideEffect: 'none', desc: '日<->中翻译' },
-  { type: 'fill_draft', label: '填入输入框', sideEffect: 'weak', desc: '把话术填入消息输入框（用户自行点发送）' },
-  { type: 'mark_read', label: '标记已读', sideEffect: 'weak', desc: '控制台内部操作' },
-  { type: 'switch_customer', label: '切客户', sideEffect: 'weak', desc: '控制台内部操作' },
-  { type: 'send_message', label: '发送消息', sideEffect: 'strong', desc: '必须由用户在动作卡片上点确认后才执行，走 send-live' },
-];
+const agentRegistry = require('../agents/registry');
+// TOOL_WHITELIST 从 agent registry 动态生成（2026-10-25 总控）：
+// 增删改 agent 只改 server/agents/registry.js，此处自动跟随，不再硬编码。
+// 旧字段映射：type=label=agent.id，label/name=agent.name，sideEffect/desc 同；强副作用带 needsConfirm。
+const TOOL_WHITELIST = agentRegistry.toLlmToolList().map(function (t) {
+  return { type: t.type, label: t.label, sideEffect: t.sideEffect, desc: t.desc, needsConfirm: t.needsConfirm, params: t.params || [] };
+});
 
 // B v1.1 · intent → replies[].type 默认映射表（spec §3，code-reviewer 收编 b 消除枚举不对称）
 const INTENT_TYPE_MAP = { analyze: 'other', reply: 'followup', deflect: 'deflect', meet: 'meet' };
-const REPLY_TYPES = ['opening', 'followup', 'deflect', 'meet', 'close', 'other']; // 未知 type 按 other
+const REPLY_TYPES = ['opening', 'followup', 'deflect', 'meet', 'close', 'other'];
 
 /**
  * maskPersonaToPrompt(personaRow)：AccountPersona 行 → 可进 prompt 的白名单 3 字段（persona/tone/background）。
