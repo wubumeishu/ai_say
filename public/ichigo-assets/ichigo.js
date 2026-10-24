@@ -7,7 +7,6 @@ import { esc, firstChar, timeRank, hasJa, prettyFields, findContact, toast } fro
 import { isIchigoView } from './view.js';
 import { updateBadge } from './nav-poll.js';
 import { aiHistRestore } from './aisay.js'; // 第 8 刀收口：直接 import（aisay→state/util，无循环）
-import { getCache, setCache } from './translate-cache.js'; // 模块2 · 双层翻译缓存池
 import { getCache, setCache, cacheKey } from './translate-cache.js'; // 模块2 · 前端双层翻译缓存池
 
 // 翻译缓存 + 计时器（原 L1083 区）
