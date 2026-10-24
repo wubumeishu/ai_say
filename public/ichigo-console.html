@@ -291,6 +291,23 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 .mcard{background:var(--card);border:1px solid var(--border);border-radius:9px;padding:14px 15px;display:flex;flex-direction:column;transition:box-shadow .15s,border-color .15s}
 .mcard:hover{box-shadow:0 3px 14px var(--shadow-sm)}
 .mcard.active{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-ring)}
+.apk-card{border:1px solid var(--line,#333);border-radius:8px;padding:10px;background:var(--card,#14171f)}
+.apk-head{font-size:14px;margin-bottom:4px}
+.apk-id{font-size:10px;color:var(--muted,#888);font-family:monospace}
+.apk-desc{font-size:12px;color:var(--muted,#aaa);margin:4px 0;min-height:14px}
+.apk-meta{font-size:11px;color:var(--muted,#888);margin:4px 0}
+.apk-badge{font-size:10px;padding:1px 5px;border-radius:6px;background:var(--card2,#222);margin-left:4px}
+.apk-badge.dyn{background:var(--accent,#5b8cff);color:#fff}
+.apk-badge.cfrm{background:var(--pending,#e6a23c);color:#333}
+.apk-actions{display:flex;gap:6px;margin-top:8px;align-items:center}
+.apk-btn{font-size:11px;padding:3px 8px;border-radius:5px;cursor:pointer;background:var(--card2,#222);border:1px solid var(--line,#444);color:inherit}
+.apk-btn.danger{background:var(--danger,#e05555);color:#fff;border-color:var(--danger,#e05555)}
+.apk-na{font-size:10px;color:var(--muted,#666)}
+.apk-form{display:grid;gap:6px;font-size:12px}
+.apk-form label{display:flex;gap:4px;align-items:center}
+.apk-form input,.apk-form select{background:var(--card2,#222);border:1px solid var(--line,#444);border-radius:4px;padding:3px 6px;color:inherit;font-size:12px}
+.apk-formbtns{display:flex;gap:6px}
+.apk-formbtns button{font-size:11px;padding:3px 10px;border-radius:5px;cursor:pointer;background:var(--accent,#5b8cff);color:#fff;border:none}
 .mcard.nokey{border-style:dashed}
 .mc-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
 .mc-name{font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -517,6 +534,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
     </div>
     <div class="nav-item" data-view="agents">🤖 代理</div>
     <div class="nav-item" data-view="models">🧠 模型</div>
+    <div class="nav-item" data-view="agentPkg">📦 agent 包</div>
   </div>
 
   <div class="col-customers" id="colCustomers">
@@ -602,6 +620,18 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
       <button class="mp-add" id="btnRotateIp">换 IP</button>
     </div>
     <div class="mp-grid" id="agentGrid"></div>
+  </div>
+  <!-- agent 包管理页（点"agent 包"导航时显示，跨列；列/增删/试跑 agent） -->
+  <div class="model-page" id="agentPkgPage" style="display:none">
+    <div class="mp-head">
+      <div>
+        <div class="mp-title">📦 agent 包管理（内置 + 动态，供 AI 助手发现/调用）</div>
+        <div class="mp-sub" id="agentPkgSub">加载中…</div>
+      </div>
+      <button class="mp-add" id="btnAgentPkgAdd">＋ 新增动态 agent</button>
+    </div>
+    <div class="mp-grid" id="agentPkgGrid"></div>
+    <div id="agentPkgAddRow" style="display:none;padding:10px 14px"></div>
   </div>
 
   <!-- 模型管理页（点"模型"导航时显示，跨列） -->

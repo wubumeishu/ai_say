@@ -1186,6 +1186,71 @@ if (action === 'blacklist' && deepScrape && typeof deepScrape.blockContact === '
     }
   }));
 
+  // ===== agent 包管理（总控 2026-10-25）=====
+  // GET /api/console/agent-pkg  列 agent（内置 + 动态合并）+ LLM 工具清单
+  // POST /api/console/agent-pkg/run  试跑一个 agent（走 agentExecutor；强副作用不带 confirmed 则只返回 confirmation-required）
+  //   body: { agentId, params, confirmed? }；默认不带 confirmed（试跑安全，强副作用不真执行）
+  register('POST', '/api/console/agent-pkg/run', wrap(async (req, res, body) => {
+    const executor = require('./agents/agentExecutor');
+    if (!body || !body.agentId) return json(res, 400, { ok: false, reason: 'missing-agentId', msg: '需 agentId' });
+    try {
+      const r = await executor.executeAgent({ agentId: body.agentId, params: body.params || {}, confirmed: body.confirmed === true }, { baseUrl: 'http://127.0.0.1:' + (process.env.PORT || 8300) });
+      return json(res, 200, r);
+    } catch (e) {
+      return json(res, 500, { ok: false, reason: 'agent-run-exception', msg: String((e && e.message) || e) });
+    }
+  }));
+
+  register('GET', '/api/console/agent-pkg', wrap(async (req, res) => {
+    const registry = deepScrape ? require('./agents/registry') : null;
+    const reg = registry || require('./agents/registry');
+    try {
+      const merged = reg.mergedAgents ? reg.mergedAgents() : reg.AGENTS;
+      const llmTools = reg.mergedLlmToolList ? reg.mergedLlmToolList() : reg.toLlmToolList();
+      return json(res, 200, { ok: true, agents: merged, llmTools: llmTools, count: merged.length, builtin: reg.AGENTS.length });
+    } catch (e) {
+      return json(res, 500, { ok: false, reason: 'agent-pkg-load-failed', msg: String((e && e.message) || e) });
+    }
+  }));
+
+  // POST /api/console/agent-pkg/add  新增/更新动态 agent（写 data/agent-pkg.json，免重启生效）
+  //   body: agent 定义 { id, name, module, desc, sideEffect, params, endpoint, needsConfirm, buildPayload? }
+  //   同名 id 覆盖内置（调试/临时改）
+  register('POST', '/api/console/agent-pkg/add', wrap(async (req, res, body) => {
+    const reg = require('./agents/registry');
+    const a = body || {};
+    if (!a.id || !a.name) return json(res, 400, { ok: false, reason: 'missing-id-name', msg: 'agent 需 id + name' });
+    if (!a.endpoint || !a.endpoint.path) return json(res, 400, { ok: false, reason: 'missing-endpoint', msg: 'agent 需 endpoint.path（映射到 /api/console/*）' });
+    if (!a.sideEffect || ['none', 'weak', 'strong'].indexOf(a.sideEffect) === -1) return json(res, 400, { ok: false, reason: 'bad-sideEffect', msg: 'sideEffect 需 none/weak/strong' });
+    // strong 副作用强制 needsConfirm=true（铁律，防误配）
+    if (a.sideEffect === 'strong' && a.needsConfirm !== true) a.needsConfirm = true;
+    try {
+      const list = reg.loadDynamic();
+      const i = list.findIndex(function (x) { return x.id === a.id || x.type === a.id; });
+      if (i >= 0) list[i] = a; else list.push(a);
+      reg.saveDynamic(list);
+      return json(res, 200, { ok: true, saved: a.id, count: list.length, replaced: i >= 0 });
+    } catch (e) {
+      return json(res, 500, { ok: false, reason: 'agent-pkg-save-failed', msg: String((e && e.message) || e) });
+    }
+  }));
+
+  // DELETE /api/console/agent-pkg/:id  删动态 agent（内置 agent 不可删，提示走 registry.js 代码改）
+  register('DELETE', '/api/console/agent-pkg/:id', wrap(async (req, res, body) => {
+    const reg = require('./agents/registry');
+    const id = String((req.params || {}).id || '');
+    const list = reg.loadDynamic();
+    const i = list.findIndex(function (x) { return x.id === id || x.type === id; });
+    if (i === -1) {
+      // 内置 agent
+      const builtin = reg.AGENTS.some(function (x) { return x.id === id || reg.llmTypeOf(x) === id; });
+      if (builtin) return json(res, 409, { ok: false, reason: 'builtin-agent', msg: id + ' 是内置 agent（registry.js 代码定义），不可删；要删改 server/agents/registry.js' });
+      return json(res, 404, { ok: false, reason: 'not-found', msg: '未找到动态 agent ' + id });
+    }
+    list.splice(i, 1);
+    reg.saveDynamic(list);
+    return json(res, 200, { ok: true, deleted: id, count: list.length });
+  }));
   register('GET', '/api/console/bbs/posts', wrap(async (req, res) => {
     if (!deepScrape || typeof deepScrape.queryBbsPosts !== 'function') {
       return json(res, 501, { ok: false, reason: 'bbs-scraper-not-injected', msg: 'BBS 查询器未注入（deepScrape 未就绪）' });

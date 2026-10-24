@@ -237,4 +237,45 @@ function toLlmToolList() {
   });
 }
 
-module.exports = { AGENTS: AGENTS, getAgent: getAgent, listBySideEffect: listBySideEffect, toLlmToolList: toLlmToolList, llmTypeOf: llmTypeOf };
+
+
+// ===== 运行时动态 agent（总控 2026-10-25 agent 包管理界面配套）=====
+// 内置 AGENTS（上方）是代码级只读定义；动态 agent 存 data/agent-pkg.json（可增删改，免重启）。
+// loadDynamic() 读文件；mergedAgents() 返回「内置 + 动态」（动态同名覆盖内置，便于调试/临时改）。
+const fsMod = require('fs');
+const pathMod = require('path');
+var _dynamicCache = null;
+function loadDynamic() {
+  try {
+    var f = pathMod.join(__dirname, '..', '..', 'data', 'agent-pkg.json');
+    var raw = fsMod.readFileSync(f, 'utf8');
+    var obj = JSON.parse(raw);
+    return Array.isArray(obj.agents) ? obj.agents : [];
+  } catch (e) {
+    // 文件缺/坏 → 空（不影响内置）
+    return [];
+  }
+}
+function saveDynamic(list) {
+  var f = pathMod.join(__dirname, '..', '..', 'data', 'agent-pkg.json');
+  var parent = pathMod.dirname(f);
+  if (!fsMod.existsSync(parent)) fsMod.mkdirSync(parent, { recursive: true });
+  fsMod.writeFileSync(f, JSON.stringify({ version: 1, note: '运行时动态 agent（内置 registry.js 只读；此文件可增删改）', agents: list || [] }, null, 2));
+  _dynamicCache = null;
+  return { saved: true, count: (list || []).length };
+}
+function mergedAgents() {
+  var dyn = loadDynamic();
+  var dynMap = {};
+  dyn.forEach(function (a) { dynMap[a.id || a.type] = a; });
+  // 动态同名覆盖内置
+  return AGENTS.map(function (a) { return dynMap[a.id] ? Object.assign({}, a, dynMap[a.id]) : a; })
+    .concat(dyn.filter(function (a) { return AGENTS.every(function (b) { return b.id !== (a.id || a.type); }); }));
+}
+function mergedLlmToolList() {
+  return mergedAgents().map(function (a) {
+    return { type: llmTypeOf(a), label: a.name, sideEffect: a.sideEffect, desc: a.desc, needsConfirm: a.needsConfirm, params: a.params || [], dynamic: AGENTS.every(function (b) { return b.id !== a.id && b.id !== a.type; }) };
+  });
+}
+
+module.exports = { AGENTS: AGENTS, getAgent: getAgent, listBySideEffect: listBySideEffect, toLlmToolList: toLlmToolList, llmTypeOf: llmTypeOf, loadDynamic: loadDynamic, saveDynamic: saveDynamic, mergedAgents: mergedAgents, mergedLlmToolList: mergedLlmToolList };

@@ -9,6 +9,7 @@ import { pollMailbox, renderAgentPage } from './nav-poll.js';
 import { renderList, selectCustomer } from './ichigo.js';
 import { renderHappyCustomers, loadHappyCustomer, happyRenderedMemberIDs } from './kairaku.js';
 import { renderModelPage } from './models.js';
+import { renderAgentPkgPage } from './agent-pkg.js';
 
 // 竞态守卫（复制自 L1333）：非出会视图下出会 fetch resolve 不写出会 DOM
 export function isIchigoView() {
@@ -29,6 +30,22 @@ export function switchView(view) {
   var mp = document.getElementById('modelPage');
   var ap = document.getElementById('agentPage');
   // 第 8 刀收口：直接 import 调用（无 window 桥）
+  if (view === 'agentPkg') {
+    cols.customers.style.display = 'none';
+    cols.messages.style.display = 'none';
+    cols.analysis.style.display = 'none';
+    if (cols.account) cols.account.style.display = 'none';
+    cols.ai.style.display = 'none';
+    var apk = document.getElementById('agentPkgPage');
+    if (ap) ap.style.display = 'none';
+    if (mp) mp.style.display = 'none';
+    if (apk) apk.style.display = '';
+    Array.prototype.forEach.call(document.querySelectorAll('.nav-item'), function(i) {
+      i.classList.toggle('active', i.getAttribute('data-view') === view);
+    });
+    renderAgentPkgPage();
+    return;
+  }
   if (view === 'models') {
     cols.customers.style.display = 'none';
     cols.messages.style.display = 'none';

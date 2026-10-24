@@ -188,6 +188,7 @@ export function initMain() {
   safeInit('pollMailbox', function() { pollMailbox(true); });
   safeInit('netChip', function() { refreshNetChip(true); });
   safeInit('agentPage', function() { if (state.currentView === 'agents') renderAgentPage(); });
+  safeInit('agentPkgPage', function() { if (state.currentView === 'agentPkg') renderAgentPkgPage(); });
   safeInit('platforms', function() { loadPlatforms(); });
   safeInit('timer', function() { setInterval(function() { pollMailbox(false); }, POLL_MS); });
 
