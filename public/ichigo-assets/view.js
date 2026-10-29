@@ -10,6 +10,7 @@ import { renderList, selectCustomer } from './ichigo.js';
 import { renderHappyCustomers, loadHappyCustomer, happyRenderedMemberIDs } from './kairaku.js';
 import { renderModelPage } from './models.js';
 import { renderAgentPkgPage } from './agent-pkg.js';
+import { renderDomainPage, loadAccountPool, loadToolbox } from './domain.js';
 
 // 竞态守卫（复制自 L1333）：非出会视图下出会 fetch resolve 不写出会 DOM
 export function isIchigoView() {
@@ -33,6 +34,8 @@ export function switchView(view) {
   // 跨列页显隐：showWhich ∈ { 'agentPkgPage', 'modelPage', 'agentPage', null }，其余全隐藏
   function setCrossPages(showWhich) {
     var map = { agentPkgPage: apk, modelPage: mp, agentPage: ap };
+    var domP = document.getElementById('domainPage');
+    if (domP) domP.style.display = 'none';
     Object.keys(map).forEach(function (k) {
       var el = map[k];
       if (el) el.style.display = (k === showWhich) ? '' : 'none';
@@ -76,6 +79,22 @@ export function switchView(view) {
       i.classList.toggle('active', i.getAttribute('data-view') === view);
     });
     renderAgentPage(); // nav-poll 同批次已迁移，直接 import 调用
+    return;
+  }
+  var domainViews = ['domain', 'domain-ashiato', 'domain-faces', 'domain-search', 'domain-ignore', 'domain-calendar', 'domain-toolbox', 'domain-pool', 'domain-pool', 'domain-toolbox', 'domain-diary', 'domain-unified'];
+  if (domainViews.indexOf(view) !== -1) {
+    cols.customers.style.display = 'none';
+    cols.messages.style.display = 'none';
+    cols.analysis.style.display = 'none';
+    if (cols.account) cols.account.style.display = 'none';
+    cols.ai.style.display = 'none';
+    setCrossPages(null);
+    var domPage = document.getElementById('domainPage');
+    if (domPage) domPage.style.display = '';
+    Array.prototype.forEach.call(document.querySelectorAll('.nav-item'), function(i) {
+      i.classList.toggle('active', i.getAttribute('data-view') === view);
+    });
+    renderDomainPage(view);
     return;
   }
   if (view === 'kanban') {

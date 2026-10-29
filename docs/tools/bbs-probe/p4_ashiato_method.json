@@ -1,0 +1,47 @@
+{
+  "savedAt": "2026-10-27T10:59:45.435Z",
+  "topic": "P4 足迹 只读抓取方法（坐实记录，非全量爬取）",
+  "readonly": true,
+  "note": "按用户指令：当前只做只读抓取方法记录，不做全量翻页爬取；服务守护由 start-guarded.bat (pm2) 承担",
+  "entry": {
+    "source": "逐步点击法坐实（menu → マイページ → \"!\" icon）",
+    "urlReceived": "https://sp.194964.com/sns/snsashiato/show.html",
+    "urlMine": "https://sp.194964.com/sns/snsashiato/show_mine.html",
+    "platformCap": "过去30天内、每客户只记最新一次、全量最多100条、一页20条（用户 2026-10-27 情报）"
+  },
+  "dom": {
+    "card": ".type--list",
+    "checkbox": "input[name=\"targetFootmarkId[]\"]",
+    "name": ".type-list-name",
+    "age": ".type-list-age",
+    "timeSource": ".type-list-footstep",
+    "onlineIcon": "[class*=online-icon]",
+    "profileLink": "a.type-list-link",
+    "nextQuery": ".nextBtn a[href]",
+    "prevQuery": ".prevBtn a[href]"
+  },
+  "paging": {
+    "mechanism": "外部翻页：表达式只抓当前页 + 返回 .nextBtn a 的 href（?q= token），deepScrape 每页 Page.navigate 到 base+token；navigate 后重读 location.href 校验 + 等 4500ms（target 会短暂失效）",
+    "deepScrapeMethod": "ichigoDeepScrape.fetchAshiato(opts { direction: received|mine, maxPages, maxItems })",
+    "route": "GET /api/console/domain/ashiato?direction=received|mine&maxPages=1&maxItems=20（只读当前页即可，无需翻页）",
+    "riskGuard": "只读零副作用：不勾 checkbox、不点 prev/删除按钮；仅读 DOM + navigate"
+  },
+  "expr": {
+    "file": "server/adapter/ichigoAshiatoExpr.js (v3)",
+    "guards": [
+      "非 sp.194964.com 域名拒收 not-on-platform-domain",
+      "非 snsashiato/show.html|show_mine.html 拒收 not-on-ashiato-page"
+    ],
+    "returns": "{ ok, footmarks[{footmarkId,name,age,city,source,time,onlineIcon,profileHref}], total, direction, nextQuery, prevQuery, via }"
+  },
+  "verifiedSamples": {
+    "received p1": "20 cards / 含 せいじ(icon1) カシオ(icon2) ゴジラ(icon2)，时间跨度 10/26~10/27，nextQuery=?q=OW9m…（有第2页）",
+    "mine p1": "20 cards / sabu(icon2) しゅん(icon4)",
+    "probeFiles": [
+      "online_probe_ashiato_full.html",
+      "b4_mybbs.json",
+      "b2_showmine.json",
+      "ashiato_nextcheck.json"
+    ]
+  }
+}

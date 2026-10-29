@@ -1,0 +1,42 @@
+{
+ "total": 300,
+ "note": "是るき(tid=40447426) 帖子列表+正文（实测 4 条，非 300 帖全量；正文从 get_billboard.php 拉）",
+ "isukiPosts": [
+  {
+   "billboard_id": 196199524,
+   "billboard_subject": "車内でエフきる方！",
+   "billboard_body": "よろしくお願いします！",
+   "billboard_post_time": "10/24 12:48",
+   "billboard_genre_name": "大人の出会い",
+   "scene_name_list": [],
+   "billboard_mail_count": 0
+  },
+  {
+   "billboard_id": 196198356,
+   "billboard_subject": "口か手でできる方",
+   "billboard_body": "暇な方お願いします！",
+   "billboard_post_time": "10/24 12:08",
+   "billboard_genre_name": "今すぐ会いたい",
+   "scene_name_list": [],
+   "billboard_mail_count": 0
+  },
+  {
+   "billboard_id": 196185280,
+   "billboard_subject": "千歳でセフす",
+   "billboard_body": "どなたか会える方いませんか？",
+   "billboard_post_time": "10/23 23:14",
+   "billboard_genre_name": "今すぐ会いたい",
+   "scene_name_list": [],
+   "billboard_mail_count": 0
+  },
+  {
+   "billboard_id": 196184177,
+   "billboard_subject": "千歳で会える人",
+   "billboard_body": "これから会える人いませんか",
+   "billboard_post_time": "10/23 22:45",
+   "billboard_genre_name": "大人の出会い",
+   "scene_name_list": [],
+   "billboard_mail_count": 0
+  }
+ ]
+}

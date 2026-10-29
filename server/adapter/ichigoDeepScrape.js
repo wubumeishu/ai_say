@@ -118,7 +118,9 @@ function readExpr(file) {
 function createIchigoDeepScrape(deps) {
   deps = deps || {};
   var rootDir = deps.rootDir || path.join(__dirname, '..', '..');
-  var iconMap = deps.iconMap || loadIconMap(rootDir);
+  var iconMaps = deps.iconMaps || loadIconMap(rootDir);
+  var iconMap = iconMaps.jp || {};
+  var leisureZhMap = iconMaps.zh || {};
 
   var mailboxExprSrc     = readExpr(path.join(__dirname, 'ichigoMailboxExpr.js'));
   var blockExprSrc       = readExpr(path.join(__dirname, 'ichigoBlockExpr.js')); // 模块1 · 拉黑联动真实窗口
@@ -132,6 +134,14 @@ function createIchigoDeepScrape(deps) {
   var bbsQueryExprSrc   = readExpr(path.join(__dirname, 'ichigoBbsQueryExpr.js'));
   var bbsWriteExprSrc   = readExpr(path.join(__dirname, 'ichigoBbsWriteExpr.js'));
   var bbsDeleteExprSrc  = readExpr(path.join(__dirname, 'ichigoBbsDeleteExpr.js'));
+  var ashiatoExprSrc    = readExpr(path.join(__dirname, 'ichigoAshiatoExpr.js'));
+  var facesExprSrc      = readExpr(path.join(__dirname, 'ichigoFacesExpr.js'));
+  var searchExprSrc     = readExpr(path.join(__dirname, 'ichigoSearchExpr.js'));
+  var ignoreExprSrc     = readExpr(path.join(__dirname, 'ichigoIgnoreExpr.js'));
+  var calendarExprSrc   = readExpr(path.join(__dirname, 'ichigoCalendarExpr.js'));
+  var diaryExprSrc      = readExpr(path.join(__dirname, 'ichigoDiaryExpr.js'));
+  var chatExprSrc      = readExpr(path.join(__dirname, 'ichigoChatExpr.js'));
+  var likeExprSrc      = readExpr(path.join(__dirname, 'ichigoLikeExpr.js'));
 
   // ---------- 工具 ----------
   function parseContactName(raw) {
@@ -193,6 +203,10 @@ function createIchigoDeepScrape(deps) {
     var injected = (url === null || url === undefined) ? 'null' : JSON.stringify(String(url));
     var o = (delOpts === null || delOpts === undefined) ? 'null' : JSON.stringify(delOpts);
     return exprSrc.replace('__URL__', injected).replace('__BBS_DELETE_OPTS__', o);
+  }
+  function fillGenericOpts(exprSrc, opts, placeholder) {
+    var o = (opts === null || opts === undefined) ? 'null' : JSON.stringify(opts);
+    return exprSrc.replace('__URL__', 'null').replace(placeholder, o);
   }
 function fillBbsWriteOpts(exprSrc, url, writeOpts) {
     var injected = (url === null || url === undefined) ? 'null' : JSON.stringify(String(url));
@@ -777,6 +791,325 @@ function buildBbsVerifyExpr() {
       return { ok: false, reason: 'cdp-unavailable', diagnosis: 'CDP 卡住：连不上出会窗口（BitBrowser 未开 / 窗口未开 / CDP 超时）', msg: String((e && e.message) || e) };
     });
   }
+
+  // ---------- 模块4 · 流量雷达：足迹反撩（只读抓取） ----------
+  function fetchAshiato(opts) {
+    opts = opts || {};
+    if (!ashiatoExprSrc) return Promise.resolve({ ok: false, reason: "no-ashiato-expr", msg: "ichigoAshiatoExpr.js missing" });
+    var direction = opts.direction || 'received'; // received(show.html) | mine(show_mine.html)
+    var maxPages = opts.maxPages || 10;
+    var maxItems = opts.maxItems || 200;
+    var dirUrls = {
+      received: "https://sp.194964.com/sns/snsashiato/show.html",
+      mine: "https://sp.194964.com/sns/snsashiato/show_mine.html"
+    };
+    var base = dirUrls[direction] || dirUrls.received;
+    var all = [];
+    var seenIds = {};
+    var nextUrl = base;
+    var page = 0;
+    var pagesInfo = [];
+
+    function grabOnePage(currentUrl) {
+      return withTarget(function(client) {
+        return cdpEval(client, "location.href").then(function(cur) {
+          var u = String(cur || "");
+          // 强制导航到目标页（窗口可能停在别的页）
+          // 第1页强制导航（确保切到 ashiato 页，不依赖窗口当前停在哪）；第2+页按 URL 变化导航
+        var needsNav = (pageNum > 1) ? (u !== currentUrl) : true;
+          if (needsNav) {
+            return client.send("Page.navigate", { url: currentUrl })
+              .then(function() { return new Promise(function(r) { setTimeout(r, 4500); }); });
+          }
+          return null;
+        }).then(function() {
+          var expr = fillGenericOpts(ashiatoExprSrc, opts, "__ASHIATO_OPTS__");
+          return cdpEvalAsync(client, expr);
+        }).then(function(v) {
+          // 若表达式报 not-on-ashiato-page（navigate 没切过去），重试一次
+          if (v && v.reason === "not-on-ashiato-page") {
+            return client.send("Page.navigate", { url: currentUrl })
+              .then(function() { return new Promise(function(r) { setTimeout(r, 4500); }); })
+              .then(function() {
+                var expr2 = fillGenericOpts(ashiatoExprSrc, opts, "__ASHIATO_OPTS__");
+                return cdpEvalAsync(client, expr2);
+              });
+          }
+          return v;
+        });
+      }).catch(function(e) {
+        return { ok: false, reason: "cdp-unavailable", msg: String((e && e.message) || e) };
+      });
+    }
+
+    return (async function() {
+      while (page < maxPages && all.length < maxItems) {
+        page++;
+        var v = await grabOnePage(nextUrl);
+        if (!v || !v.ok) {
+          pagesInfo.push({ page: page, url: nextUrl, err: (v && (v.reason || v.msg)) || "unknown" });
+          break;
+        }
+        (v.footmarks || []).forEach(function(f) {
+          var key = f.footmarkId || (f.name + "|" + f.age);
+          if (key && !seenIds[key]) { seenIds[key] = true; all.push(f); }
+        });
+        pagesInfo.push({ page: page, url: nextUrl, got: (v.footmarks || []).length, nextQuery: v.nextQuery || null });
+        if (page < maxPages) { await new Promise(function(r) { setTimeout(r, 2000); }); }
+        var nq = v.nextQuery;
+        if (nq) {
+          if (nq.charAt(0) === "/") nextUrl = "https://sp.194964.com" + nq;
+          else nextUrl = base + nq;
+        } else { break; }
+      }
+      return { ok: true, footmarks: all.slice(0, maxItems), total: all.length, direction: direction, pages: page, via: "cdp-ashiato-paged", fetchedAt: new Date().toISOString(), _pages: pagesInfo };
+    })().catch(function(e) {
+      return { ok: false, reason: "paged-loop-error", msg: String((e && e.message) || e), footmarks: all, direction: direction, pages: page, _pages: pagesInfo };
+    });
+  }
+  function fetchFaces(opts) {
+    opts = opts || {};
+    if (!facesExprSrc) return Promise.resolve({ ok: false, reason: 'no-faces-expr', msg: 'ichigofacesExpr.js 缺失' });
+    return withTarget(function(client) {
+      return cdpEval(client, 'location.href').then(function(cur) {
+        var u = String(cur || '');
+        if (u.indexOf('show_faces') === -1 && u.indexOf('show_result_gallery') === -1) {
+          return client.send('Page.navigate', { url: 'https://sp.194964.com/sns/snssearch/show_faces.html' })
+            .then(function() { return new Promise(function(r) { setTimeout(r, 4000); }); });
+        }
+        return null;
+      }).then(function() {
+        var expr = fillGenericOpts(facesExprSrc, opts, '__FACES_OPTS__');
+        return cdpEvalAsync(client, expr);
+      }).then(function(v) {
+        v = v || {};
+        v.via = v.via || 'cdp-faces';
+        return v;
+      }).catch(function(e) {
+        return { ok: false, reason: 'cdp-error', msg: String((e && e.message) || e) };
+      });
+    }).catch(function(e) {
+      return { ok: false, reason: 'cdp-unavailable', msg: String((e && e.message) || e) };
+    });
+  }
+
+  // ---------- 模块5 · 主动出击：高级搜索填表（强副作用，需 confirmed） ----------
+  function runProfileSearch(opts) {
+    opts = opts || {};
+    if (!searchExprSrc) return Promise.resolve({ ok: false, reason: 'no-search-expr', msg: 'ichigosearchExpr.js 缺失' });
+    if (opts.submit !== false && opts.confirmed !== true) {
+      return Promise.resolve({ ok: false, step: 'guard', reason: 'not-confirmed', msg: 'runProfileSearch 需 opts.confirmed=true（dry-run 设 submit=false）' });
+    }
+    return withTarget(function(client) {
+      return cdpEval(client, 'location.href').then(function(cur) {
+        var u = String(cur || '');
+        if (u.indexOf('show_profile_search') === -1) {
+          return client.send('Page.navigate', { url: 'https://sp.194964.com/profile/profilesearch/show_profile_search.html' })
+            .then(function() { return new Promise(function(r) { setTimeout(r, 3500); }); });
+        }
+        return null;
+      }).then(function() {
+        var expr = fillGenericOpts(searchExprSrc, opts, '__SEARCH_OPTS__');
+        return cdpEvalAsync(client, expr);
+      }).then(function(v) {
+        v = v || {};
+        v.via = v.via || 'cdp-profile-search';
+        return v;
+      }).catch(function(e) {
+        return { ok: false, reason: 'cdp-error', msg: String((e && e.message) || e) };
+      });
+    }).catch(function(e) {
+      return { ok: false, reason: 'cdp-unavailable', msg: String((e && e.message) || e) };
+    });
+  }
+
+  // ---------- 模块6 · 账号卫生：忽略/解除忽略 ----------
+  function manageIgnore(opts) {
+    opts = opts || {};
+    if (!ignoreExprSrc) return Promise.resolve({ ok: false, reason: 'no-ignore-expr', msg: 'ichigoignoreExpr.js 缺失' });
+    var needConfirm = (opts.action === 'ignore' || opts.action === 'unignore');
+    if (needConfirm && opts.confirmed !== true) {
+      return Promise.resolve({ ok: false, step: 'guard', reason: 'not-confirmed', msg: 'manageIgnore ' + opts.action + ' 需 opts.confirmed=true' });
+    }
+    return withTarget(function(client) {
+      return cdpEval(client, 'location.href').then(function(cur) {
+        var u = String(cur || '');
+        var isList = opts.action === 'list' || opts.action === 'unignore';
+        var navUrl = isList ? 'https://sp.194964.com/sns/snsmylist/show_ignore_list.html' : 'https://sp.194964.com/sns/snsprofile/show_profile.html';
+        var marker = isList ? 'show_ignore_list' : 'show_profile';
+        if (u.indexOf(marker) === -1) {
+          return client.send('Page.navigate', { url: navUrl })
+            .then(function() { return new Promise(function(r) { setTimeout(r, 3500); }); });
+        }
+        return null;
+      }).then(function() {
+        var expr = fillGenericOpts(ignoreExprSrc, opts, '__IGNORE_OPTS__');
+        return cdpEvalAsync(client, expr);
+      }).then(function(v) {
+        v = v || {};
+        v.via = v.via || 'cdp-ignore';
+        return v;
+      }).catch(function(e) {
+        return { ok: false, reason: 'cdp-error', msg: String((e && e.message) || e) };
+      });
+    }).catch(function(e) {
+      return { ok: false, reason: 'cdp-unavailable', msg: String((e && e.message) || e) };
+    });
+  }
+
+  // ---------- 模块7 · 线下转化：日历会える日 ----------
+  function manageCalendar(opts) {
+    opts = opts || {};
+    if (!calendarExprSrc) return Promise.resolve({ ok: false, reason: 'no-calendar-expr', msg: 'ichigocalendarExpr.js 缺失' });
+    var needConfirm = (opts.action === 'addDays' || opts.action === 'release');
+    if (needConfirm && opts.confirmed !== true) {
+      return Promise.resolve({ ok: false, step: 'guard', reason: 'not-confirmed', msg: 'manageCalendar ' + opts.action + ' 需 opts.confirmed=true' });
+    }
+    return withTarget(function(client) {
+      return cdpEval(client, 'location.href').then(function(cur) {
+        var u = String(cur || '');
+        if (u.indexOf('calendar/show_mylist') === -1) {
+          return client.send('Page.navigate', { url: 'https://sp.194964.com/calendar/show_mylist.html' })
+            .then(function() { return new Promise(function(r) { setTimeout(r, 3500); }); });
+        }
+        return null;
+      }).then(function() {
+        var expr = fillGenericOpts(calendarExprSrc, opts, '__CALENDAR_OPTS__');
+        return cdpEvalAsync(client, expr);
+      }).then(function(v) {
+        v = v || {};
+        v.via = v.via || 'cdp-calendar';
+        return v;
+      }).catch(function(e) {
+        return { ok: false, reason: 'cdp-error', msg: String((e && e.message) || e) };
+      });
+    }).catch(function(e) {
+      return { ok: false, reason: 'cdp-unavailable', msg: String((e && e.message) || e) };
+    });
+  }
+
+  // ---------- 模块8 · 内容引流：日记发布/删除 ----------
+  // ---------- 模块9 · 流量雷达：正在聊（P1 最高价值，收件箱抓取） ----------
+  function fetchChatInbox(opts) {
+    opts = opts || {};
+    if (!chatExprSrc) return Promise.resolve({ ok: false, reason: 'no-chat-expr', msg: 'ichigoChatExpr.js 缺失' });
+    return withTarget(function(client) {
+      return cdpEval(client, 'location.href').then(function(cur) {
+        var u = String(cur || '');
+        if (u.indexOf('show_mailbox') === -1) {
+          return client.send('Page.navigate', { url: 'https://sp.194964.com/mail/inbox/show_mailbox.html' })
+            .then(function() { return new Promise(function(r) { setTimeout(r, 3500); }); });
+        }
+        return null;
+      }).then(function() {
+        var expr = fillGenericOpts(chatExprSrc, opts, '__CHAT_OPTS__');
+        return cdpEvalAsync(client, expr);
+      }).then(function(v) {
+        v = v || {};
+        v.via = v.via || 'cdp-chat-inbox';
+        return v;
+      }).catch(function(e) {
+        return { ok: false, reason: 'cdp-error', msg: String((e && e.message) || e) };
+      });
+    }).catch(function(e) {
+      return { ok: false, reason: 'cdp-unavailable', msg: String((e && e.message) || e) };
+    });
+  }
+
+  // ---------- 模块9 · 流量雷达：点赞待回（P2 タイプされた列表） ----------
+  function fetchTypedLikes(opts) {
+    opts = opts || {};
+    if (!likeExprSrc) return Promise.resolve({ ok: false, reason: "no-like-expr", msg: "ichigoLikeExpr.js missing" });
+    var tab = opts.tab || "received";
+    var maxPages = opts.maxPages || 20;
+    var maxItems = opts.maxItems || 200;
+    var tabUrls = {
+      received: "https://sp.194964.com/sns/snstype/show_typed_list.html",
+      sent: "https://sp.194964.com/sns/snstype/show_type_list.html",
+      mutual: "https://sp.194964.com/sns/snstype/show_mutual_list.html"
+    };
+    var base = tabUrls[tab] || tabUrls.received;
+    var allLikes = [];
+    var seenIds = {};
+    var nextUrl = base;
+    var page = 0;
+    var pagesInfo = [];
+
+    function grabOnePage(currentUrl, pageNum) {
+      return withTarget(function(client) {
+        return cdpEval(client, "location.href").then(function(cur) {
+          var u = String(cur || "");
+          // 若当前 URL 不等于目标 currentUrl → 导航过去
+          if (u !== currentUrl) {
+            return client.send("Page.navigate", { url: currentUrl })
+              .then(function() { return new Promise(function(r) { setTimeout(r, 3500); }); });
+          }
+          return null;
+        }).then(function() {
+          var expr = fillGenericOpts(likeExprSrc, opts, "__LIKE_OPTS__");
+          return cdpEvalAsync(client, expr);
+        });
+      }).catch(function(e) {
+        return { ok: false, reason: "cdp-unavailable", msg: String((e && e.message) || e) };
+      });
+    }
+
+    return (async function() {
+      while (page < maxPages && allLikes.length < maxItems) {
+        page++;
+        var v = await grabOnePage(nextUrl, page);
+        if (!v || !v.ok) {
+          pagesInfo.push({ page: page, url: nextUrl, err: (v && (v.reason || v.msg)) || "unknown" });
+          break;
+        }
+        (v.likes || []).forEach(function(l) {
+          var key = l.memberId || (l.name + "|" + l.age);
+          if (key && !seenIds[key]) { seenIds[key] = true; allLikes.push(l); }
+        });
+        pagesInfo.push({ page: page, url: nextUrl, got: (v.likes || []).length, nextQuery: v.nextQuery || null });
+        if (page < maxPages) { await new Promise(function(r) { setTimeout(r, 2000); }); }
+        var nq = v.nextQuery;
+        if (nq) {
+          if (nq.charAt(0) === "/") nextUrl = "https://sp.194964.com" + nq;
+          else nextUrl = base + nq; // nq = "?q=..."
+        } else { break; }
+      }
+      return { ok: true, likes: allLikes.slice(0, maxItems), total: allLikes.length, tab: tab, pages: page, via: "cdp-typed-likes-paged", fetchedAt: new Date().toISOString(), _pages: pagesInfo };
+    })().catch(function(e) {
+      return { ok: false, reason: "paged-loop-error", msg: String((e && e.message) || e), likes: allLikes, tab: tab, pages: page, _pages: pagesInfo };
+    });
+  }
+  function manageDiary(opts) {
+    opts = opts || {};
+    if (!diaryExprSrc) return Promise.resolve({ ok: false, reason: 'no-diary-expr', msg: 'ichigodiaryExpr.js 缺失' });
+    if (opts.confirmed !== true) {
+      return Promise.resolve({ ok: false, step: 'guard', reason: 'not-confirmed', msg: 'manageDiary 需 opts.confirmed=true' });
+    }
+    return withTarget(function(client) {
+      return cdpEval(client, 'location.href').then(function(cur) {
+        var u = String(cur || '');
+        var isDel = opts.action === 'delete';
+        var page = isDel ? 'https://sp.194964.com/sns/snsdiary/show_mydiaries.html' : 'https://sp.194964.com/sns/snsdiary/show_mydiary_form.html';
+        var marker = isDel ? 'show_mydiaries' : 'show_mydiary_form';
+        if (u.indexOf(marker) === -1) {
+          return client.send('Page.navigate', { url: page })
+            .then(function() { return new Promise(function(r) { setTimeout(r, 3500); }); });
+        }
+        return null;
+      }).then(function() {
+        var expr = fillGenericOpts(diaryExprSrc, opts, '__DIARY_OPTS__');
+        return cdpEvalAsync(client, expr);
+      }).then(function(v) {
+        v = v || {};
+        v.via = v.via || 'cdp-diary';
+        return v;
+      }).catch(function(e) {
+        return { ok: false, reason: 'cdp-error', msg: String((e && e.message) || e) };
+      });
+    }).catch(function(e) {
+      return { ok: false, reason: 'cdp-unavailable', msg: String((e && e.message) || e) };
+    });
+  }
   return {
     mailboxOnly: mailboxOnly,
     fetchHistory: fetchHistory,
@@ -795,6 +1128,14 @@ function buildBbsVerifyExpr() {
     deepScrape: deepScrape,
     parseContactName: parseContactName,
     enrichInterests: enrichInterests,
+    fetchAshiato: fetchAshiato,
+    fetchFaces: fetchFaces,
+    runProfileSearch: runProfileSearch,
+    manageIgnore: manageIgnore,
+    manageCalendar: manageCalendar,
+    manageDiary: manageDiary,
+    fetchChatInbox: fetchChatInbox,
+    fetchTypedLikes: fetchTypedLikes,
   };
 }
 

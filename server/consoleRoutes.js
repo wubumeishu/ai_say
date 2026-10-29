@@ -37,6 +37,7 @@ const net = require('net'); // task-2：/api/console/health 轻量端点探 CDP 
  *   - adapters:    M2 平台适配器集合（onLocatorMiss 事件源；可为 { on: (ev, cb)=>... } 或数组）
  *   - recommender: M1 补强 createRecommender()（人设+画像+规则驱动的推荐回复；缺省回退裸 talkEngine）
  */
+const domainRank = require('./adapter/domainRank.js');
 function mountConsoleRoutes(app, deps = {}) {
   const store = deps.store || null;
   const ichigoCache = deps.ichigoCache || null;
@@ -51,6 +52,7 @@ function mountConsoleRoutes(app, deps = {}) {
   const liveScanner = deps.liveScanner || null;
   const happyScanner = deps.happyScanner || null; // H4 · 快乐平台只读抓取
   const happyCache = deps.happyCache || null; // H4 缺陷6 · A 持久化（data/happy-cache.json）
+  const unreadPoller = deps.unreadPoller || null; // v5.3 · 批2 未读轮询器（非秒回）
   const deepScrape = deps.deepScrape || null;
   const settingsForLive = deps.settingsForLive || deps.settings || null;
   const proxyPool = deps.proxyPool || null;
@@ -102,6 +104,7 @@ function mountConsoleRoutes(app, deps = {}) {
   }
 
   // ---------------------------------------------------------------- 工具
+  const followupSop = require('./acquisition/followupSop.js');
   const json = (res, code, data) => {
     res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify(data, null, 2));
@@ -1288,7 +1291,194 @@ if (action === 'blacklist' && deepScrape && typeof deepScrape.blockContact === '
   //   全客户无 messages → { ok:true, empty:true }。  // GET /api/console/bbs/cooldown  模块3 · 读 BBS 1h 冷却规则 + 当前冷却剩余
   //   读 GovernanceRule bbs-post-cooldown → 算自上次 BBS 操作（SentLog/操作日志）以来是否仍在冷却期
   //   返回 { ruleId, cooldownMinutes, lastBbsOpAt?, inCooldown, cooldownRemainingSec? }
-  register('GET', '/api/console/bbs/cooldown', wrap(async (req, res) => {
+  // ---- 账号池/窗口池 + 健康巡检 + 跨账号任务分发（v5.3 · 批1 群控基座） ----
+  register('GET', '/api/console/account-pool', wrap(async (req, res) => {
+    if (!store) return json(res, 501, { ok: false, reason: 'store-not-ready' });
+    const accounts = store.listAccounts ? store.listAccounts() : [];
+    const windows = store.listWindows ? store.listWindows() : [];
+    // 健康巡检：对每个窗口试 CDP 连通（超时会降级，不阻断；只巡检已注入 scanner 的平台）
+    const health = [];
+    for (const w of windows) {
+      const scanner = w.platform === 'kairaku' ? happyScanner : liveScanner;
+      let h = { windowId: w.windowId, accountId: w.accountId, status: 'unknown' };
+      if (scanner && typeof scanner.openCdpSession === 'function') {
+        try {
+          const session = await scanner.openCdpSession();
+          h.status = session ? 'healthy' : 'unreachable';
+          if (session && session.close) try { session.close(); } catch (_) { /* */ }
+          if (store.markWindowHealth) store.markWindowHealth(w.windowId, h.status === 'healthy', h.status);
+        } catch (e) {
+          h.status = 'error'; h.error = String(e && e.message || e).slice(0, 120);
+        }
+      } else {
+        h.status = 'no-scanner';
+      }
+      health.push(h);
+    }
+    return json(res, 200, {
+      ok: true,
+      accounts,
+      windows,
+      health,
+      note: '健康巡检逐窗口试 CDP 连通；no-scanner = 该平台抓取器未注入',
+    });
+  }));
+  register('GET', '/api/console/tasks', wrap(async (req, res) => {
+    if (!store || typeof store.listTasks !== 'function') return json(res, 501, { ok: false, reason: 'store-not-ready' });
+    const qs = queryOf(req);
+    const rows = store.listTasks({ status: qs.status || undefined, accountId: qs.accountId || undefined });
+    rows.forEach((r) => { try { if (r.payload) r.payload = JSON.parse(r.payload); } catch (_) { /* */ } });
+    return json(res, 200, { ok: true, count: rows.length, tasks: rows });
+  }));
+  register('POST', '/api/console/tasks', wrap(async (req, res, body) => {
+    if (!store || typeof store.enqueueTask !== 'function') return json(res, 501, { ok: false, reason: 'store-not-ready' });
+    const b = body || {};
+    if (!b.type) return json(res, 400, { ok: false, reason: 'missing-type' });
+    const row = store.enqueueTask(b);
+    row.payload = row.payload ? JSON.parse(row.payload) : null;
+    return json(res, 200, { ok: true, task: row });
+  }));
+  register('POST', '/api/console/tasks/dispatch', wrap(async (req, res, body) => {
+    if (!store || typeof store.claimTask !== 'function') return json(res, 501, { ok: false, reason: 'store-not-ready' });
+    const b = body || {};
+    // 跨账号分发：领某账号下一任务（pending → assigned）
+    const task = store.claimTask(b.accountId || null, b.platform || 'ichigo');
+    if (!task) return json(res, 200, { ok: true, assigned: false, note: '无可分配任务' });
+    task.payload = task.payload ? JSON.parse(task.payload) : null;
+    return json(res, 200, { ok: true, assigned: true, task });
+  }));
+  register('POST', '/api/console/tasks/:id/finish', wrap(async (req, res, body) => {
+    if (!store || typeof store.finishTask !== 'function') return json(res, 501, { ok: false, reason: 'store-not-ready' });
+    const params = req.params || {};
+    const b = body || {};
+    const row = store.finishTask(params.id ? String(params.id) : '', !!b.ok, b.error || null);
+    return json(res, 200, { ok: true, task: row });
+  }));
+
+    // ---- 未读轮询器（v5.3 批2：非秒回，发现新未读 → 待跟进） ----
+  register('GET', '/api/console/poller', wrap(async (req, res) => {
+    if (!deps.unreadPoller) return json(res, 501, { ok: false, reason: 'poller-not-injected' });
+    const snap = deps.unreadPoller.snapshot();
+    return json(res, 200, { ok: true, poller: snap });
+  }));
+  register('POST', '/api/console/poller/tick', wrap(async (req, res) => {
+    if (!deps.unreadPoller || typeof deps.unreadPoller.tick !== 'function') return json(res, 501, { ok: false, reason: 'poller-not-injected' });
+    await deps.unreadPoller.tick();
+    return json(res, 200, { ok: true, snapshot: deps.unreadPoller.snapshot() });
+  }));
+
+    // ---- 跟进 SOP（v5.3 C 阶段：3 天加ライン，软推进） ----
+  register('GET', '/api/console/followup', wrap(async (req, res) => {
+    if (!store || typeof store.getFollowupStage !== 'function') return json(res, 501, { ok: false, reason: 'store-not-ready' });
+    const qs = queryOf(req);
+    const conversationId = qs.conversationId || '';
+    if (!conversationId) return json(res, 400, { ok: false, reason: 'missing-conversationId' });
+    const stage = store.getFollowupStage(conversationId);
+    // 距上条消息天数（从 Message 表取该会话最新一条）
+    let daysSinceLast = 0;
+    try {
+      const m = store.db.prepare('SELECT MAX(createdAt) AS m FROM Message WHERE conversationId = ?').get(conversationId);
+      if (m && m.m) daysSinceLast = Math.floor((Date.now() - new Date(m.m).getTime()) / 86400000);
+    } catch (_) { daysSinceLast = 0; }
+    const ctx = { stage, daysSinceLast, name: qs.name || 'あなた' };
+    const result = followupSop.generate(ctx);
+    // SOP 规则表（供前端/审计）
+    const sops = store.listFollowupSops ? store.listFollowupSops({ platform: qs.platform || undefined }) : [];
+    return json(res, 200, {
+      ok: true,
+      conversationId, stage, daysSinceLast,
+      decision: result.decision,
+      recommended: result.recommended,
+      talks: result.talks,
+      sops: sops.map(s => ({ stage: s.stage, afterDays: s.afterDays, actionKind: s.actionKind, note: s.note })),
+      note: '参考话术（LINE 一律 ライン 软推进，不直接说 LINE 品牌）；发送仍走 建议→确认→执行 铁律',
+    });
+  }));
+  register('POST', '/api/console/followup/stage', wrap(async (req, res, body) => {
+    if (!store || typeof store.setFollowupStage !== 'function') return json(res, 501, { ok: false, reason: 'store-not-ready' });
+    const b = body || {};
+    if (!b.conversationId) return json(res, 400, { ok: false, reason: 'missing-conversationId' });
+    const stage = store.setFollowupStage(b.conversationId, b.stage);
+    return json(res, 200, { ok: true, conversationId: b.conversationId, stage });
+  }));
+  register('POST', '/api/console/followup/sop', wrap(async (req, res, body) => {
+    if (!store || typeof store.upsertFollowupSop !== 'function') return json(res, 501, { ok: false, reason: 'store-not-ready' });
+    const b = body || {};
+    const row = store.upsertFollowupSop(b);
+    return json(res, 200, { ok: true, sop: row });
+  }));
+
+    // ===========================================================================
+  // v5.3 · 运营工具箱（备忘录 / 日历 / 模板库）——独立不碰客户数据，挂 store
+  // ===========================================================================
+  // ---- 备忘录 ----
+  register('GET', '/api/console/memos', wrap(async (req, res) => {
+    if (!store || typeof store.listMemos !== 'function') return json(res, 501, { ok: false, reason: 'store-not-ready' });
+    const qs = queryOf(req);
+    const rows = store.listMemos(qs.accountId || null, { contactId: qs.contactId || undefined, kind: qs.kind || undefined });
+    return json(res, 200, { ok: true, count: rows.length, memos: rows });
+  }));
+  register('POST', '/api/console/memos', wrap(async (req, res, body) => {
+    if (!store || typeof store.upsertMemo !== 'function') return json(res, 501, { ok: false, reason: 'store-not-ready' });
+    const b = body || {};
+    if (!b.title && !b.body) return json(res, 400, { ok: false, reason: 'missing-title-or-body' });
+    const row = store.upsertMemo(b.accountId || null, b);
+    return json(res, 200, { ok: true, memo: row });
+  }));
+  register('POST', '/api/console/memos/:id/delete', wrap(async (req, res, body) => {
+    if (!store || typeof store.deleteMemo !== 'function') return json(res, 501, { ok: false, reason: 'store-not-ready' });
+    const params = req.params || {};
+    const ok = store.deleteMemo(params.id ? String(params.id) : '');
+    return json(res, 200, { ok, deleted: ok });
+  }));
+  // ---- 日历 ----
+  register('GET', '/api/console/calendar', wrap(async (req, res) => {
+    if (!store || typeof store.dueCalendarEvents !== 'function') return json(res, 501, { ok: false, reason: 'store-not-ready' });
+    const qs = queryOf(req);
+    const until = qs.until || new Date().toISOString();
+    const rows = store.dueCalendarEvents(qs.accountId || null, until);
+    return json(res, 200, { ok: true, count: rows.length, events: rows });
+  }));
+  register('POST', '/api/console/calendar', wrap(async (req, res, body) => {
+    if (!store || typeof store.upsertCalendarEvent !== 'function') return json(res, 501, { ok: false, reason: 'store-not-ready' });
+    const b = body || {};
+    if (!b.scheduledAt) return json(res, 400, { ok: false, reason: 'missing-scheduledAt' });
+    const row = store.upsertCalendarEvent(b.accountId || null, b);
+    return json(res, 200, { ok: true, event: row });
+  }));
+  register('POST', '/api/console/calendar/:id/done', wrap(async (req, res, body) => {
+    if (!store || typeof store.completeCalendarEvent !== 'function') return json(res, 501, { ok: false, reason: 'store-not-ready' });
+    const params = req.params || {};
+    const ok = store.completeCalendarEvent(params.id ? String(params.id) : '');
+    return json(res, 200, { ok, done: ok });
+  }));
+  // ---- 模板库 ----
+  register('GET', '/api/console/phrases', wrap(async (req, res) => {
+    if (!store || typeof store.listPhrases !== 'function') return json(res, 501, { ok: false, reason: 'store-not-ready' });
+    const qs = queryOf(req);
+    const rows = store.listPhrases({
+      scene: qs.scene || undefined,
+      accountId: qs.accountId || undefined,
+      platform: qs.platform || undefined,
+      lang: qs.lang || undefined,
+    });
+    return json(res, 200, { ok: true, count: rows.length, phrases: rows });
+  }));
+  register('POST', '/api/console/phrases', wrap(async (req, res, body) => {
+    if (!store || typeof store.upsertPhrase !== 'function') return json(res, 501, { ok: false, reason: 'store-not-ready' });
+    const b = body || {};
+    if (!b.content) return json(res, 400, { ok: false, reason: 'missing-content' });
+    const row = store.upsertPhrase(b);
+    return json(res, 200, { ok: true, phrase: row });
+  }));
+  register('POST', '/api/console/phrases/:id/use', wrap(async (req, res, body) => {
+    if (!store || typeof store.bumpPhraseUsage !== 'function') return json(res, 501, { ok: false, reason: 'store-not-ready' });
+    const params = req.params || {};
+    store.bumpPhraseUsage(params.id ? String(params.id) : '');
+    return json(res, 200, { ok: true });
+  }));
+
+    register('GET', '/api/console/bbs/cooldown', wrap(async (req, res) => {
     if (!store || typeof store.getEffectiveRules !== 'function') {
       return json(res, 501, { ok: false, reason: 'store-not-ready', msg: 'store 未就绪' });
     }
@@ -1399,24 +1589,24 @@ if (action === 'blacklist' && deepScrape && typeof deepScrape.blockContact === '
     // B/A：先读缓存（非 force + 新鲜直接回）
     if (!force && happyCache) {
       const cached = happyCache.getCustomer(memberID, {});
-      if (cached) return json(res, 200, Object.assign({ ok: true, from: 'cache', memberID, contact: cached.profile ? { tid: cached.memberID, name: (cached.profile.fields && cached.profile.fields.name) || '' } : null, profile: cached.profile, messages: cached.messages, mailID: cached.mailID || mailID }, { cached: cached.cached, scannedAt: cached.fetchedAt }));
+      if (cached) return json(res, 200, Object.assign({ ok: true, from: 'cache', memberID, contact: cached.profile ? { tid: cached.memberID, name: (cached.profile.fields && cached.profile.fields.name) || '' } : null, profile: cached.profile, recruitPosts: cached.recruitPosts || [], messages: cached.messages, mailID: cached.mailID || mailID }, { cached: cached.cached, scannedAt: cached.fetchedAt }));
     }
     try {
       const r = await happyScanner.scanCustomer(memberID, mailID);
       if (r.ok) {
-        if (happyCache) happyCache.upsertCustomer(memberID, r.profile, r.messages, r.mailID || mailID);
+        if (happyCache) happyCache.upsertCustomer(memberID, r.profile, r.messages, r.mailID || mailID, r.recruitPosts || []);
         return json(res, 200, r);
       }
       // 抓取失败：降级回缓存
       if (happyCache) {
         const cached = happyCache.getCustomer(memberID, { stale: true });
-        if (cached) return json(res, 200, Object.assign({ ok: false, from: 'cache-fallback', scanReason: r.reason, memberID, contact: null, profile: cached.profile, messages: cached.messages, mailID: cached.mailID || mailID }, { stale: true }));
+        if (cached) return json(res, 200, Object.assign({ ok: false, from: 'cache-fallback', scanReason: r.reason, memberID, contact: null, profile: cached.profile, recruitPosts: cached.recruitPosts || [], messages: cached.messages, mailID: cached.mailID || mailID }, { stale: true }));
       }
       return json(res, 501, Object.assign({ ok: false }, r));
     } catch (e) {
       if (happyCache) {
         const cached = happyCache.getCustomer(memberID, { stale: true });
-        if (cached) return json(res, 200, Object.assign({ ok: false, from: 'cache-exception', reason: 'scan-exception', memberID, profile: cached.profile, messages: cached.messages }, { stale: true }));
+        if (cached) return json(res, 200, Object.assign({ ok: false, from: 'cache-exception', reason: 'scan-exception', memberID, profile: cached.profile, recruitPosts: cached.recruitPosts || [], messages: cached.messages }, { stale: true }));
       }
       return json(res, 501, { ok: false, reason: 'happy-customer-scan-exception', msg: String(e && e.message || e) });
     }
@@ -2414,6 +2604,324 @@ if (action === 'blacklist' && deepScrape && typeof deepScrape.blockContact === '
         others: ['fb', 'whatsapp'],
       },
     });
+  }));
+
+
+  // ==================== 全域 RPA 路由（模块4-8） ====================
+  // 基于 2026-10-26 全域 DOM 探测结果（docs/tools/bbs-probe/global-dom-topology.md）
+  // 所有路由通过 deepScrape 调度，强副作用需 confirmed=true（前端二次确认）
+
+  // ---------- 模块4 · 足迹反撩（只读） ----------
+  register('GET', '/api/console/domain/ashiato', wrap(async (req, res) => {
+    if (!deepScrape || typeof deepScrape.fetchAshiato !== 'function') {
+      return json(res, 501, { ok: false, reason: 'ashiato-scraper-not-injected', msg: 'deepScrape not injected' });
+    }
+    const qs = new URLSearchParams(String(req.url || '').split('?')[1] || '');
+    const opts = {};
+    const maxItems = qs.get('maxItems');
+    if (maxItems) opts.maxItems = parseInt(maxItems, 10);
+    const direction = qs.get('direction') || 'received'; // received | mine
+    opts.direction = direction;
+    const maxPages = qs.get('maxPages');
+    if (maxPages) opts.maxPages = parseInt(maxPages, 10);
+    try {
+      const r = await deepScrape.fetchAshiato(opts);
+      if (!r || !r.ok) {
+        if (r && r.reason === 'empty') return json(res, 200, Object.assign({ ok: true, footmarks: [], direction: direction }, r));
+        return json(res, 501, Object.assign({ ok: false, direction: direction }, r));
+      }
+      return json(res, 200, Object.assign({ ok: true, direction: direction }, r));
+    } catch (e) {
+      return json(res, 500, { ok: false, reason: 'ashiato-exception', msg: String((e && e.message) || e) });
+    }
+  }));
+
+  // ---------- 模块5 · 找对象页会员列表（只读） ----------
+  register('GET', '/api/console/domain/faces', wrap(async (req, res) => {
+    if (!deepScrape || typeof deepScrape.fetchFaces !== 'function') {
+      return json(res, 501, { ok: false, reason: 'faces-scraper-not-injected', msg: 'deepScrape 未注入' });
+    }
+    const qs = new URLSearchParams(String(req.url || '').split('?')[1] || '');
+    const opts = {};
+    const maxItems = qs.get('maxItems');
+    if (maxItems) opts.maxItems = parseInt(maxItems, 10);
+    try {
+      const r = await deepScrape.fetchFaces(opts);
+      if (!r || !r.ok) {
+        if (r && r.reason === 'empty') return json(res, 200, Object.assign({ ok: true, members: [] }, r));
+        return json(res, 501, Object.assign({ ok: false }, r));
+      }
+      return json(res, 200, Object.assign({ ok: true }, r));
+    } catch (e) {
+      return json(res, 500, { ok: false, reason: 'faces-exception', msg: String((e && e.message) || e) });
+    }
+  }));
+
+  // ---------- 模块5 · 高级搜索（强副作用，需 confirmed） ----------
+  register('POST', '/api/console/domain/search', wrap(async (req, res, body) => {
+    if (!deepScrape || typeof deepScrape.runProfileSearch !== 'function') {
+      return json(res, 501, { ok: false, reason: 'search-scraper-not-injected', msg: 'deepScrape 未注入' });
+    }
+    const opts = body && body.opts ? body.opts : (body || {});
+    try {
+      const r = await deepScrape.runProfileSearch(opts);
+      if (!r || !r.ok) {
+        if (r && r.reason === 'not-confirmed') return json(res, 403, Object.assign({ ok: false }, r));
+        if (r && r.reason === 'cdp-unavailable') return json(res, 501, Object.assign({ ok: false }, r));
+        return json(res, 500, Object.assign({ ok: false }, r));
+      }
+      return json(res, 200, Object.assign({ ok: true }, r));
+    } catch (e) {
+      return json(res, 500, { ok: false, reason: 'search-exception', msg: String((e && e.message) || e) });
+    }
+  }));
+
+  // ---------- 模块6 · 忽略/解除忽略 ----------
+  register('POST', '/api/console/domain/ignore', wrap(async (req, res, body) => {
+    if (!deepScrape || typeof deepScrape.manageIgnore !== 'function') {
+      return json(res, 501, { ok: false, reason: 'ignore-scraper-not-injected', msg: 'deepScrape 未注入' });
+    }
+    const opts = body && body.opts ? body.opts : (body || {});
+    try {
+      const r = await deepScrape.manageIgnore(opts);
+      if (!r || !r.ok) {
+        if (r && r.reason === 'not-confirmed') return json(res, 403, Object.assign({ ok: false }, r));
+        if (r && r.reason === 'cdp-unavailable') return json(res, 501, Object.assign({ ok: false }, r));
+        if (r && r.reason === 'empty') return json(res, 200, Object.assign({ ok: true, ignoredMemberIds: [] }, r));
+        return json(res, 500, Object.assign({ ok: false }, r));
+      }
+      return json(res, 200, Object.assign({ ok: true }, r));
+    } catch (e) {
+      return json(res, 500, { ok: false, reason: 'ignore-exception', msg: String((e && e.message) || e) });
+    }
+  }));
+
+  // ---------- 模块7 · 日历会える日 ----------
+  register('POST', '/api/console/domain/calendar', wrap(async (req, res, body) => {
+    if (!deepScrape || typeof deepScrape.manageCalendar !== 'function') {
+      return json(res, 501, { ok: false, reason: 'calendar-scraper-not-injected', msg: 'deepScrape 未注入' });
+    }
+    const opts = body && body.opts ? body.opts : (body || {});
+    try {
+      const r = await deepScrape.manageCalendar(opts);
+      if (!r || !r.ok) {
+        if (r && r.reason === 'not-confirmed') return json(res, 403, Object.assign({ ok: false }, r));
+        if (r && r.reason === 'cdp-unavailable') return json(res, 501, Object.assign({ ok: false }, r));
+        return json(res, 500, Object.assign({ ok: false }, r));
+      }
+      return json(res, 200, Object.assign({ ok: true }, r));
+    } catch (e) {
+      return json(res, 500, { ok: false, reason: 'calendar-exception', msg: String((e && e.message) || e) });
+    }
+  }));
+
+  // ---------- 模块8 · 日记发布/删除 ----------
+  register('POST', '/api/console/domain/diary', wrap(async (req, res, body) => {
+    if (!deepScrape || typeof deepScrape.manageDiary !== 'function') {
+      return json(res, 501, { ok: false, reason: 'diary-scraper-not-injected', msg: 'deepScrape 未注入' });
+    }
+    const opts = body && body.opts ? body.opts : (body || {});
+    try {
+      const r = await deepScrape.manageDiary(opts);
+      if (!r || !r.ok) {
+        if (r && r.reason === 'not-confirmed') return json(res, 403, Object.assign({ ok: false }, r));
+        if (r && r.reason === 'cdp-unavailable') return json(res, 501, Object.assign({ ok: false }, r));
+        return json(res, 500, Object.assign({ ok: false }, r));
+      }
+      return json(res, 200, Object.assign({ ok: true }, r));
+    } catch (e) {
+      return json(res, 500, { ok: false, reason: 'diary-exception', msg: String((e && e.message) || e) });
+    }
+  }));
+
+
+  // ---------- 模块9 · 全域运营：线索排序器（纯函数，喂候选返回排好序列表） ----------
+  // POST /api/console/domain/rank { candidates: [{ cat, online:{iconClass,label}, ... }] }
+  //   返回 { ok, ranked: [按 P1~P6 类别 × 在线档 排好的候选], catCount, tierDist }
+  register('POST', '/api/console/domain/rank', wrap(async (req, res, body) => {
+    if (typeof domainRank.rankCandidates !== 'function') {
+      return json(res, 501, { ok: false, reason: 'domain-rank-not-injected', msg: 'domainRank.js 未就绪' });
+    }
+    var DomainRank = domainRank;
+    const candidates = Array.isArray(body && body.candidates) ? body.candidates : [];
+    if (candidates.length === 0) {
+      return json(res, 200, { ok: true, ranked: [], catCount: 0, tierDist: {} });
+    }
+    try {
+      const ranked = DomainRank.rankCandidates(candidates);
+      // 统计类别分布 + 在线档分布（前端展示用）
+      const tierDist = {};
+      const catCount = {};
+      ranked.forEach(function(c) {
+        tierDist[c.onlineTier] = (tierDist[c.onlineTier] || 0) + 1;
+        catCount[c.cat] = (catCount[c.cat] || 0) + 1;
+      });
+      return json(res, 200, { ok: true, ranked: ranked, catCount: catCount, tierDist: tierDist, total: ranked.length });
+    } catch (e) {
+      return json(res, 500, { ok: false, reason: 'rank-exception', msg: String((e && e.message) || e) });
+    }
+  }));
+
+
+  // ---------- 模块9 · 正在聊（P1 最高价值，收件箱未读） ----------
+  register('GET', '/api/console/domain/chat', wrap(async (req, res) => {
+    if (!deepScrape || typeof deepScrape.fetchChatInbox !== 'function') {
+      return json(res, 501, { ok: false, reason: 'chat-scraper-not-injected', msg: 'deepScrape 未注入' });
+    }
+    const qs = new URLSearchParams(String(req.url || '').split('?')[1] || '');
+    const opts = {};
+    const maxItems = qs.get('maxItems');
+    if (maxItems) opts.maxItems = parseInt(maxItems, 10);
+    try {
+      const r = await deepScrape.fetchChatInbox(opts);
+      if (!r || !r.ok) {
+        if (r && r.reason === 'empty') return json(res, 200, Object.assign({ ok: true, chats: [] }, r));
+        return json(res, 501, Object.assign({ ok: false }, r));
+      }
+      return json(res, 200, Object.assign({ ok: true }, r));
+    } catch (e) {
+      return json(res, 500, { ok: false, reason: 'chat-exception', msg: String((e && e.message) || e) });
+    }
+  }));
+
+  // ---------- 模块9 · 点赞待回（P2 タイプされた列表） ----------
+  register('GET', '/api/console/domain/like', wrap(async (req, res) => {
+    if (!deepScrape || typeof deepScrape.fetchTypedLikes !== 'function') {
+      return json(res, 501, { ok: false, reason: 'like-scraper-not-injected', msg: 'deepScrape 未注入' });
+    }
+    const qs = new URLSearchParams(String(req.url || '').split('?')[1] || '');
+    const opts = {};
+    const maxItems = qs.get('maxItems');
+    if (maxItems) opts.maxItems = parseInt(maxItems, 10);
+    const tab = qs.get('tab') || 'received'; // received | sent | mutual
+    opts.tab = tab;
+    try {
+      const r = await deepScrape.fetchTypedLikes(opts);
+      if (!r || !r.ok) {
+        if (r && r.reason === 'empty') return json(res, 200, Object.assign({ ok: true, likes: [], tab: tab }, r));
+        return json(res, 501, Object.assign({ ok: false }, r));
+      }
+      return json(res, 200, Object.assign({ ok: true, tab: tab }, r));
+    } catch (e) {
+      return json(res, 500, { ok: false, reason: 'like-exception', msg: String((e && e.message) || e) });
+    }
+  }));
+
+  // ---------- 卡片交互原型 · 真实候选聚合（P1 正在聊 + P2 互赞，纯只读）----------
+  // GET /api/console/card-leads?maxLikes=30&maxChats=30
+  // 合并 deepScrape.fetchChatInbox + fetchTypedLikes(mutual)，富化 chat lastMsg/lastTime
+  // + P1~P6 在线档排序（domainRank），输出 cards[] 供 /card-deck 前端消费。
+  // 全部只读：不发消息、不写库、不改 DOM；仅调只读 CDP 表达式。
+  register('GET', '/api/console/card-leads', wrap(async (req, res) => {
+    if (!deepScrape) return json(res, 501, { ok: false, reason: 'deepScrape-not-injected' });
+    const qs = new URLSearchParams(String(req.url || '').split('?')[1] || '');
+    const maxLikes = parseInt(qs.get('maxLikes') || '30', 10);
+    const maxChats = parseInt(qs.get('maxChats') || '30', 10);
+    const cards = [];
+    const errors = {};
+    // P2 互赞（最高价值，先抓）
+    if (typeof deepScrape.fetchTypedLikes === 'function') {
+      try {
+        const likeR = await deepScrape.fetchTypedLikes({ tab: 'mutual', maxItems: maxLikes });
+        if (likeR && likeR.ok && Array.isArray(likeR.likes)) {
+          likeR.likes.forEach(function(lk, idx) {
+            cards.push({
+              id: 'L2-mutual-' + idx,
+              cat: 'like',
+              source: '互赞',
+              name: lk.name || '',
+              age: lk.age || '',
+              city: lk.city || '',
+              onlineIcon: lk.onlineIcon || null,
+              onlineLabel: lk.time ? ('互赞 ' + lk.time) : '',
+              memberId: lk.memberId || null,
+              sourceHref: lk.sourceHref || null,
+              lastMsg: '',
+              lastMsgZh: '',
+              lastTime: lk.time || '',
+              selfIntro: '',
+              interests: [],
+              avatarUrls: [],
+              ai: null,
+              state: 'PENDING',
+              selectedTalk: null,
+              tags: [],
+              opLog: [],
+              platform: 'ichigo',
+              noRevoke: true,
+            });
+          });
+        }
+      } catch (e) { errors.like = String((e && e.message) || e); }
+    }
+    // P1 正在聊（未读收件箱）
+    if (typeof deepScrape.fetchChatInbox === 'function') {
+      try {
+        const chatR = await deepScrape.fetchChatInbox({ maxItems: maxChats });
+        if (chatR && chatR.ok && Array.isArray(chatR.chats)) {
+          chatR.chats.forEach(function(c, idx) {
+            cards.push({
+              id: 'L1-chat-' + idx,
+              cat: 'chat',
+              source: '正在聊',
+              name: c.name || '',
+              age: c.age || '',
+              city: c.city || '',
+              onlineIcon: c.onlineIcon || null,
+              onlineLabel: '',
+              memberId: null,
+              sourceHref: c.link || null,
+              lastMsg: c.lastMsg || '',
+              lastMsgZh: '',
+              lastTime: c.lastTime || '',
+              selfIntro: '',
+              interests: [],
+              avatarUrls: [],
+              ai: null,
+              state: 'PENDING',
+              selectedTalk: null,
+              tags: [],
+              opLog: [],
+              platform: 'ichigo',
+              noRevoke: true,
+            });
+          });
+        }
+      } catch (e) { errors.chat = String((e && e.message) || e); }
+    }
+    // domainRank 排序（P1 chat 优先于 P2 like）
+    try {
+      cards = domainRank.rankCandidates(cards);
+    } catch (e) { /* 排序失败不阻断，保持原序 */ }
+    return json(res, 200, {
+      ok: true,
+      total: cards.length,
+      cards: cards,
+      errors: Object.keys(errors).length ? errors : undefined,
+      note: '纯只读聚合：P1 正在聊 + P2 互赞，按 P1~P6 + 在线档排序。lastMsgZh/ai 留待前端按需补 AI。',
+    });
+  }));
+
+  // ---------- 模块9 · P2 点赞调试（诊断翻页） ----------
+  register('GET', '/api/console/domain/like-debug', wrap(async (req, res) => {
+    if (!deepScrape || typeof deepScrape.fetchTypedLikes !== 'function') {
+      return json(res, 501, { ok: false, reason: 'like-scraper-not-injected', msg: 'deepScrape 未注入' });
+    }
+    const qs = new URLSearchParams(String(req.url || '').split('?')[1] || '');
+    const opts = {};
+    const tab = qs.get('tab') || 'received';
+    opts.tab = tab;
+    opts.maxPages = parseInt(qs.get('maxPages') || '2', 10);
+    opts.maxItems = 50;
+    // 加诊断日志
+    const dbg = [];
+    const origEval = console.log;
+    try {
+      const r = await deepScrape.fetchTypedLikes(opts);
+      return json(res, 200, Object.assign({ ok: true, tab: tab, dbg: dbg }, r));
+    } catch (e) {
+      return json(res, 500, { ok: false, reason: 'like-debug-exception', msg: String((e && e.message) || e) });
+    }
   }));
 
   return app;

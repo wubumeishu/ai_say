@@ -93,11 +93,12 @@ function createHappyCache(opts) {
   }
 
   // ---------- 客户详情/会话（按 memberID 键） ----------
-  function upsertCustomer(memberID, profile, messages, mailID) {
+  function upsertCustomer(memberID, profile, messages, mailID, recruitPosts) {
     if (!memberID) return null;
     state.customers[String(memberID)] = {
       memberID: String(memberID),
       profile: profile || null,
+      recruitPosts: Array.isArray(recruitPosts) ? recruitPosts : [],
       messages: Array.isArray(messages) ? messages : [],
       mailID: mailID || '',
       fetchedAt: nowIso()

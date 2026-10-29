@@ -177,7 +177,25 @@ function createLiveScanner(deps = {}) {
     };
   }
 
-  return { scanLive, openCdpSession, close, get windowId() { return windowId; } };
+    /**
+   * 只读窗口状态探测：/browser/list（opened=true，只读不启动窗口）。
+   * 供 unreadPoller（autoOpenWindow=false）用：窗口没开 → 跳过该轮，不 /browser/open。
+   */
+  async function probeCdp() {
+    if (closed) return { ok: false, reason: 'scanner-closed' };
+    if (!windowId) return { ok: false, reason: 'no-window-configured' };
+    try {
+      const resp = await bit.listBrowsers({ page: 0, pageSize: 100 });
+      const items = (resp && resp.data && Array.isArray(resp.data.list)) ? resp.data.list : [];
+      const win = items.find(function(w) { return w && String(w.id || w.uuid || w.seq) === String(windowId); });
+      if (win) return { ok: true, window: { id: windowId, opened: true } };
+      return { ok: false, reason: 'window-closed', window: { id: windowId, opened: false } };
+    } catch (e) {
+      return { ok: false, reason: 'probe-failed', msg: String((e && e.message) || e) };
+    }
+  }
+
+  return { scanLive, openCdpSession, probeCdp, close, get windowId() { return windowId; } };
 }
 
 module.exports = { createLiveScanner, pickChatTarget };

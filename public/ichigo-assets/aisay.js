@@ -249,7 +249,76 @@ export function bindAiChips() {
     chip.addEventListener('click', function() {
       if (chip.disabled) return;
       var intent = chip.getAttribute('data-intent') || 'analyze';
+      if (intent === 'followup') { askFollowupSop(); return; }
       askAssistantWithIntent(intent);
+    });
+  });
+}
+
+// v5.3 · 跟进 SOP chip：走 /api/console/followup（关心/软推进ライン/理解退路，不直接说 LINE 品牌）
+export async function askFollowupSop() {
+  var cid = state.selectedId ? findContact(state.selectedId).contactId : null;
+  if (!cid) {
+    var h = document.getElementById('aiList');
+    if (h) { var m = document.createElement('div'); m.className = 'ai-msg bot err'; m.textContent = '请先选择客户，再生成跟进 SOP'; h.appendChild(m); h.scrollTop = h.scrollHeight; }
+    return;
+  }
+  aiAppendMsg('user', '跟进 SOP（加ライン）：' + cid, 'followup');
+  var host = document.getElementById('aiList');
+  var thinking = document.createElement('div');
+  thinking.className = 'ai-msg bot';
+  thinking.innerHTML = '<span class="ai-thinking">正在算该做的跟进动作…</span>';
+  host.appendChild(thinking); host.scrollTop = host.scrollHeight;
+  try {
+    var q = '/api/console/followup?conversationId=' + encodeURIComponent(cid) + '&name=' + encodeURIComponent((state.selectedId ? (findContact(state.selectedId).nickname || findContact(state.selectedId).displayName) : 'あなた'));
+    var res = await fetch(q);
+    var j = await res.json();
+    thinking.remove();
+    if (!j || j.ok !== true) {
+      aiAppendMsg('bot', esc((j && j.msg) || (j && j.reason) || '跟进 SOP 不可用'), 'followup-err');
+      return;
+    }
+    renderFollowupSop(j, host);
+  } catch (e) {
+    thinking.remove();
+    aiAppendMsg('bot', esc('跟进 SOP 请求失败：' + e.message), 'followup-err');
+  }
+}
+
+// 渲染 SOP 结果：stage 状态 + 推荐动作 + 3 类参考话术卡（复制/填入按钮）
+function renderFollowupSop(j, host) {
+  var card = document.createElement('div');
+  card.className = 'ai-msg bot';
+  var head = '跟进 SOP · stage=' + j.stage + ' · 距上条 ' + j.daysSinceLast + ' 天';
+  var rec = j.recommended;
+  card.innerHTML =
+    '<div style="font-weight:600;margin-bottom:4px">' + esc(head) + '</div>' +
+    '<div style="font-size:11px;color:var(--muted,#888);margin-bottom:6px">' + esc((j.decision && j.decision.note) || '') + '（LINE 一律 ライン 软推进）</div>' +
+    j.talks.map(function(tk) {
+      var label = { care: '💗 关心', nudge: '⏰ 软推进（ライン）', understand: '🤝 理解退路', meet: '🎯 约见面' }[tk.kind] || tk.kind;
+      return '<div class="ai-reply-card">' +
+        '<span class="ai-reply-type">' + esc(label) + '</span>' +
+        '<div class="ai-reply-content">' + esc(tk.ja) + '</div>' +
+        '<div class="ai-reply-trans">' + esc(tk.zh) + '</div>' +
+        '<div class="ai-card-btns">' +
+          '<button data-copy="' + tk.kind + '">复制</button>' +
+          '<button data-fill="' + tk.kind + '">填入输入框</button>' +
+        '</div></div>';
+    }).join('');
+  host.appendChild(card); host.scrollTop = host.scrollHeight;
+  // 绑定 复制/填入（只写 input，不发送，铁律 §0.1）
+  Array.prototype.forEach.call(card.querySelectorAll('[data-fill]'), function(b) {
+    b.addEventListener('click', function() {
+      var k = b.getAttribute('data-fill');
+      var tk = j.talks.find(function(x) { return x.kind === k; });
+      if (tk) { var mi = document.getElementById('msgInput'); if (mi) { mi.value = tk.ja; mi.focus(); } }
+    });
+  });
+  Array.prototype.forEach.call(card.querySelectorAll('[data-copy]'), function(b) {
+    b.addEventListener('click', function() {
+      var k = b.getAttribute('data-copy');
+      var tk = j.talks.find(function(x) { return x.kind === k; });
+      if (tk && navigator.clipboard) navigator.clipboard.writeText(tk.ja).catch(function() {});
     });
   });
 }
@@ -259,11 +328,11 @@ export async function askAssistantWithIntent(intent) {
   var t = inp ? inp.value.trim() : '';
   if (t) {
     inp.value = '';
-    var labelMap = { analyze: '深度心理分析', reply: '生成高情商回复', deflect: '委婉拉扯/拒绝', meet: '引导线下约会' };
+    var labelMap = { analyze: '深度心理分析', reply: '生成高情商回复', deflect: '委婉拉扯/拒绝', meet: '引导线下约会', followup: '跟进 SOP（加ライン）' };
     var msg = t + '（意图：' + (labelMap[intent] || intent) + '）';
     await askAssistantCore(msg, intent);
   } else {
-    var defaultMsg = { analyze: '请对当前客户做深度心理分析', reply: '请生成高情商回复建议', deflect: '请给出委婉拉扯/拒绝的话术', meet: '请引导客户到线下见面' };
+    var defaultMsg = { analyze: '请对当前客户做深度心理分析', reply: '请生成高情商回复建议', deflect: '请给出委婉拉扯/拒绝的话术', meet: '请引导客户到线下见面', followup: '请按跟进 SOP 给当前客户生成参考话术（关心/软推进ライン/理解退路）' };
     await askAssistantCore(defaultMsg[intent] || intent, intent);
   }
 }

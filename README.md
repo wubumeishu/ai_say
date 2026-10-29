@@ -104,3 +104,19 @@ node --test tests/*.test.js \
 1. 绝不擅自给客户发消息；发送永远走「建议 → 确认 → 执行」。
 2. 密钥与客户数据不进 Git（settings.json、data/、backups/、*.log）。
 3. 改动后必须验证（后端跑 node --test，前端确认页面可用）。
+
+
+## 启动方式（两种，按需选）
+
+```bat
+:: 前台模式（开发排障，Ctrl+C 停，日志直接看）
+start-console.bat
+
+:: 守护模式（生产，crash 自重启 + 内存护栏 + 优雅退出）
+start-guarded.bat   :: 首次自动装 pm2，之后 pm2 monit/logs/restart/stop
+```
+
+- **前台模式**：适合开发、看日志、排障；窗口关了进程就停。
+- **守护模式（pm2）**：适合长期跑（引流需要 7x24 在线）；进程崩了 pm2 自动拉起，
+  内存超 512M 自动换新进程，优雅退出留足 10s 关 SQLite。详见 [docs/GUARDIAN.md](docs/GUARDIAN.md)。
+- 控制台入口：http://127.0.0.1:8300/ichigo-console（出会）+ 快乐平台视图。

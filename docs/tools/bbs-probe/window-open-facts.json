@@ -1,0 +1,8 @@
+{
+ "ts": "2026-10-29T09:38:44.845Z",
+ "note": "BitBrowser /browser/list 实测无 opened/running 字段（全 100 条都 opened=否，实为字段不存在非状态）。18595(快乐)/17098(出会) 注册在 BitBrowser（id=1ccd4351/2315e879），当前物理窗口未开。probeCdp 语义=查 windowId 是否注册；\"窗口物理开关\"由 CDP 连接结果决定，poller 降级跳过不崩。服务侧 8300 由 pm2 守护，窗口开关完全用户手动控制，服务不自动 /browser/open。",
+ "registeredWindows": [
+  "1ccd4351a6fe4482bc8378a78c53398e(18595 快乐)",
+  "2315e879dd6642559bdc11a07bb1fc43(17098 出会)"
+ ]
+}

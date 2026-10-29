@@ -1,0 +1,292 @@
+{
+  "forms": [
+    {
+      "action": "message_detail.php?mailUID=&mailID=DeN%2B9JIDCuJ9OvV%2B6vm4h4tb33tpfF3rqXohUvReg%2BQ%3D",
+      "method": "post",
+      "id": "send_message",
+      "fields": [
+        {
+          "tag": "input",
+          "type": "hidden",
+          "name": "stampUrl",
+          "maxl": -1
+        },
+        {
+          "tag": "input",
+          "type": "hidden",
+          "name": "stampType",
+          "maxl": -1
+        },
+        {
+          "tag": "input",
+          "type": "hidden",
+          "name": "mannerFlag",
+          "maxl": -1
+        },
+        {
+          "tag": "input",
+          "type": "hidden",
+          "name": "mannerReply",
+          "maxl": -1
+        },
+        {
+          "tag": "input",
+          "type": "hidden",
+          "name": "mannerReplyType",
+          "maxl": -1
+        },
+        {
+          "tag": "input",
+          "type": "hidden",
+          "name": "billboardId",
+          "maxl": -1
+        },
+        {
+          "tag": "input",
+          "type": "hidden",
+          "name": "janlName",
+          "maxl": -1
+        },
+        {
+          "tag": "input",
+          "type": "hidden",
+          "name": "ukey",
+          "maxl": -1
+        },
+        {
+          "tag": "input",
+          "type": "hidden",
+          "name": "UID",
+          "maxl": -1
+        },
+        {
+          "tag": "input",
+          "type": "hidden",
+          "name": "mailUID",
+          "maxl": -1
+        },
+        {
+          "tag": "input",
+          "type": "hidden",
+          "name": "index",
+          "maxl": -1
+        },
+        {
+          "tag": "input",
+          "type": "hidden",
+          "name": "isMyToukouRouteFlag",
+          "maxl": -1
+        },
+        {
+          "tag": "input",
+          "type": "hidden",
+          "name": "fstMsgTempFlg",
+          "maxl": -1
+        },
+        {
+          "tag": "input",
+          "type": "hidden",
+          "name": "memberSex",
+          "maxl": -1
+        },
+        {
+          "tag": "input",
+          "type": "hidden",
+          "name": "firstMsgSaveFlg",
+          "id": "firstMsgSaveFlg",
+          "maxl": -1
+        },
+        {
+          "tag": "input",
+          "type": "hidden",
+          "name": "fromMessageListFlg",
+          "maxl": -1
+        },
+        {
+          "tag": "input",
+          "type": "hidden",
+          "name": "messageSendToBillboardFlg",
+          "maxl": -1
+        },
+        {
+          "tag": "input",
+          "type": "hidden",
+          "cls": "firstMsgFlg",
+          "maxl": -1
+        },
+        {
+          "tag": "input",
+          "type": "hidden",
+          "cls": "firstMsgReplyFlg",
+          "maxl": -1
+        },
+        {
+          "tag": "input",
+          "type": "hidden",
+          "cls": "firstMsgBoardFlg",
+          "maxl": -1
+        },
+        {
+          "tag": "input",
+          "type": "hidden",
+          "cls": "firstMsgSaveNo",
+          "maxl": -1
+        },
+        {
+          "tag": "input",
+          "type": "hidden",
+          "cls": "ageCertified",
+          "maxl": -1
+        },
+        {
+          "tag": "input",
+          "type": "hidden",
+          "cls": "oppositeAgeCertified",
+          "maxl": -1
+        },
+        {
+          "tag": "input",
+          "type": "hidden",
+          "cls": "userTwilioBlocked",
+          "maxl": -1
+        },
+        {
+          "tag": "input",
+          "type": "hidden",
+          "cls": "oppositeTwilioBlocked",
+          "maxl": -1
+        },
+        {
+          "tag": "input",
+          "type": "hidden",
+          "cls": "twilioBlockedMsgList",
+          "maxl": -1
+        },
+        {
+          "tag": "input",
+          "type": "hidden",
+          "cls": "registeredCtTel",
+          "maxl": -1
+        },
+        {
+          "tag": "input",
+          "type": "hidden",
+          "cls": "ctTelRegisteredFlg",
+          "maxl": -1
+        },
+        {
+          "tag": "input",
+          "type": "hidden",
+          "cls": "twilioPointMinimum",
+          "maxl": -1
+        },
+        {
+          "tag": "input",
+          "type": "hidden",
+          "name": "isRevokePopupView",
+          "maxl": -1
+        },
+        {
+          "tag": "input",
+          "type": "hidden",
+          "id": "stashMsgText",
+          "maxl": -1
+        },
+        {
+          "tag": "input",
+          "type": "hidden",
+          "id": "placeholderToName",
+          "maxl": -1
+        },
+        {
+          "tag": "input",
+          "type": "hidden",
+          "cls": "twilioAppType",
+          "maxl": -1
+        },
+        {
+          "tag": "input",
+          "type": "hidden",
+          "cls": "receptionTimeDefault",
+          "maxl": -1
+        },
+        {
+          "tag": "input",
+          "type": "hidden",
+          "cls": "talkReceptionTimeCancel",
+          "maxl": -1
+        },
+        {
+          "tag": "input",
+          "type": "hidden",
+          "cls": "talkTelNo",
+          "maxl": -1
+        },
+        {
+          "tag": "input",
+          "type": "hidden",
+          "cls": "talkTelNo2",
+          "maxl": -1
+        },
+        {
+          "tag": "input",
+          "type": "hidden",
+          "cls": "talkTelNoStr",
+          "maxl": -1
+        },
+        {
+          "tag": "input",
+          "type": "hidden",
+          "cls": "talkTelNo2Str",
+          "maxl": -1
+        },
+        {
+          "tag": "textarea",
+          "type": "textarea",
+          "name": "messageBody",
+          "id": "text-message",
+          "cls": "message__form__input__text",
+          "maxl": 800
+        },
+        {
+          "tag": "select",
+          "type": "select-one",
+          "name": "manner",
+          "id": "manner",
+          "cls": "select_manner manner_option"
+        }
+      ]
+    },
+    {
+      "action": "message_detail.php?a=a&mailID=DeN%2B9JIDCuJ9OvV%2B6vm4h4tb33tpfF3rqXohUvReg%2BQ%3D",
+      "method": "post",
+      "id": "upload_picture",
+      "fields": [
+        {
+          "tag": "input",
+          "type": "file",
+          "name": "upload_file",
+          "id": "upload_file",
+          "cls": "hide_uploader",
+          "maxl": -1
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "cls": "ds_round_btn_solid  switch_content"
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "id": "submit_button",
+          "cls": "ds_round_btn_shadow_blue"
+        }
+      ]
+    }
+  ],
+  "sendBlocks": 0,
+  "recvBlocks": 1,
+  "opened": 1,
+  "sampleSend": null,
+  "sampleRecv": "募集から送信\n                                                    フ"
+}

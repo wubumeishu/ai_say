@@ -19,5 +19,8 @@
   "license": "UNLICENSED",
   "dependencies": {
     "ws": "^8.21.3"
+  },
+  "devDependencies": {
+    "pm2": "^7.1.1"
   }
 }

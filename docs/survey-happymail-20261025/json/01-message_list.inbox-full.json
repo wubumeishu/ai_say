@@ -1,0 +1,52 @@
+{
+  "count": 2,
+  "unread": "0",
+  "unreadAddition": "",
+  "typeUnread": "0",
+  "bbPromotion": "0",
+  "nenreiNg": "0",
+  "tabs": [
+    {
+      "text": "すべて",
+      "active": false
+    },
+    {
+      "text": "未読",
+      "active": true
+    },
+    {
+      "text": "未返信",
+      "active": false
+    },
+    {
+      "text": "返信済",
+      "active": false
+    },
+    {
+      "text": "保存済",
+      "active": false
+    }
+  ],
+  "items": [
+    {
+      "name": "しんや",
+      "pref": "30代後半 札幌市中央区",
+      "lastMsg": "おいくらですか？",
+      "time": "10/23 17:24",
+      "status": "",
+      "selValue": "71182882,45210791",
+      "link": "message_detail.php?a=a&mailID=DeN%2B9JIDCuJ9OvV%2B6vm4hxVF7uCB5N46CMNFgtQAuhs%3D",
+      "thumbBg": "background-image: url(./images/renewal/lazy/noimage_male.png?v=22031401)"
+    },
+    {
+      "name": "クロニクル",
+      "pref": "50代前半 北海道(道央)",
+      "lastMsg": "ごっくんしてくれるなら大丈夫です😊\nいかがでしょうか？",
+      "time": "10/22 07:28",
+      "status": "",
+      "selValue": "71182882,51053024",
+      "link": "message_detail.php?a=a&mailID=DeN%2B9JIDCuJ9OvV%2B6vm4h90RiKUCro1AQk3ExGFBk7E%3D",
+      "thumbBg": "background-image: url(./images/renewal/lazy/noimage_male.png?v=22031401)"
+    }
+  ]
+}

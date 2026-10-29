@@ -1,0 +1,614 @@
+<html lang="ja"><head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0,user-scalable=no">
+    
+    <title>イククル</title>
+    <link rel="stylesheet" type="text/css" media="screen" href="/assets/css/Common.css?23">
+    <link rel="stylesheet" type="text/css" media="screen" href="/assets/css/ProfileSearch.css?12">
+    <link rel="stylesheet" type="text/css" media="screen" href="/assets/css/FooterMenu.css">
+    
+    <script type="text/javascript" src="/assets/js/jquery.min.js?1"></script>
+    <script type="text/javascript" src="/assets/js/Common.js?2"></script>
+    <script type="text/javascript" src="/assets/js/ct.js?18"></script>
+    <script type="text/javascript" src="/assets/js/ProfileSearch.js?1"></script>
+    <meta http-equiv="Cache-Control" content="no-cache">
+    <meta http-equiv="Pragma" content="no-cache">
+    <link rel="apple-touch-icon" href="/assets/img/favicon/72.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="/assets/img/favicon/72.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="/assets/img/favicon/114.png">
+    <link rel="apple-touch-icon" sizes="120x120" href="/assets/img/favicon/120.png">
+    <link rel="apple-touch-icon" sizes="144x144" href="/assets/img/favicon/144.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="/assets/img/favicon/152.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/assets/img/favicon/180.png">
+
+    <link rel="icon" sizes="192x192" href="/assets/img/favicon/192.png">
+    <link rel="icon" sizes="128x128" href="/assets/img/favicon/128.png">
+    <meta name="robots" content="noindex">
+</head>
+<body class="">
+
+
+<header>
+    <a class="btn-home" href="/menu.html">
+        <img src="/assets/img/site/mainmenu/ic-home-white.png?20201204">
+    </a>
+    <h1 class="header-position"><a href="/menu.html">イククル</a></h1>
+            <a class="btn-tomorrow" href="/sns/snsashiato/show.html">
+                        <img src="/assets/img/site/mainmenu/ic-tomorrow.png?20201204">
+        </a>
+    </header>
+
+        
+<div class="head_pt">
+  <div class="head_pt01">
+    <p class="head_pt02">
+      <span class="head_pt03"><img src="/assets/img/site/mainmenu/icon_point.png" width="22px" class="head_middle"></span>
+      <span class="head_font4vw head_middle header_point_value" id="header_point_value">50pt</span>
+    </p>
+    <p class="head_pt04">
+      <span class="head_pta head_pt05 head_middle"><a href="/point/purchase/show_top.html">追加</a></span>
+    </p>
+  </div>
+  <div class="head_pt01 head_pt01a">
+    <p class="head_pt02">
+      <span class="head_pt03"><img src="/assets/img/site/mainmenu/icon_g.png" width="22px" class="head_middle"></span>
+      <span class="head_font4vw head_middle header_gold_value" id="header_gold_value">577G</span>
+    </p>
+    <p class="head_pt04">
+      <span class="head_ptb head_pt05 head_middle"><a href="/point/ptfemale/show_main_menu.html">交換</a></span>
+    </p>
+  </div>
+</div>
+
+
+    <div id="title">お相手検索</div>
+
+
+            <div id="jserror" style="width:100%;margin:0px;padding:0.2rem;" class="center bgText  red">JavaScriptが無効です。<br>ブラウザの設定でJavaScriptを有功にしてください。<br></div>
+            
+<article>
+<main>
+
+
+                                        <div class="bgMiddle noBorder">
+        <button class="greenButton width70 input_search" type="button" name="input_search_outer" id="input_search_outer" value="検索"><img alt="" src="/assets/img/common/icon/icon_search_yellow.png" width="16">検索する</button>
+    </div>
+    <div class="bgTopGray onlyBottomBorder">
+        <p class="big11">
+            こだわり検索
+        </p>
+    </div>
+    <div class="bgFrame tabFrame ConditionCheckWrap">
+        <form name="search" id="search" action="/profile/profilesearch/exec_routing_profile_search.html" method="post">
+            <input type="hidden" name="identifier" value="search">
+            <div class="bgMiddle pd10">
+                <div class="cls searchConditionArea mgTop06">
+                    <div class="searchConditionLeftArea w67">
+                        <p class="big11">お相手&nbsp;<span class="man"><span class="man"><span style="font-weight:normal">♂</span></span>男性</span></p>
+                    </div>
+                    <div class="searchConditionRightArea">
+                        
+                        <a class="button rightSettingButton" href="/profile/profilesearch/exec_sex_change_save.html?q=Tks2bXR1VG54Z3FLM2Y2RkFWMjRBdz09">変更</a>
+                    </div>
+                </div>
+            </div>
+            <div class="bgMiddle">
+                <p class="mb0 attrib_label">検索地域［現在］</p>
+                <div class="w67">
+                    <ul class="list mgLeft15 blueGreen">
+                                                                                                                                                                                                                                                                                <li>埼玉県 全域
+                                        </li>
+                                                                                                                                                                                                            <input type="hidden" name="prefAndCity" value="16-10016">
+                    </ul>
+                </div>
+                                <input name="selectedArea_button" id="city_button" value="地域/市区町村の変更" type="submit" class="button button-small-padding mgR06 mt0">
+            </div>
+            <div class="bgMiddle">
+                <p class="mb0 attrib_label">年齢</p>
+                <div class="rightLink">
+                    
+                    <select name="ageFrom" class="inputSelect w40"><option value="0" selected="selected">指定なし</option>
+<option value="1">18-19歳</option>
+<option value="2">20代前半</option>
+<option value="3">20代後半</option>
+<option value="4">30代前半</option>
+<option value="5">30代後半</option>
+<option value="6">40代前半</option>
+<option value="7">40代後半</option>
+<option value="8">50代前半</option>
+<option value="9">50代後半</option>
+<option value="10">60代以上</option>
+</select>
+                    ～
+                    
+                    <select name="ageTo" class="inputSelect w40"><option value="0" selected="selected">指定なし</option>
+<option value="1">18-19歳</option>
+<option value="2">20代前半</option>
+<option value="3">20代後半</option>
+<option value="4">30代前半</option>
+<option value="5">30代後半</option>
+<option value="6">40代前半</option>
+<option value="7">40代後半</option>
+<option value="8">50代前半</option>
+<option value="9">50代後半</option>
+<option value="10">60代以上</option>
+</select>
+                </div>
+            </div>
+            <div class="bgMiddle">
+                <p class="mb0 attrib_label">身長</p>
+                <div class="rightLink">
+                    
+                    <select name="heightFrom" class="inputSelect w40"><option value="0" selected="selected">指定なし</option>
+<option value="1">150未満</option>
+<option value="2">150～154</option>
+<option value="3">155～159</option>
+<option value="4">160～164</option>
+<option value="5">165～169</option>
+<option value="6">170～174</option>
+<option value="7">175～179</option>
+<option value="8">180以上</option>
+</select>
+                    ～
+                    
+                    <select name="heightTo" class="inputSelect w40"><option value="0" selected="selected">指定なし</option>
+<option value="1">150未満</option>
+<option value="2">150～154</option>
+<option value="3">155～159</option>
+<option value="4">160～164</option>
+<option value="5">165～169</option>
+<option value="6">170～174</option>
+<option value="7">175～179</option>
+<option value="8">180以上</option>
+</select>
+                </div>
+            </div>
+            <div class="bgMiddle">
+                <p class="mb0 attrib_label">スタイル</p>
+                <div class="cls searchConditionArea">
+                    <div class="searchConditionLeftArea w67">
+                        
+                                                    <ul class="mgLeft15">
+                                <li><span class="selectSearchCondition">指定なし</span></li>
+                            </ul>
+                                                </div>
+                        <div class="searchConditionRightArea">
+                            <input type="submit" name="style_button" id="style_button" value="設定" class="button rightSettingButton">
+                        </div>
+                    </div>
+                </div>
+                <div class="bgMiddle">
+                    <p class="mb0 attrib_label">
+                        ルックス
+                    </p>
+                    <div class="cls searchConditionArea">
+                        <div class="searchConditionLeftArea w67">
+                            
+                                                            <ul class="mgLeft15">
+                                    <li><span class="selectSearchCondition">指定なし</span></li>
+                                </ul>
+                                                    </div>
+                        <div class="searchConditionRightArea">
+                            <input type="submit" name="looks_button" id="looks_button" value="設定" class="button rightSettingButton">
+                        </div>
+                    </div>
+                </div>
+                <div class="bgMiddle">
+                    <p class="mb0 attrib_label">職業</p>
+                    <div class="cls searchConditionArea">
+                        <div class="searchConditionLeftArea w67">
+                            
+                                                            <ul class="mgLeft15">
+                                    <li><span class="selectSearchCondition">指定なし</span></li>
+                                </ul>
+                                                    </div>
+                        <div class="searchConditionRightArea">
+                            <input type="submit" name="occupation_button" id="occupation_button" value="設定" class="button rightSettingButton">
+                        </div>
+                    </div>
+                </div>
+                <div class="bgMiddle">
+                    <p class="mb0 attrib_label">出身地</p>
+                    <div class="cls searchConditionArea">
+                        <div class="searchConditionLeftArea w67">
+                                                            <ul class="mgLeft15">
+                                    <li><span class="selectSearchCondition">指定なし</span></li>
+                                </ul>
+                                                        
+                        </div>
+                        <div class="searchConditionRightArea">
+                            <input type="submit" name="birthCity_button" id="birthCity_button" value="設定" class="button rightSettingButton">
+                        </div>
+                    </div>
+                </div>
+                <div class="bgMiddle">
+                    <div class="selectBox">
+                        <p class="labelLeft attrib_label">年収</p>
+                        
+                        <select name="income" class="inputSelect right w55"><option value="0" selected="selected">指定なし</option>
+<option value="1">100万円以下</option>
+<option value="2">100～300万円</option>
+<option value="3">300～600万円</option>
+<option value="4">600～1000万円</option>
+<option value="5">1000～2000万円</option>
+<option value="6">2000～5000万円</option>
+<option value="7">5000万～1億円</option>
+<option value="8">1億円以上</option>
+</select>
+                    </div>
+                </div>
+                <div class="bgMiddle">
+                    <p class="mb0 attrib_label">暇な時間</p>
+                    <div class="cls searchConditionArea">
+                        <div class="searchConditionLeftArea w67">
+                            
+                                                            <ul class="mgLeft15">
+                                    <li><span class="selectSearchCondition">指定なし</span></li>
+                                </ul>
+                                                    </div>
+                        <div class="searchConditionRightArea">
+                            <input type="submit" name="freeTime_button" id="freeTime_button" value="設定" class="button rightSettingButton">
+                        </div>
+                    </div>
+                </div>
+                <div class="bgMiddle">
+                    <p class="mb0 attrib_label">交際ステータス</p>
+                    <div class="searchConditionRelationship">
+                                                <div><span class="spanBox37"><input type="checkbox" name="married[]" id="marital1" value="1"><label for="marital1"><span></span>未婚</label></span>&nbsp;<input type="checkbox" name="married[]" id="marital4" value="4"><label for="marital4"><span></span>交際中</label></div><div><span class="spanBox37"><input type="checkbox" name="married[]" id="marital2" value="2"><label for="marital2"><span></span>既婚</label></span>&nbsp;<input type="checkbox" name="married[]" id="marital5" value="5"><label for="marital5"><span></span>複雑な関係</label></div><div><span class="spanBox37"><input type="checkbox" name="married[]" id="marital6" value="6"><label for="marital6"><span></span>別居</label></span>&nbsp;<input type="checkbox" name="married[]" id="marital3" value="3"><label for="marital3"><span></span>バツあり</label></div>                    </div>
+                </div>
+                <div class="bgMiddle">
+                    <div class="selectBox">
+                        <p class="labelLeft attrib_label">子供</p>
+                        
+                        <select name="child" class="inputSelect right  w50"><option value="0" selected="selected">指定なし</option>
+<option value="1">いる</option>
+<option value="2">いない</option>
+</select>
+                    </div>
+                </div>
+                <div class="bgMiddle">
+                    <p class="labelLeft attrib_label">目</p>
+                    <div class="searchConditionEye">
+                        <input type="checkbox" name="eyes[]" id="eye1" value="1"><label for="eye1"><span></span>一重</label>&nbsp;<input type="checkbox" name="eyes[]" id="eye2" value="2"><label for="eye2"><span></span>二重</label>&nbsp;<input type="checkbox" name="eyes[]" id="eye3" value="3"><label for="eye3"><span></span>奥二重</label><input type="checkbox" name="eyes[]" id="eye4" value="4"><label for="eye4"><span></span>ネコ目</label>&nbsp;<input type="checkbox" name="eyes[]" id="eye5" value="5"><label for="eye5"><span></span>たれ目</label>                    </div>
+                </div>
+                                    <div class="bgMiddle">
+                        <div class="selectBox">
+                            <p class="labelLeft attrib_label">車</p>
+                            
+                            <select name="car" class="inputSelect right"><option value="0" selected="selected">指定なし</option>
+<option value="1">あり</option>
+<option value="2">あり(バイク)</option>
+<option value="3">なし</option>
+</select>
+                        </div>
+                    </div>
+                                <div class="bgMiddle">
+                    <div class="selectBox">
+                        <p class="labelLeft attrib_label">お酒</p>
+                        
+                        <select name="alcohol" class="inputSelect right w50"><option value="0" selected="selected">指定なし</option>
+<option value="1">飲む</option>
+<option value="2">ときどき飲む</option>
+<option value="3">飲まない</option>
+</select>
+                    </div>
+                </div>
+                <div class="bgMiddle">
+                    <div class="selectBox">
+                        <p class="labelLeft attrib_label">タバコ</p>
+                        
+                        <select name="cigarette" class="inputSelect right w50"><option value="0" selected="selected">指定なし</option>
+<option value="1">吸う</option>
+<option value="2">ときどき吸う</option>
+<option value="3">吸わない</option>
+</select>
+                    </div>
+                </div>
+                <div class="bgMiddle">
+                    <div class="selectBox">
+                        <p class="labelLeft attrib_label">画像</p>
+                        
+                        <select name="image" class="inputSelect right w50"><option value="0" selected="selected">指定なし</option>
+<option value="1">画像なし</option>
+<option value="2">プロフ画像あり</option>
+</select>
+                    </div>
+                </div>
+                <div class="bgMiddle">
+                    <p class="mb0 attrib_label">星座</p>
+                    <div class="cls searchConditionArea">
+                        <div class="searchConditionLeftArea w67">
+                            
+                                                            <ul class="mgLeft15">
+                                    <li><span class="selectSearchCondition">指定なし</span></li>
+                                </ul>
+                                                    </div>
+                        <div class="searchConditionRightArea">
+                            <input type="submit" name="constellation_button" id="constellation_button" value="設定" class="button rightSettingButton">
+                        </div>
+                    </div>
+                </div>
+                <div class="bgMiddle">
+                    <p class="mb0 attrib_label">血液型</p>
+                    <div class="searchConditionBlood">
+                        <input type="checkbox" name="blood[]" id="blood1" value="1"><label for="blood1"><span></span>A</label>&nbsp;<input type="checkbox" name="blood[]" id="blood2" value="2"><label for="blood2"><span></span>B</label>&nbsp;<input type="checkbox" name="blood[]" id="blood3" value="3"><label for="blood3"><span></span>O</label>&nbsp;<input type="checkbox" name="blood[]" id="blood4" value="4"><label for="blood4"><span></span>AB</label>                    </div>
+                </div>
+                                <div class="bgMiddle">
+                    <p class="mb0 attrib_label">お相手の好みの年齢</p>
+                    <div class="rightLink">
+                        
+                        <select name="fAgeFrom" class="inputSelect w40"><option value="0" selected="selected">指定なし</option>
+<option value="1">18-19歳</option>
+<option value="2">20代前半</option>
+<option value="3">20代半ば</option>
+<option value="4">20代後半</option>
+<option value="5">30代前半</option>
+<option value="6">30代半ば</option>
+<option value="7">30代後半</option>
+<option value="8">40代前半</option>
+<option value="9">40代半ば</option>
+<option value="10">40代後半</option>
+<option value="11">50代前半</option>
+<option value="12">50代半ば</option>
+<option value="13">50代後半</option>
+<option value="14">60代以上</option>
+</select>
+                        ～
+                        
+                        <select name="fAgeTo" class="inputSelect w40"><option value="0" selected="selected">指定なし</option>
+<option value="1">18-19歳</option>
+<option value="2">20代前半</option>
+<option value="3">20代半ば</option>
+<option value="4">20代後半</option>
+<option value="5">30代前半</option>
+<option value="6">30代半ば</option>
+<option value="7">30代後半</option>
+<option value="8">40代前半</option>
+<option value="9">40代半ば</option>
+<option value="10">40代後半</option>
+<option value="11">50代前半</option>
+<option value="12">50代半ば</option>
+<option value="13">50代後半</option>
+<option value="14">60代以上</option>
+</select>
+                    </div>
+                </div>
+                <div class="bgMiddle">
+                    <p class="mb0 attrib_label">お相手の好みのスタイル</p>
+                    <div class="cls searchConditionArea">
+                        <div class="searchConditionLeftArea w67">
+                            
+                                                            <ul class="mgLeft15">
+                                    <li><span class="selectSearchCondition">指定なし</span></li>
+                                </ul>
+                                                    </div>
+                        <div class="searchConditionRightArea">
+                            <input type="submit" name="fStyle_button" id="fStyle_button" value="設定" class="button rightSettingButton">
+                        </div>
+                    </div>
+                </div>
+                <div class="bgMiddle">
+                    <p class="mb0 attrib_label">キャリア</p>
+                    <div class="cls searchConditionArea">
+                        <div class="searchConditionLeftArea w67">
+                                                            <ul class="mgLeft15">
+                                    <li><span class="selectSearchCondition">指定なし</span></li>
+                                </ul>
+                                                        
+                        </div>
+                        <div class="searchConditionRightArea">
+                            <input type="submit" name="carrier_button" id="carrier_button" value="設定" class="button rightSettingButton">
+                        </div>
+                    </div>
+                </div>
+                <div class="bgMiddle">
+                    <div class="selectBox">
+                        <p class="labelLeft attrib_label">デートでしたいこと</p>
+                        
+                        <select name="dateId" class="inputSelect right w50"><option value="0" selected="selected">指定なし</option>
+<option value="1">お食事のみ</option>
+<option value="2">最初は食事から</option>
+<option value="3">相手に合わせる</option>
+<option value="99">その他</option>
+</select>
+                    </div>
+                </div>
+                <div class="bgMiddle">
+                    <div class="selectBox">
+                        <p class="labelLeft attrib_label">出会うまでの希望</p>
+                        
+                        <select name="meetId" class="inputSelect right w50"><option value="0" selected="selected">指定なし</option>
+<option value="1">まずは会いたい</option>
+<option value="2">条件が合えば会いたい</option>
+<option value="3">メッセージを重ねてから会いたい</option>
+</select>
+                    </div>
+                </div>
+                <div class="bgMiddle pd5Percent">
+                    <p class="left attrib_label mb0">フリーワード検索</p>
+                    <p class="right mb0">
+                        <a href="/static/contents/show.html?q=a01UMUpRVW43cmFZdjVGZkZhdDR5anVhL0Z2Y2l5cG5NbEZYSlBuaW16WERyR1ZaYkcyVWdSVExzbW9pL0RUZA%3D%3D">
+                            <span class="btnHint"><img src="/assets/img/common/icon/icon_hint.png">検索のヒント</span>
+                        </a>
+                    </p>
+                    <p class="cls mt0">
+                        <span class="spanGray">自己紹介が対象</span><br>
+                        <span class="red">※絵文字は使用できません</span>
+                    </p>
+                    
+                    <input type="text" name="freeWord" class="inputTxtRd w90" maxlength="10" value="">
+                </div>
+                <div class="bgMiddle">
+                    <p class="labelLeft attrib_label">並び順</p>
+                    <div class="right radio-blue w70 mgTop06">
+                                                                            
+                            <input type="radio" name="sortOrder" id="sortorder0" checked="checked" value="0">
+                            <label for="sortorder0">&nbsp;ログイン順</label>
+                                                    
+                            <input type="radio" name="sortOrder" id="sortorder1" value="1">
+                            <label for="sortorder1">&nbsp;登録順</label>
+                                            </div>
+                </div>
+
+                    <div class="bgMiddle">
+                        <button class="greenButton width70 input_search" type="button" name="input_search_inner" id="input_search_inner" value="検索"><img alt="" src="/assets/img/common/icon/icon_search_yellow.png" width="16">検索する</button>
+                    </div>
+                    <input type="hidden" name="sex" value="1">
+
+                    </form>
+
+                    <form action="/profile/profilesearch/exec_reset.html" name="" method="post">
+<input type="hidden" name="identifier" value="reset">
+<input type="hidden" name="sex" value="1">
+<input type="hidden" name="prefAndCity" value="24-10024">
+<input type="hidden" name="ageFrom" value="0">
+<input type="hidden" name="ageTo" value="0">
+<input type="hidden" name="heightFrom" value="0">
+<input type="hidden" name="heightTo" value="0">
+<input type="hidden" name="style" value="0">
+<input type="hidden" name="looks" value="0">
+<input type="hidden" name="occupation" value="0">
+<input type="hidden" name="birthCity" value="0">
+<input type="hidden" name="income" value="0">
+<input type="hidden" name="freeTime" value="0">
+<input type="hidden" name="married" value="0">
+<input type="hidden" name="associate" value="0">
+<input type="hidden" name="child" value="0">
+<input type="hidden" name="eyes" value="0">
+<input type="hidden" name="alcohol" value="0">
+<input type="hidden" name="cigarette" value="0">
+<input type="hidden" name="image" value="0">
+<input type="hidden" name="constellation" value="0">
+<input type="hidden" name="blood" value="0">
+<input type="hidden" name="bustFrom" value="0">
+<input type="hidden" name="bustTo" value="0">
+<input type="hidden" name="fAgeFrom" value="0">
+<input type="hidden" name="fAgeTo" value="0">
+<input type="hidden" name="fStyle" value="0">
+<input type="hidden" name="carrier" value="0">
+<input type="hidden" name="selfEvaluation" value="0">
+<input type="hidden" name="interest" value="0">
+<input type="hidden" name="dateId" value="0">
+<input type="hidden" name="meetId" value="0">
+<input type="hidden" name="car" value="0">
+<input type="hidden" name="sortOrder" value="0">
+
+                    <div class="bgMiddle">
+                        <p class="red center mt0">
+                            検索条件は残ります
+                        </p>
+<input type="submit" name="condition_reset" id="reset" value="検索条件リセット" class="button width70">
+                    </div>
+                    </form>
+                </div>
+
+            <div class="bgFrame">
+                <div class="bgMiddle btn">
+                    <a href="/profile/leisuresearch/show_select_category.html">
+                        <p class="btn2">
+                            <img alt="" src="/assets/img/site/leisure/icon_hobby.png" class="icon">&nbsp;<span>趣味検索</span>
+                        </p></a>
+                </div>
+                <div class="bgMiddle btn">
+                    
+                    
+                    <a href="/sns/snssearch/show_faces.html?q=Z1RZbERPVExBM25FNE00U2JXM0twUGJ2Ni9MM29MQ0VPczFSNmppSlowTT0%3D">
+                    <p class="btn2">
+                        <img alt="" src="/assets/img/common/icon/icon_gallery.png" class="icon">&nbsp;<span>写真検索</span>
+                    </p></a>
+                </div>
+                <div class="bgMiddle btn">
+                    <a href="/profile/nicknamesearch/show_nickname_search.html">
+                    <p class="btn2">
+                        <img alt="" src="/assets/img/common/icon/icon_pen.png" class="icon">&nbsp;<span>ニックネーム検索</span>
+                    </p></a>
+                </div>
+                <div class="bgMiddle btn">
+                    
+                    
+                    <a href="/sns/snssearch/show_search.html?q=SnlOWkNXMFVHa1p1V2k3VUQzdkVJVjBNSmxqdDk2aytydURBL2JKcWEwST0%3D">
+                    <p class="btn2">
+                        <img alt="" src="/assets/img/common/icon/icon_people2.png" class="icon">&nbsp;<span>ニューフェイス検索</span>
+                    </p></a>
+                </div>
+            </div>
+</main>
+</article>
+
+<div id="popup-modal" class="popup-mfp popup-2 white-popup-block mfp-hide">
+    <div class="modal-txt error-1">地域は8県まで選択可能です。</div>
+    <a class="popup-modal-close" id="popClose" href="#">はい</a>
+</div>
+
+<link rel="stylesheet" type="text/css" media="screen" href="/assets/css/Profile.css?34">
+<link rel="stylesheet" href="/assets/css/magnificpopup/magnific-popup.css?1">
+<script src="/assets/js/jquery.min.js?1"></script>
+<script src="/assets/js/popper.min.js?0"></script>
+<script src="/assets/plugins/bootstrap/js/bootstrap.min.js?0"></script>
+<script src="/assets/plugins/magnificpopup/js/jquery.magnific-popup.min.js?0"></script>
+<script src="/assets/js/main.js?0"></script>
+<script type="text/javascript">
+$(function(){
+    $('.input_search').click(function() {
+        const maxSelect = 8; // max
+        var area_count  = "1";
+		if (area_count > maxSelect) {
+			$(".modal-txt").html("地域は8県まで選択可能です。");
+			$.magnificPopup.open({
+			  items: {
+				src: '#popup-modal'
+			  },
+			  type: 'inline'
+			});
+			return false;
+		}
+
+        $('<input>').attr('type', 'hidden').attr('name', 'input_search').attr('value', '1').attr('id','input_search').appendTo('#search');
+        $("#search").attr("action",'/profile/profilesearch/show_profile_search_list_input_condition.html');
+        $('#search').submit();
+        $('#input_search').remove();
+        $("#search").attr("action",'/profile/profilesearch/exec_routing_profile_search.html');
+    });
+
+    $("#popClose").on("click", function(){
+        $.magnificPopup.close();
+    });
+});
+</script>
+
+
+
+
+            <nav class="bottom-nav">
+            
+                            <div class="bottom-nav-item">
+                                <a href="/sns/snssearch/show_faces.html" class="bottom-nav-item-txt nav-search">お相手探し</a>
+                </div>
+
+            
+                            <div class="bottom-nav-item">
+                                <a href="/bbs/show_bbs.html" class="bottom-nav-item-txt nav-recruit">募集</a>
+                </div>
+
+            
+                            <div class="bottom-nav-item relative">
+                                                    <a href="/mail/inbox/show_mailbox.html" class="bottom-nav-item-txt nav-mail">メッセージ</a>
+                </div>
+
+            
+                            <div class="bottom-nav-item relative">
+                                                                                    <span class="caution">99</span>
+                                                                <a href="/sns/snstype/show_typed_list.html" class="bottom-nav-item-txt nav-type">タイプ</a>
+                </div>
+                
+            
+                            <div class="bottom-nav-item relative">
+                                                    <a href="/mypage.html" class="bottom-nav-item-txt nav-mypage">
+                        マイページ
+                    </a>
+                </div>
+        </nav>
+        
+                
+
+</body></html>

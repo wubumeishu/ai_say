@@ -1,0 +1,102 @@
+{
+  "raw": {
+    "error_no": 0,
+    "error_msg": "",
+    "profile_billboard": [
+      {
+        "billboard_id": 196199524,
+        "billboard_profile_id": "40447426",
+        "billboard_post_time": "10/24 12:48",
+        "billboard_genre_code": 205,
+        "billboard_genre_name": "大人の出会い",
+        "billboard_subject": "車内でエフきる方！",
+        "billboard_read_count": 1,
+        "billboard_ret_count": 0,
+        "billboard_my_read": 0,
+        "billboard_scene_name_list": null,
+        "billboard_scene_bold_list": null
+      },
+      {
+        "billboard_id": 196198356,
+        "billboard_profile_id": "40447426",
+        "billboard_post_time": "10/24 12:08",
+        "billboard_genre_code": 203,
+        "billboard_genre_name": "今すぐ会いたい",
+        "billboard_subject": "口か手でできる方",
+        "billboard_read_count": 5,
+        "billboard_ret_count": 2,
+        "billboard_my_read": 0,
+        "billboard_scene_name_list": null,
+        "billboard_scene_bold_list": null
+      },
+      {
+        "billboard_id": 196185280,
+        "billboard_profile_id": "40447426",
+        "billboard_post_time": "10/23 23:14",
+        "billboard_genre_code": 203,
+        "billboard_genre_name": "今すぐ会いたい",
+        "billboard_subject": "千歳でセフす",
+        "billboard_read_count": 7,
+        "billboard_ret_count": 1,
+        "billboard_my_read": 0,
+        "billboard_scene_name_list": [
+          "今日",
+          "お気軽に"
+        ],
+        "billboard_scene_bold_list": [
+          false,
+          false
+        ]
+      },
+      {
+        "billboard_id": 196184177,
+        "billboard_profile_id": "40447426",
+        "billboard_post_time": "10/23 22:45",
+        "billboard_genre_code": 205,
+        "billboard_genre_name": "大人の出会い",
+        "billboard_subject": "千歳で会える人",
+        "billboard_read_count": 1,
+        "billboard_ret_count": 0,
+        "billboard_my_read": 0,
+        "billboard_scene_name_list": null,
+        "billboard_scene_bold_list": null
+      }
+    ],
+    "page": 1,
+    "pages": 1
+  },
+  "summary": {
+    "source": "POST /sp/app/api/html/get_profile_billboard.php (token+offset+count+direction=1&member_seq_id=40447426&memuse=true)",
+    "count": 4,
+    "posts": [
+      {
+        "id": 196199524,
+        "title": "車内でエフきる方！",
+        "readCount": 1,
+        "myRead": 0,
+        "genre": "大人の出会い"
+      },
+      {
+        "id": 196198356,
+        "title": "口か手でできる方",
+        "readCount": 5,
+        "myRead": 0,
+        "genre": "今すぐ会いたい"
+      },
+      {
+        "id": 196185280,
+        "title": "千歳でセフす",
+        "readCount": 7,
+        "myRead": 0,
+        "genre": "今すぐ会いたい"
+      },
+      {
+        "id": 196184177,
+        "title": "千歳で会える人",
+        "readCount": 1,
+        "myRead": 0,
+        "genre": "大人の出会い"
+      }
+    ]
+  }
+}

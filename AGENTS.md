@@ -33,6 +33,22 @@
 > 全量回归 132→138/138 0 红（总控 pwsh-174 独立复跑 + code-reviewer task-8 节点 3 复审
 > 5 审查点全核 + 前端 grep 交叉核对 + 铁律红线确认 + backend-lead 定向 11/11 一致）；
 > §1.6/§3.11/§5/§6/§7 基线更新为 138/138，行数控件前端实测 2368 行（node 3 后）。
+> 2026-10-27 v5.2（快乐平台引流全流程实测 + 代码债清偿）：测绘图升级 v5.2（§10，13 API + 发送/撤回链路坐实）；
+> happy*Expr 3 处 API 路径已修 + 4 新 Expr（帖子列表/详情/撤回/发送坐实）+ happy.js 端点分域表 +
+> schema.sql 新增 ContactRecruitPost 表（_migration v5）+ store.upsertContactRecruitPost +
+> 快乐 customer 路由/缓存透传 recruitPosts；全量测试 231/231 全绿（测试已增长，物理口径以现跑为准）。
+> 2026-10-27 v5.3（用户 10 项反馈扩展，按批次落地）：
+>   批1 群控基座：TaskQueue 跨账号任务分发表 + store 账号池/窗口池/任务方法 + /account-pool /tasks 路由 + 前端账号池看板
+>   批2 未读轮询：unreadPoller（30s 非秒回，发现新未读→自动备料 查资料/历史/招募帖，不发消息）+ /poller 路由 + index 接线
+>   批3 C 多轮状态机：Conversation.followupStage（探测式 ADD）+ FollowupSop 表 + followupSop 引擎（3天加ライン，LINE 一律「ライン」软推进/关心/理解退路，男性付费语境）+ /followup 路由 + 前端 SOP chip + SOP 种子
+>   批4 LINE 接入：docs/plan/line-integration.md 设计稿（数据地基 LineMember/LineBind 已有，三期路线）
+>   批5 守护+使用方式：start-guarded.bat（pm2 守护）+ README 启动方式段（前台 vs 守护）
+>   批6 备忘录：Memo 表 + /memos 路由 + 前端工具箱面板（写入/删除）
+>   批7 日历：CalendarEvent 表 + /calendar 路由 + 前端待办日历
+>   批8 模板库升级：PhraseLibrary 表（场景标签+多语言+人设过滤）+ /phrases 路由 + 前端工具箱（复制/新增）
+>   批9 未读增量：#msg_notification_cnt 增量逻辑进 unreadPoller 基线（5 单测坐实）
+>   批10 后期（移动端）：暂缓
+>   全量测试 245/245 全绿（含 followupSop 9 用例 + unreadPoller 5 用例 + 新端点回归）。
 
 ---
 
@@ -152,7 +168,10 @@
 | server/aiService.js | LLM 调用（aiTranslate / aiUnderstandPage / aiRecommendReply） |
 | public/ichigo-console.html | 主控制台前端（/ichigo-console，实测 2368 行 B v1.1 前端：Action Chips + Accordion + 话术卡片 + 一键填入，拆分中） |
 | public/console.html + console.js | 卡片式控制台（/console） |
-| start-console.bat / stop-console.bat | 启动（先清 8300 端口再前台起）/ 停止 |
+| start-console.bat / stop-console.bat / start-guarded.bat | 前台启动（先清 8300）/ 停止 / pm2 守护启动 |
+| server/acquisition/followupSop.js | v5.3 C 多轮状态机：3天加ライン SOP 引擎（care/nudge/understand 三类，LINE 一律 ライン） |
+| server/adapter/unreadPoller.js | v5.3 未读轮询器（30s 非秒回，发现新未读→自动备料不发消息） |
+| docs/plan/line-integration.md | v5.3 LINE 接入设计稿（三期路线） |
 
 **运维事实**
 - 控制台：http://127.0.0.1:8300/ichigo-console 与 /console；端口 8300（PORT/HOST 可覆盖）。
@@ -160,6 +179,19 @@
 - 出会窗口 windowId：2315e879dd6642559bdc11a07bb1fc43（自用出会，勿删）。
 - 启动/停止：start-console.bat / stop-console.bat（bat 必须 CRLF 换行）。
 - 测试：node --test 全量（双口径见 §1.6；npm test 只覆盖 4 个文件，要手动全量）。
+
+**快乐平台机制（happymail.co.jp / 18595 窗口，v5.2 坐实）**
+- 渲染：.php 服务端渲染 + 13 业务 API POST（/sp/app/api/html/*.php）；CDP 调试口动态（每 /browser/open 现取），target 匹配 url 含 happymail.co.jp
+- 13 API（读/发/撤/帖四类，全部 POST /sp/app/api/html/ 下）：读=list_message(收件箱全量)/message_detail(会话全量)/list_profile_gallery(检索)/list_billboard(BBS)/typelist(点赞三路)/list_profile_ashi(足迹)/get_profile_fixed_phrase(客户画像40+字段)/get_notification_banner_info(通知)；发=send_message.php；撤=getTextMessageRevokeStatus.php+revokeTextMessage.php；帖=get_profile_billboard.php(客户帖子列表)+get_billboard.php(单帖正文 billboard_body+标签 scene_name_list+电话号码)
+- token 分域：读数据 API 用会话 UID；发送/撤回/帖子域用独立 token（动态获取），写项目按域分组
+- 发送：进 message_detail.php?mailID={b64} → form#send_message（41 字段含 ukey/UID/twilio 风控隐藏字段）→ textarea#text-message（maxl=800，支持 \n 换行→<br>）→ 点 .icon-message_send → 确认层点「送信する」→ POST send_message.php(200) + 新 .message__block--send + 未読标记
+- 撤回：消息块 button.revokeTextMessage（仅自己发的、对方未读、时限内）→ remodal「送信取消について」点「送信取消」→ revokeTextMessage.php。撤回对对方可见，对方可能已看到部分
+- 客源 4 路 UNION：点赞(typelist) + 检索(profile_gallery) + 募集(billboard) + 足迹(ashiato=主动看我的人)
+- 话术生成规则：三要素（人设+画像+上下文）→ 思考过程 5 维度（时间/撤回/人设/意向/竞争）→ 多维度选项（推进明天/周末/先交往/轻快唤回）+ 原文+译文+判断；每句一行（\n）；铁律 AI 只出草稿，真发走 建议→确认→执行，未确认绝不发
+- 防误发校验：发送前 header 含目标客户名 + #send_message 存在 + 全量聊天确认未发过；撤回前目标 messageId 块 + .revokeTextMessage 按钮存在
+- 测绘图：docs/survey-happymail-20261025/report/全域DOM结构拓扑图.md（v5.2，§10 全链路）；原始存档同目录 flow-haruki/
+- Adapter 现状（v5.2 补全 2026-10-27）：server/adapter/happy*.js（12 个 happy*Expr，含帖子列表/详情/撤回 4 新 Expr + 3 处 API 路径已修 /sp/app/api/html/），happy.js 13 API 端点分域表（getApiEndpoints）+ getRevokeExpr/帖子 getter，happyScanner.scanCustomer 抓 recruitPosts，happyCache 透传，consoleRoutes /happy/inbox/customer 返回 recruitPosts，store.upsertContactRecruitPost + schema.sql ContactRecruitPost 表（_migration v5）；全量测试 231/231 全绿
+
 
 **真发机制（已验证，勿重新踩坑）**
 - 页面：show_history.html 上 textarea（name=body，class=inputTextAreaRd，
@@ -343,7 +375,20 @@ AI 永不直接发，终极蓝图 §-1.5 人工兜底是底线）。
 3. 上下文摘要化，不塞全量消息。
 4. 数字（年龄/条数）从结构化数据取，防幻觉。
 
-**C 阶段（v2，规划）**：多轮状态机 + 多步任务分解 + 工具链 + 批量确认卡。
+**C 阶段（v5.3 已落核心）**：多轮状态机 + 多步任务分解 + 工具链 + 批量确认卡。
+  - **多轮状态机已落**（v5.3 批3）：Conversation.followupStage（0破冰/1跟进中/2约见面/3已推ライン/4私域/5冷却）
+    + server/acquisition/followupSop.js 跟进引擎（3 天加ライン SOP，LINE 一律写「ライン」软推进，
+    关心 care / 软推进 nudge / 理解退路 understand 三类话术，男性付费语境）+ FollowupSop 规则表 +
+    /api/console/followup 路由 + 前端「⏰ 跟进 SOP（加ライン）」chip + index.js 默认 SOP 种子。
+  - **跨账号任务分发已落**（v5.3 批1）：TaskQueue 表 + store.enqueueTask/claimTask/finishTask +
+    /api/console/tasks（入队/分发/完成）+ /api/console/account-pool（账号池+窗口健康巡检）。
+  - **未读轮询已落**（v5.3 批2）：server/adapter/unreadPoller.js（30s 非秒回，发现新未读→自动备料
+    查资料/历史/招募帖，不发消息）+ /api/console/poller 路由 + index.js 接线 + 前端账号池看板。
+  - **运营工具箱已落**（v5.3 批6/7/8）：Memo（备忘录）/CalendarEvent（日历）/PhraseLibrary（模板库升级，
+    场景标签+多语言）三表 + /memos /calendar /phrases 路由 + 前端「🧰 工具箱」面板（写入/复制/新增）。
+  - **LINE 接入设计稿已落**（v5.3 批4）：docs/plan/line-integration.md（数据地基 LineMember/LineBind 已有，
+    三期路线：OA 申请→Messaging API→平台内 SOP 触发导流闭环；个人号代接仅研究不上线）。
+  - 剩余：多步任务分解状态机（stage 转移自动化）+ 批量确认卡 + 看板可视化（Phase 4）。
 
 **破旧立新（长期体验规划，B v1.1 设计稿已定稿）**：设计稿
 [docs/plan/aishay-uix-upgrade.md](docs/plan/aishay-uix-upgrade.md)（B v1.1，task-5 定稿）。

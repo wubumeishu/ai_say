@@ -1,0 +1,31 @@
+{
+ "window": {
+  "seq": 18595,
+  "id": "1ccd4351a6fe4482bc8378a78c53398e",
+  "name": "不能删",
+  "platform": "快乐 happymail.co.jp"
+ },
+ "debugPort": 64690,
+ "startedAt": "2026-10-25T06:05:51.893Z",
+ "discipline": "全程只读：零发消息/零改登录态/零换IP/零点风控入口；POST 仅用于读数据 API（list_* 拉取）",
+ "v5_2_extension": {
+  "at": "2026-10-27T01:53+09:00",
+  "added": [
+   "13 个业务 API（原 8 + 新增：get_profile_billboard/get_billboard/send_message/revokeTextMessage/getTextMessageRevokeStatus）",
+   "发送链路坐实（send_message.php=200 + 未読标记 + 换行格式验证）",
+   "撤回链路坐实（revokeTextMessage.php=200 + 撤回对对方可见）",
+   "客户帖子维度（4 帖正文+标签+回复数）",
+   "换行格式规范（每句一行，textarea \\n → <br>）",
+   "防误发/防误撤校验清单"
+  ],
+  "files": [
+   "flow-haruki/16-sent-record.json（首次发送记录）",
+   "flow-haruki/17-revoke-record.json（撤回记录）",
+   "flow-haruki/18-sent-v2-record.json（换行版发送记录）",
+   "flow-haruki/18-sent-v2.png（发送后截图）",
+   "flow-haruki/5-reply-v2-multi.json（多维度话术）",
+   "flow-haruki/11-his-recruit-bodies.json（4 帖正文）",
+   "flow-haruki/6-haruki-billboards-all.json（帖子列表+正文，已修正）"
+  ]
+ }
+}

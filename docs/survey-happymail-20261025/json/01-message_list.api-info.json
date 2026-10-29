@@ -1,0 +1,122 @@
+{
+  "scriptSrcs": [
+    "https://px.ladsp.com/pixel_p?advertiser_id=00023489&f=1&fm=&sfp=&rp=--d30s--&su=2&site_url=https%3A%2F%2Fhappymail.co.jp%2Fsp%2Fapp%2Fhtml%2Fmessage_list.php&ts=1792908361502&ismc=1",
+    "https://dmp.im-apps.net/sdk/log.js",
+    "https://www.googletagmanager.com/gtag/destination?id=DC-8978044&l=itm_dl2_1026027&cx=c&gtm=4e6aj1",
+    "https://px.ladsp.com/pixel_p?advertiser_id=00023489&f=1&fm=&sfp=&rp=--d10s--&su=2&site_url=https%3A%2F%2Fhappymail.co.jp%2Fsp%2Fapp%2Fhtml%2Fmessage_list.php&ts=1792908341493&ismc=1",
+    "https://www.googletagmanager.com/gtm.js?id=GTM-WWRVLZL&l=itm_dl2_1026027",
+    "https://px.ladsp.com/pixel?advertiser_id=00023489&f=1&su=2&site_url=https%3A%2F%2Fhappymail.co.jp%2Fsp%2Fapp%2Fhtml%2Fmessage_list.php&fm=&sfp=&ts=1792908331489&sua=eyJhcmNoaXRlY3R1cmUiOiJ4ODYiLCJiaXRuZXNzIjoiIiwibW9kZWwiOiJQQ1QtQUwxMCIsIm1vYmlsZSI6dHJ1ZSwicGxhdGZvcm0iOiJBbmRyb2lkIiwicGxhdGZvcm1WZXJzaW9uIjoiMTcuMC4wIiwiZnVsbFZlcnNpb25MaXN0IjpbeyJicmFuZCI6Ik5vdChBOkJyYW5kIiwidmVyc2lvbiI6IjguMC4wLjAifSx7ImJyYW5kIjoiQ2hyb21pdW0iLCJ2ZXJzaW9uIjoiMTQ0LjAuNzU1OS4xMzMifSx7ImJyYW5kIjoiR29vZ2xlIENocm9tZSIsInZlcnNpb24iOiIxNDQuMC43NTU5LjEzMyJ9XX0%3D&ismc=1",
+    "https://tag.flvcdn.net/ltag.js",
+    "https://cdn-prd-gcp-jp0.aiqua.io/sdk/v3/r/aiqua.js",
+    "https://dmp.im-apps.net/js/1026027/0001/itm.js",
+    "https://d.line-scdn.net/n/line_tag/public/release/v1/lt.js",
+    "https://tags.creativecdn.com/t4DWO2cECl5B2znSbQeL.js",
+    "https://cd.ladsp.com/script/pixel2.js",
+    "https://www.googletagmanager.com/gtag/js?id=G-6RNFQBCG0K&cx=c&gtm=4e6aj1",
+    "https://www.googletagmanager.com/gtag/js?id=AW-782886282&cx=c&gtm=4e6aj1",
+    "https://www.googletagmanager.com/gtm.js?id=GTM-KCBDJPH",
+    "https://cdn.qgr.ph/qgraph.a69862584e95c4a8fd5f.js",
+    "https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js",
+    "https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.2/lodash.min.js",
+    "https://happymail.co.jp/sp/app/html/js/renewal/prevent_preload.min.js?v=26101904",
+    "https://cdn.qgraph.io/dist/aiqua-wp.js",
+    "https://googleads.g.doubleclick.net/pagead/viewthroughconversion/833992169/?random=1792908315238&cv=11&fst=1792908315238&bg=ffffff&guid=ON&async=1&en=gtag.config&gtm=45be6aj1z8d_AW-833992169za208xecxf1&gcd=13l3l3l3l1l1&dma=0&tag_exp=115938466~115938469~117776795~118897920~118897930~120213116~120385422~120469145~120469153~121246026~121246034&u_w=360&u_h=780&url=https%3A%2F%2Fhappymail.co.jp%2Fsp%2Fapp%2Fhtml%2Fmessage_list.php&rcb=11&frm=0&tiba=%E3%83%8F%E3%83%83%E3%83%94%E3%83%BC%E3%83%A1%E3%83%BC%E3%83%AB&hn=www.googleadservices.com&npa=0&pscdl=noapi&auid=911321053.1789847010&uaa=x86&uab=&uafvl=Not(A%253ABrand%3B8.0.0.0%7CChromium%3B144.0.7559.133%7CGoogle%2520Chrome%3B144.0.7559.133&uamb=1&uam=PCT-AL10&uap=Android&uapv=17.0.0&uaw=0&data=event%3Dgtag.config&ept=9&rfmt=3&fmt=4",
+    "https://googleads.g.doubleclick.net/pagead/viewthroughconversion/782886282/?random=1792908331508&cv=11&fst=1792908331508&bg=ffffff&guid=ON&async=1&en=gtag.config&gtm=45be6aj1z8d_AW-782886282za208xecxf1&gcd=13l3l3l3l1l1&dma=0&tag_exp=115938466~115938469~117776795~118897920~118897930~120385423~120469145~120469153~121246026~121246034&u_w=360&u_h=780&url=https%3A%2F%2Fhappymail.co.jp%2Fsp%2Fapp%2Fhtml%2Fmessage_list.php&rcb=14&frm=0&tiba=%E3%83%8F%E3%83%83%E3%83%94%E3%83%BC%E3%83%A1%E3%83%BC%E3%83%AB&hn=www.googleadservices.com&npa=0&pscdl=noapi&auid=911321053.1789847010&uaa=x86&uab=&uafvl=Not(A%253ABrand%3B8.0.0.0%7CChromium%3B144.0.7559.133%7CGoogle%2520Chrome%3B144.0.7559.133&uamb=1&uam=PCT-AL10&uap=Android&uapv=17.0.0&uaw=0&data=event%3Dgtag.config&ept=9&rfmt=3&fmt=4",
+    "https://cdnjs.cloudflare.com/ajax/libs/remodal/1.1.1/remodal.min.js",
+    "https://cdnjs.cloudflare.com/ajax/libs/js-cookie/2.1.4/js.cookie.min.js",
+    "https://cdnjs.cloudflare.com/ajax/libs/lazysizes/3.0.0/plugins/unveilhooks/ls.unveilhooks.min.js",
+    "https://happymail.co.jp/sp/app/html/js/renewal/cdn/ajax/libs/lazysizes/3.0.0/plugins/unveilhooks/ls.unveilhooks.min.js",
+    "https://cdnjs.cloudflare.com/ajax/libs/lazysizes/3.0.0/lazysizes.min.js",
+    "https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.17.1/moment.min.js",
+    "https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.0.0/crypto-js.min.js",
+    "https://happymail.co.jp/sp/app/html/js/renewal/cdn/ajax/libs/crypto-js/4.0.0/crypto-js.min.js",
+    "https://happymail.co.jp/sp/app/html/js/renewal/translation_jp.min.js?v=26101904",
+    "https://happymail.co.jp/sp/app/html/js/renewal/script.min.js?v=26101904",
+    "https://happymail.co.jp/sp/app/html/js/renewal/tab.min.js?v=26101904",
+    "https://happymail.co.jp/sp/app/html/js/renewal/happytime.min.js?v=26101904",
+    "https://happymail.co.jp/sp/app/html/js/renewal/happyMailSP.min.js?v=26101904",
+    "https://happymail.co.jp/sp/app/html/js/renewal/c_w_.min.js?v=26101904",
+    "https://happymail.co.jp/sp/app/html/js/renewal/messagelist.min.js?v=26101904",
+    "https://www.googletagmanager.com/gtag/js?id=AW-833992169",
+    "https://jscdn.appier.net/aa.js?id=happymail.co.jp",
+    "https://s.yimg.jp/images/listing/tool/cv/ytag.js"
+  ],
+  "g": {},
+  "hidden": [
+    {
+      "name": "",
+      "id": "selFid",
+      "val": ""
+    },
+    {
+      "name": "",
+      "id": "billboard_promotion_num",
+      "val": "0"
+    },
+    {
+      "name": "",
+      "id": "type_notification_cnt",
+      "val": "0"
+    },
+    {
+      "name": "",
+      "id": "msg_notification_cnt",
+      "val": "0"
+    },
+    {
+      "name": "",
+      "id": "msg_notification_addition",
+      "val": ""
+    },
+    {
+      "name": "",
+      "id": "nenrei_ng_flg",
+      "val": "0"
+    },
+    {
+      "name": "pin[]",
+      "id": "",
+      "val": "71182882,40447426,1"
+    },
+    {
+      "name": "pin[]",
+      "id": "",
+      "val": "71182882,45210791,1"
+    },
+    {
+      "name": "pin[]",
+      "id": "",
+      "val": "71182882,57131601,1"
+    },
+    {
+      "name": "pin[]",
+      "id": "",
+      "val": "71182882,70638187,1"
+    },
+    {
+      "name": "pin[]",
+      "id": "",
+      "val": "71182882,37722779,1"
+    },
+    {
+      "name": "pin[]",
+      "id": "",
+      "val": "71182882,51053024,1"
+    },
+    {
+      "name": "action",
+      "id": "",
+      "val": ""
+    },
+    {
+      "name": "pin_flg",
+      "id": "",
+      "val": ""
+    },
+    {
+      "name": "",
+      "id": "c_w_t",
+      "val": "これは開発者向けの機能です。ここに何かをコピー・貼り付けするように言われた場合、それは第三者があなたのハッピメールアカウ"
+    }
+  ]
+}

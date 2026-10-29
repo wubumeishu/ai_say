@@ -1,0 +1,10 @@
+{
+ "error_no": 107,
+ "error_msg": "セッションが切れました。再度ログインしてください",
+ "all_count": 0,
+ "page": 0,
+ "pages": 0,
+ "per_page": 0,
+ "message_list": [],
+ "_note": "error_no=107 会话过期（再ログインしてください）——拉取时会话超时，数据未拉到（正常，非 bug）"
+}

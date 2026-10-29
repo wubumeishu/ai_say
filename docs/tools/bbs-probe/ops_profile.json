@@ -1,0 +1,15 @@
+[
+ {
+  "expression": "(async function(){\n    for (let i=0;i<15;i++){ if (document.readyState==='complete') break; await new Promise(r=>setTimeout(r,1500)); }\n    const d = document;\n    const out = { href: location.href, title: d.title, ready: d.readyState };\n    out.fields = [];\n    d.querySelectorAll('form').forEach(f => {\n      const fid = { id: f.id || null, action: f.action, method: f.method, inputs: [] };\n      f.querySelectorAll('input, select, textarea, button').forEach(el => {\n        fid.inputs.push({\n          tag: el.tagName, type: el.type || null, name: el.name || null, id: el.id || null,\n          cls: String(el.className||'').slice(0,60),\n          value: el.type==='checkbox'||el.type==='radio' ? String(el.checked) : (el.value || '').slice(0,80),\n          options: el.tagName==='SELECT' ? Array.from(el.options).map(o=>o.value+':'+o.textContent.trim()).slice(0,60) : undefined,\n          placeholder: el.placeholder || undefined,\n          max: el.maxLength || undefined\n        });\n      });\n      out.fields.push(fid);\n    });\n    out.standalone = [];\n    d.querySelectorAll('input,select,textarea').forEach(el => {\n      if (el.form) return;\n      out.standalone.push({ tag: el.tagName, type: el.type||null, name: el.name||null, id: el.id||null });\n    });\n    out.sections = [];\n    d.querySelectorAll('h1,h2,h3,h4,.title,.sec-title,.section-title,legend').forEach(el => {\n      const t = (el.textContent||'').trim().replace(/\\s+/g,' ').slice(0,50);\n      if (t) out.sections.push({ text: t, tag: el.tagName, cls: String(el.className||'').slice(0,50) });\n    });\n    out.radioGroups = {};\n    d.querySelectorAll('input[type=radio]').forEach(el => {\n      const g = el.name || 'ungrouped';\n      if (!out.radioGroups[g]) out.radioGroups[g] = [];\n      out.radioGroups[g].push({ value: el.value, checked: el.checked, label: (el.parentElement ? (el.parentElement.textContent||'').trim().replace(/\\s+/g,' ').slice(0,30) : '') });\n    });\n    out.checkboxGroups = {};\n    d.querySelectorAll('input[type=checkbox]').forEach(el => {\n      const g = el.name || 'ungrouped';\n      if (!out.checkboxGroups[g]) out.checkboxGroups[g] = [];\n      out.checkboxGroups[g].push({ value: el.value, checked: el.checked, label: (el.parentElement ? (el.parentElement.textContent||'').trim().replace(/\\s+/g,' ').slice(0,30) : '') });\n    });\n    return JSON.stringify(out);\n  })()",
+  "awaitPromise": true,
+  "timeoutMs": 120000,
+  "save": "profile_01_form.json",
+  "saveDecode": false
+ },
+ {
+  "expression": "document.documentElement.outerHTML",
+  "timeoutMs": 60000,
+  "save": "profile_01_raw.html",
+  "saveDecode": false
+ }
+]

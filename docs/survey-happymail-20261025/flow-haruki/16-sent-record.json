@@ -1,0 +1,15 @@
+{
+  "target": "はるき (tid=40447426)",
+  "option": "第③条（先交往后见面）",
+  "msg": "会いたいって嬉しいよ。ただ、私はまずちゃんと話し合って、交わると決めた上で会いたいタイプ。君もそういう考え？",
+  "mailID": "DeN+9JIDCuJ9OvV+6vm4h4tb33tpfF3rqXohUvReg+Q=",
+  "sendEndpoint": "POST /sp/app/api/html/send_message.php",
+  "sentAt": "2026-10-27T01:53+09:00（Asia/Tokyo）",
+  "successSignals": [
+    "① 发送 POST 端点坐实：POST /sp/app/api/html/send_message.php → status=200（第 13 轮抓到的网络事件）",
+    "② 发送后 DOM：新 .message__block--send 出现（第 1 条，文本=所发内容），textarea 已清空",
+    "③ 消息块尾部追加「未読01:」标记（平台既読/未読标记，坐实是平台正常落库行为）",
+    "④ 防重复前置校验：发送前我发出消息数=0（未发过第③条）"
+  ],
+  "note": "API 复查因 CDP 通道反复超时未能在同一进程内完成，但上述 4 项独立信号已坐实发送成功；如需 API 级复核可下一轮单独跑 message_detail.php 拉全量。"
+}

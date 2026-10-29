@@ -1,0 +1,24 @@
+{
+  "target": "はるき (tid=40447426)",
+  "option": "第③条（先交往后见面·换行版）",
+  "msg": "会いたいって嬉しいよ。\nただ私はまずちゃんと話し合って、\n交わると決めた上で会いたいタイプ。\n君もそういう考え？",
+  "mailID": "DeN+9JIDCuJ9OvV+6vm4h4tb33tpfF3rqXohUvReg+Q=",
+  "sentAt": "2026-10-26T17:41:50.823Z",
+  "sendPost": [
+    {
+      "url": "https://happymail.co.jp/sp/app/api/html/send_message.php",
+      "status": 200
+    },
+    {
+      "url": "https://analytics.google.com/g/collect?v=2&tid=G-6RNFQBCG0K&gtm=45je6am0v9108443219za20gzb830316167zd830316167xf1&_p=179",
+      "status": 204
+    }
+  ],
+  "domAfter": {
+    "sendBlocks": 2,
+    "last": "会いたいって嬉しいよ。\nただ私はまずちゃんと話し合って、\n交わると決めた上で会いたいタイプ。\n君もそういう考え？\n未読02:41",
+    "taCleared": true,
+    "lastMsgId": "8210203370"
+  },
+  "apiAllCount": 0
+}

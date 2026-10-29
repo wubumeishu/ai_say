@@ -1,7 +1,7 @@
 (function() {
   // happymail.co.jp 快乐 · 发送 DOM 测绘（对应 §0.1 红线：本 Expr 只读 DOM，真发实现待用户授权 + 合规闸门 §1.1）
   // ⚠ 红线：本文件【不执行任何发送 fetch/POST/点击提交】——只抽取发送表单结构 + 风控字段，供后续真发坐实。
-  // 真发 = #send_message form + textarea#text-message[name=messageBody] + 预设回复 select；成功判定 = POST message_detail.php + 新 .message__block--send 出现（推断，需真发坐实 TODO）
+  // 真发 = #send_message form + textarea#text-message[name=messageBody] + 预设回复 select；成功判定 = POST /sp/app/api/html/send_message.php(200) + 新 .message__block--send + 未読标记（v5.2 坐实）
   var form = document.querySelector('#send_message, form[action*="message"]');
   var ta = document.querySelector('textarea#text-message[name=messageBody], textarea[name="messageBody"]');
   // 预设回复 select
@@ -13,11 +13,17 @@
       riskFields[inp.name || ('input_' + inp.type)] = inp.value || '';
     });
   }
-  // 成功判定参考（§0.1 推断，需真发坐实 TODO）
+  // 成功判定（v5.2 坐实 2026-10-27，非推断）：
+  // ① POST /sp/app/api/html/send_message.php → status=200（权威信号，含 ukey/UID 等风控字段）
+  // ② 新 .message__block--send 出现（块内 input[name="messageId"] 取 messageId）
+  // ③ textarea#text-message 清空 + 块尾「未読 HH:MM」标记
+  // 确认层：点 .icon-message_send 后弹 popupContent → 点 button「送信する」（不是「はい」）
+  // 换行格式：textarea 保留 \n，平台渲染成 <br> 多行
   var successRef = {
-    postTo: 'message_detail.php',
-    successSignal: '新 .message__block--send 出现在会话流（推断，需真发坐实）',
-    todo: true
+    postTo: '/sp/app/api/html/send_message.php',
+    confirmButton: '送信する',
+    successSignal: 'send_message.php=200 + 新 .message__block--send（input[name=MessageId]）+ textarea 清空 + 未読标记',
+    todo: false
   };
   return {
     // 红线：本 Expr 只读 DOM，未填充/未提交任何消息

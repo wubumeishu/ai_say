@@ -31,6 +31,16 @@ function openDb(dbPath) {
   } catch (e) {
     console.error('[store.openDb] 003 列补齐批次应用失败（不阻断）:', e && e.message);
   }
+  // v5.3 C 阶段：Conversation.followupStage 探测式 ADD COLUMN（幂等，同 002/003 先例）
+  try {
+    const cols = db.prepare('PRAGMA table_info(Conversation)').all().map((c) => c.name);
+    if (cols.indexOf('followupStage') === -1) {
+      db.exec('ALTER TABLE Conversation ADD COLUMN followupStage INTEGER NOT NULL DEFAULT 0');
+      console.log('[store.openDb] Conversation 加列 followupStage（v5.3 C 阶段）');
+    }
+  } catch (e) {
+    console.error('[store.openDb] followupStage 列补齐失败（不阻断）:', e && e.message);
+  }
   return db;
 }
 
@@ -313,6 +323,267 @@ function createStore({ dbPath = path.join(__dirname, '..', '..', 'data', 'aisay.
   /**
    * upsertAccountPersona(accountId, { persona, tone, background, targetAudience, taboos, status })
    */
+  // ===== v5.3 · 备忘录 / 日历 / 模板库（运营工具箱） =====
+  /** 备忘录 upsert。memoId = sha1('memo/' + accountId + '/' + (input.memoId||Date.now()))。 */
+  function upsertMemo(accountId, input = {}) {
+    const memoId = input.memoId || sha1('memo/' + (accountId || 'na') + '/' + Date.now());
+    const existing = db.prepare('SELECT * FROM Memo WHERE memoId = ?').get(memoId);
+    db.prepare(
+      'INSERT OR REPLACE INTO Memo (memoId,accountId,contactId,kind,title,body,dueAt,pinned,createdAt,updatedAt) VALUES (?,?,?,?,?,?,?,?,?,?)'
+    ).run(
+      memoId, accountId || null, input.contactId || null,
+      input.kind || 'general', input.title || '', input.body || '',
+      input.dueAt || null, input.pinned ? 1 : 0,
+      existing ? existing.createdAt : now(), now()
+    );
+    return db.prepare('SELECT * FROM Memo WHERE memoId = ?').get(memoId);
+  }
+
+  /** 列备忘录（按 accountId；kind/contactId 可选过滤；pinned 优先 + updatedAt 倒序）。 */
+  function listMemos(accountId, opts = {}) {
+    const where = [];
+    const args = [];
+    if (accountId) { where.push('accountId = ?'); args.push(accountId); }
+    if (opts.contactId) { where.push('contactId = ?'); args.push(opts.contactId); }
+    if (opts.kind) { where.push('kind = ?'); args.push(opts.kind); }
+    const sql = 'SELECT * FROM Memo ' + (where.length ? 'WHERE ' + where.join(' AND ') : '') + ' ORDER BY pinned DESC, updatedAt DESC';
+    return db.prepare(sql).all(...args);
+  }
+
+  function deleteMemo(memoId) {
+    if (!memoId) return false;
+    return db.prepare('DELETE FROM Memo WHERE memoId = ?').run(memoId).changes > 0;
+  }
+
+  /** 日历事件 upsert。eventId = sha1('cal/' + accountId + '/' + (input.eventId||Date.now()))。 */
+  function upsertCalendarEvent(accountId, input = {}) {
+    const eventId = input.eventId || sha1('cal/' + (accountId || 'na') + '/' + Date.now());
+    const existing = db.prepare('SELECT * FROM CalendarEvent WHERE eventId = ?').get(eventId);
+    db.prepare(
+      'INSERT OR REPLACE INTO CalendarEvent (eventId,accountId,contactId,kind,title,scheduledAt,reminded,done,createdAt,updatedAt) VALUES (?,?,?,?,?,?,?,?,?,?)'
+    ).run(
+      eventId, accountId || null, input.contactId || null,
+      input.kind || 'followup', input.title || '', input.scheduledAt || now(),
+      input.reminded ? 1 : (existing ? existing.reminded : 0),
+      input.done ? 1 : (existing ? existing.done : 0),
+      existing ? existing.createdAt : now(), now()
+    );
+    return db.prepare('SELECT * FROM CalendarEvent WHERE eventId = ?').get(eventId);
+  }
+
+  /** 取到期待办日历（scheduledAt <= until 且 done=0；accountId 可空=全账号）。 */
+  function dueCalendarEvents(accountId, untilIso) {
+    const where = ['done = 0'];
+    const args = [];
+    if (accountId) { where.push('accountId = ?'); args.push(accountId); }
+    if (untilIso) { where.push('scheduledAt <= ?'); args.push(untilIso); }
+    return db.prepare('SELECT * FROM CalendarEvent WHERE ' + where.join(' AND ') + ' ORDER BY scheduledAt ASC').all(...args);
+  }
+
+  function completeCalendarEvent(eventId) {
+    if (!eventId) return false;
+    return db.prepare("UPDATE CalendarEvent SET done = 1, updatedAt = ? WHERE eventId = ?").run(now(), eventId).changes > 0;
+  }
+
+  /** 模板库 upsert。phraseId = sha1('phrase/' + scope + '/' + (input.phraseId||Date.now()))。 */
+  function upsertPhrase(input = {}) {
+    const scope = input.scope || 'global';
+    const phraseId = input.phraseId || sha1('phrase/' + scope + '/' + Date.now());
+    const existing = db.prepare('SELECT * FROM PhraseLibrary WHERE phraseId = ?').get(phraseId);
+    db.prepare(
+      'INSERT OR REPLACE INTO PhraseLibrary (phraseId,scope,accountId,platform,scene,intent,lang,content,translated,tags,usageCount,source,createdAt,updatedAt) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+    ).run(
+      phraseId, scope, input.accountId || null, input.platform || null,
+      input.scene || 'general', input.intent || null, input.lang || 'ja',
+      input.content || '', input.translated || null,
+      Array.isArray(input.tags) ? JSON.stringify(input.tags) : (input.tags || null),
+      input.usageCount || 0, input.source || 'manual',
+      existing ? existing.createdAt : now(), now()
+    );
+    const row = db.prepare('SELECT * FROM PhraseLibrary WHERE phraseId = ?').get(phraseId);
+    try { if (row && row.tags) row.tags = JSON.parse(row.tags); } catch (_) { if (row) row.tags = []; }
+    return row;
+  }
+
+  /** 按场景/账号/平台/语言取模板（usageCount 倒序，热模板在前）。 */
+  function listPhrases(filters = {}) {
+    const where = [];
+    const args = [];
+    if (filters.scene) { where.push('scene = ?'); args.push(filters.scene); }
+    if (filters.accountId) { where.push('(accountId = ? OR scope = ?)'); args.push(filters.accountId, 'global'); }
+    if (filters.platform) { where.push('(platform = ? OR scope = ?)'); args.push(filters.platform, 'global'); }
+    if (filters.lang) { where.push('lang = ?'); args.push(filters.lang); }
+    const sql = 'SELECT * FROM PhraseLibrary ' + (where.length ? 'WHERE ' + where.join(' AND ') : '') + ' ORDER BY usageCount DESC, updatedAt DESC';
+    const rows = db.prepare(sql).all(...args);
+    rows.forEach((r) => { try { if (r.tags) r.tags = JSON.parse(r.tags); } catch (_) { r.tags = []; } });
+    return rows;
+  }
+
+  /** 模板命中计数（被选用时 +1）。 */
+  function bumpPhraseUsage(phraseId) {
+    if (!phraseId) return;
+    db.prepare('UPDATE PhraseLibrary SET usageCount = usageCount + 1, updatedAt = ? WHERE phraseId = ?').run(now(), phraseId);
+  }
+
+    // ===== v5.3 · C 阶段多轮状态机（followupStage + FollowupSop） =====
+  /** 读会话的 followupStage（缺省 0）。 */
+  function getFollowupStage(conversationId) {
+    const row = db.prepare('SELECT followupStage FROM Conversation WHERE conversationId = ?').get(conversationId);
+    return row ? Number(row.followupStage) || 0 : 0;
+  }
+
+  /** 设会话的 followupStage（0-5）。 */
+  function setFollowupStage(conversationId, stage) {
+    const s = Math.max(0, Math.min(5, Number(stage) || 0));
+    db.prepare('UPDATE Conversation SET followupStage = ?, updatedAt = ? WHERE conversationId = ?').run(s, now(), conversationId);
+    return s;
+  }
+
+  /** SOP upsert。sopId = sha1('sop/' + scope + '/' + (input.sopId||Date.now()))。 */
+  function upsertFollowupSop(input = {}) {
+    const scope = input.scope || 'global';
+    const sopId = input.sopId || sha1('sop/' + scope + '/' + Date.now());
+    const existing = db.prepare('SELECT * FROM FollowupSop WHERE sopId = ?').get(sopId);
+    db.prepare(
+      'INSERT OR REPLACE INTO FollowupSop (sopId,scope,accountId,platform,stage,afterDays,actionKind,templateKey,note,active,createdAt,updatedAt) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)'
+    ).run(
+      sopId, scope, input.accountId || null, input.platform || null,
+      Number(input.stage) || 0, Number(input.afterDays) || 1,
+      input.actionKind || 'care', input.templateKey || null, input.note || null,
+      input.active === false ? 0 : 1,
+      existing ? existing.createdAt : now(), now()
+    );
+    return db.prepare('SELECT * FROM FollowupSop WHERE sopId = ?').get(sopId);
+  }
+
+  /** 取活跃 SOP（scope 匹配 global/platform/account，按 stage 过滤）。 */
+  function listFollowupSops(filters = {}) {
+    const where = ['active = 1'];
+    const args = [];
+    if (filters.stage !== undefined) { where.push('stage = ?'); args.push(Number(filters.stage) || 0); }
+    if (filters.platform) { where.push('(platform = ? OR scope = ?)'); args.push(filters.platform, 'global'); }
+    if (filters.accountId) { where.push('(accountId = ? OR scope = ?)'); args.push(filters.accountId, 'global'); }
+    return db.prepare('SELECT * FROM FollowupSop WHERE ' + where.join(' AND ') + ' ORDER BY stage, afterDays').all(...args);
+  }
+
+    // ===== v5.3 · 批1 群控基座（账号池/窗口池/跨账号任务分发） =====
+  /** 账号池：列账号（可按 status/platform 过滤）。 */
+  function listAccounts(filters = {}) {
+    const where = [];
+    const args = [];
+    if (filters.status) { where.push('status = ?'); args.push(filters.status); }
+    if (filters.platform) { where.push('platform = ?'); args.push(filters.platform); }
+    const sql = 'SELECT * FROM Account ' + (where.length ? 'WHERE ' + where.join(' AND ') : '') + ' ORDER BY createdAt';
+    return db.prepare(sql).all(...args);
+  }
+
+  /** 窗口池：列窗口（可按 accountId 过滤），带健康时间。 */
+  function listWindows(filters = {}) {
+    const where = [];
+    const args = [];
+    if (filters.accountId) { where.push('accountId = ?'); args.push(filters.accountId); }
+    const sql = 'SELECT * FROM WindowInstance ' + (where.length ? 'WHERE ' + where.join(' AND ') : '') + ' ORDER BY accountId, seq';
+    return db.prepare(sql).all(...args);
+  }
+
+  /** 标记窗口健康（巡检后回写 lastHealth）。 */
+  function markWindowHealth(windowId, healthy, detail) {
+    const ts = now();
+    db.prepare('UPDATE WindowInstance SET lastHealth = ?, updatedAt = ? WHERE windowId = ?').run(
+      JSON.stringify({ healthy: !!healthy, at: ts, detail: detail || null }), windowId && ts || ts, windowId
+    );
+  }
+
+  /** 任务入队（跨账号分发）。taskId = sha1('task/' + type + '/' + accountId + '/' + Date.now())。 */
+  function enqueueTask(input = {}) {
+    const type = input.type || 'scan';
+    const taskId = input.taskId || sha1('task/' + type + '/' + (input.accountId || 'na') + '/' + Date.now());
+    db.prepare(
+      'INSERT OR REPLACE INTO TaskQueue (taskId,platform,accountId,type,payload,status,priority,createdAt,updatedAt) VALUES (?,?,?,?,?,?,?,?,?)'
+    ).run(
+      taskId, input.platform || 'ichigo', input.accountId || null, type,
+      input.payload ? JSON.stringify(input.payload) : null,
+      'pending', Number(input.priority) || 0, now(), now()
+    );
+    return db.prepare('SELECT * FROM TaskQueue WHERE taskId = ?').get(taskId);
+  }
+
+  /** 领取任务（分配器：取某账号下一条 pending，置 assigned + assignedAt）。 */
+  function claimTask(accountId, platform) {
+    const row = db.prepare(
+      "SELECT * FROM TaskQueue WHERE status = 'pending' AND (accountId = ? OR accountId IS NULL) AND platform = ? ORDER BY priority DESC, createdAt ASC LIMIT 1"
+    ).get(accountId, platform);
+    if (!row) return null;
+    db.prepare("UPDATE TaskQueue SET status = 'assigned', assignedAt = ?, updatedAt = ? WHERE taskId = ?").run(now(), now(), row.taskId);
+    return db.prepare('SELECT * FROM TaskQueue WHERE taskId = ?').get(row.taskId);
+  }
+
+  /** 完成任务（done/failed + finishedAt + error）。 */
+  function finishTask(taskId, ok, error) {
+    db.prepare("UPDATE TaskQueue SET status = ?, finishedAt = ?, error = ?, updatedAt = ? WHERE taskId = ?")
+      .run(ok ? 'done' : 'failed', now(), error || null, now(), taskId);
+    return db.prepare('SELECT * FROM TaskQueue WHERE taskId = ?').get(taskId);
+  }
+
+  /** 列任务（按 status/account 过滤，倒序）。 */
+  function listTasks(filters = {}) {
+    const where = [];
+    const args = [];
+    if (filters.status) { where.push('status = ?'); args.push(filters.status); }
+    if (filters.accountId) { where.push('accountId = ?'); args.push(filters.accountId); }
+    const sql = 'SELECT * FROM TaskQueue ' + (where.length ? 'WHERE ' + where.join(' AND ') : '') + ' ORDER BY updatedAt DESC LIMIT 200';
+    return db.prepare(sql).all(...args);
+  }
+
+    /**
+   * v5.2 快乐平台 · 客户招募帖（ContactRecruitPost）
+
+
+
+   * upsert：postId = sha1(contactId + '|' + billboardId)；同客户多帖按 billboardId 分。
+   * 活库缺表时由调用方先 migrate（_migration v5 挂 ContactRecruitPost），此处不自动建表。
+   * @param {string} contactId
+   * @param {object} input { billboardId, subject, body, genreName, postTime, readCount, retCount, tags[], telephone, source }
+   * @returns {object|null} 写入后的行（tags 已解析回数组）
+   */
+  function upsertContactRecruitPost(contactId, input = {}) {
+    if (!contactId) return null;
+    const billboardId = String(input.billboardId || '');
+    const postId = sha1('recruitpost/' + contactId + '/' + billboardId);
+    const existing = db.prepare('SELECT * FROM ContactRecruitPost WHERE postId = ?').get(postId);
+    db.prepare(
+      'INSERT OR REPLACE INTO ContactRecruitPost (postId,contactId,billboardId,subject,body,genreName,postTime,readCount,retCount,tags,telephone,source,createdAt,updatedAt) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+    ).run(
+      postId, contactId,
+      billboardId || null,
+      input.subject || null,
+      input.body || null,
+      input.genreName || null,
+      input.postTime || null,
+      Number.isFinite(input.readCount) ? input.readCount : null,
+      Number.isFinite(input.retCount) ? input.retCount : null,
+      Array.isArray(input.tags) ? JSON.stringify(input.tags) : (typeof input.tags === 'string' ? input.tags : null),
+      input.telephone || null,
+      input.source || 'happy-billboard',
+      existing ? existing.createdAt : now(),
+      now()
+    );
+    return parseRecruitPost(db.prepare('SELECT * FROM ContactRecruitPost WHERE postId = ?').get(postId));
+  }
+
+  /** 客户招募帖列表（按 contactId，倒序 updatedAt）。 */
+  function listContactRecruitPosts(contactId) {
+    const rows = db.prepare('SELECT * FROM ContactRecruitPost WHERE contactId = ? ORDER BY updatedAt DESC').all(contactId);
+    return rows.map(parseRecruitPost);
+  }
+
+  /** 行解析：tags JSON 数组回解；无行返 null。 */
+  function parseRecruitPost(row) {
+    if (!row) return null;
+    try { if (row.tags) row.tags = JSON.parse(row.tags); } catch (_) { row.tags = []; }
+    return row;
+  }
+
   function upsertAccountPersona(accountId, input = {}) {
     const existing = db.prepare(
       "SELECT * FROM AccountPersona WHERE accountId = ? AND status = 'active'"
@@ -736,6 +1007,18 @@ function createStore({ dbPath = path.join(__dirname, '..', '..', 'data', 'aisay.
     getContactFlags,
     // 模块3 · BBS 1h 冷却规则落库（幂等）
     ensureBbsCooldownRule,
+    // v5.2 · 客户招募帖（快乐平台 get_profile_billboard/get_billboard 坐实）
+    upsertContactRecruitPost,
+    listContactRecruitPosts,
+    // v5.3 · 运营工具箱（备忘录/日历/模板库）
+    upsertMemo, listMemos, deleteMemo,
+    upsertCalendarEvent, dueCalendarEvents, completeCalendarEvent,
+    upsertPhrase, listPhrases, bumpPhraseUsage,
+    // v5.3 · C 阶段多轮状态机（followupStage + FollowupSop）
+    getFollowupStage, setFollowupStage, upsertFollowupSop, listFollowupSops,
+    // v5.3 · 批1 群控基座（账号池/窗口池/任务分发）
+    listAccounts, listWindows, markWindowHealth,
+    enqueueTask, claimTask, finishTask, listTasks,
   };
 }
 

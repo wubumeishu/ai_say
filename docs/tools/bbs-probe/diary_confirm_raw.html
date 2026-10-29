@@ -1,0 +1,177 @@
+<html lang="ja"><head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0,user-scalable=no">
+    
+    <title>イククル</title>
+    <link href="/assets/css/Common.css?23" media="screen" type="text/css" rel="stylesheet">
+    <link href="/assets/css/FooterMenu.css?1" media="screen" type="text/css" rel="stylesheet">
+    <link href="/assets/css/DiaryDetail.css?6" media="screen" type="text/css" rel="stylesheet">
+    
+    <script src="/assets/js/jquery.min.js?1" type="text/javascript"></script>
+    <script src="/assets/js/Common.js?2" type="text/javascript"></script>
+    <script src="/assets/js/ct.js?18" type="text/javascript"></script>
+    <meta http-equiv="Cache-Control" content="no-cache">
+    <meta http-equiv="Pragma" content="no-cache">
+    <link rel="apple-touch-icon" href="/assets/img/favicon/72.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="/assets/img/favicon/72.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="/assets/img/favicon/114.png">
+    <link rel="apple-touch-icon" sizes="120x120" href="/assets/img/favicon/120.png">
+    <link rel="apple-touch-icon" sizes="144x144" href="/assets/img/favicon/144.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="/assets/img/favicon/152.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/assets/img/favicon/180.png">
+
+    <link rel="icon" sizes="192x192" href="/assets/img/favicon/192.png">
+    <link rel="icon" sizes="128x128" href="/assets/img/favicon/128.png">
+    <meta name="robots" content="noindex">
+</head>
+<body class="">
+
+
+<header>
+    <a class="btn-home" href="/menu.html">
+        <img src="/assets/img/site/mainmenu/ic-home-white.png?20201204">
+    </a>
+    <h1 class="header-position"><a href="/menu.html">イククル</a></h1>
+            <a class="btn-tomorrow" href="/sns/snsashiato/show.html">
+                        <img src="/assets/img/site/mainmenu/ic-tomorrow.png?20201204">
+        </a>
+    </header>
+
+        
+<div class="head_pt">
+  <div class="head_pt01">
+    <p class="head_pt02">
+      <span class="head_pt03"><img src="/assets/img/site/mainmenu/icon_point.png" width="22px" class="head_middle"></span>
+      <span class="head_font4vw head_middle header_point_value" id="header_point_value">50pt</span>
+    </p>
+    <p class="head_pt04">
+      <span class="head_pta head_pt05 head_middle"><a href="/point/purchase/show_top.html">追加</a></span>
+    </p>
+  </div>
+  <div class="head_pt01 head_pt01a">
+    <p class="head_pt02">
+      <span class="head_pt03"><img src="/assets/img/site/mainmenu/icon_g.png" width="22px" class="head_middle"></span>
+      <span class="head_font4vw head_middle header_gold_value" id="header_gold_value">577G</span>
+    </p>
+    <p class="head_pt04">
+      <span class="head_ptb head_pt05 head_middle"><a href="/point/ptfemale/show_main_menu.html">交換</a></span>
+    </p>
+  </div>
+</div>
+
+
+    <div id="title">日記の作成</div>
+
+
+
+            <div id="jserror" style="width:100%;margin:0px;padding:0.2rem;" class="center bgText  red">JavaScriptが無効です。<br>ブラウザの設定でJavaScriptを有功にしてください。<br></div>
+            
+  <article>
+    <div class="bgFrame">
+      <div class="bgMiddle">
+        <p>休日の予定、こんな感じ。</p>
+      </div>
+      <div class="bgMiddle">
+        <p>今日は何の予定もなく、のんびり一日を過ごしました。<br>
+<br>
+午前は近所の銭湯で湯に浸かり、その後ゆっくり本を読みながらカフェで過ごしました。<br>
+夕方からは映画を観ようと思っています。<br>
+<br>
+…こんな日常が、もう少し賑やかになるといいなと思います。<br>
+<br>
+会話が弾むお相手と、休日にランチに行ったり、温泉を巡ったりすることが理想です。<br>
+趣味の話題で盛り上がり、帰り道で「また来週ね」と言える関係になれたら嬉しいです。<br>
+<br>
+よろしければ、まずはお気軽にお声かけください。<br>
+まずはお互いの趣味や好きなものを聞かせてくださいね。</p>
+      </div>
+
+      <div class="bgMiddle">
+        <p>
+        </p>
+        <p><span class="bold orange3">公開範囲：</span><br>
+全体公開          <br>
+          <span class="bold orange3">コメント受付：</span><br>
+受け付ける        </p>
+
+        <form name="writediary" action="/sns/snsdiary/exec_write.html" method="post" id="form1">
+          <input type="hidden" name="identifier" value="writediary">
+          <input type="hidden" name="title" value="休日の予定、こんな感じ。">
+          <input type="hidden" name="body" value="今日は何の予定もなく、のんびり一日を過ごしました。
+
+午前は近所の銭湯で湯に浸かり、その後ゆっくり本を読みながらカフェで過ごしました。
+夕方からは映画を観ようと思っています。
+
+…こんな日常が、もう少し賑やかになるといいなと思います。
+
+会話が弾むお相手と、休日にランチに行ったり、温泉を巡ったりすることが理想です。
+趣味の話題で盛り上がり、帰り道で「また来週ね」と言える関係になれたら嬉しいです。
+
+よろしければ、まずはお気軽にお声かけください。
+まずはお互いの趣味や好きなものを聞かせてくださいね。">
+          <input type="hidden" name="publicFlag" value="1">
+          <input type="hidden" name="commentReceptFlag" value="1">
+          <input type="hidden" name="adultFlag" value="0">
+                    <input type="hidden" name="identifier" value="canceldiary">
+          <input type="submit" class="greenButton width70" id="submit1" value="書き込む">
+        </form>
+
+        <form name="canceldiary" action="/sns/snsdiary/exec_routing_comeback_diary.html" method="post" id="form2">
+          <input type="hidden" name="identifier" value="canceldiary">
+          <input type="hidden" name="title" value="休日の予定、こんな感じ。">
+          <input type="hidden" name="body" value="今日は何の予定もなく、のんびり一日を過ごしました。
+
+午前は近所の銭湯で湯に浸かり、その後ゆっくり本を読みながらカフェで過ごしました。
+夕方からは映画を観ようと思っています。
+
+…こんな日常が、もう少し賑やかになるといいなと思います。
+
+会話が弾むお相手と、休日にランチに行ったり、温泉を巡ったりすることが理想です。
+趣味の話題で盛り上がり、帰り道で「また来週ね」と言える関係になれたら嬉しいです。
+
+よろしければ、まずはお気軽にお声かけください。
+まずはお互いの趣味や好きなものを聞かせてくださいね。">
+          <input type="hidden" name="publicFlag" value="1">
+          <input type="hidden" name="commentReceptFlag" value="1">
+          <input type="hidden" name="adultFlag" value="0">
+          <input type="hidden" name="diaryType" value="1">
+          
+          <input type="submit" class="button width70" value="修正する">
+        </form>
+        <p>※画像は書き込み後に投稿できます</p>
+      </div>
+    </div>
+    </article>
+
+            <nav class="bottom-nav">
+            
+                            <div class="bottom-nav-item">
+                                <a href="/sns/snssearch/show_faces.html" class="bottom-nav-item-txt nav-search">お相手探し</a>
+                </div>
+
+            
+                            <div class="bottom-nav-item">
+                                <a href="/bbs/show_bbs.html" class="bottom-nav-item-txt nav-recruit">募集</a>
+                </div>
+
+            
+                            <div class="bottom-nav-item relative">
+                                                    <a href="/mail/inbox/show_mailbox.html" class="bottom-nav-item-txt nav-mail">メッセージ</a>
+                </div>
+
+            
+                            <div class="bottom-nav-item relative">
+                                                    <a href="/sns/snstype/show_typed_list.html" class="bottom-nav-item-txt nav-type">タイプ</a>
+                </div>
+                
+            
+                            <div class="bottom-nav-item relative">
+                                                    <a href="/mypage.html" class="bottom-nav-item-txt nav-mypage">
+                        マイページ
+                    </a>
+                </div>
+        </nav>
+        
+                
+
+</body></html>

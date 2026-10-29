@@ -1,0 +1,1 @@
+[{"expression":"(async function(){ location.href='https://sp.194964.com/sns/snssetting/show_edit_profile_intro.html'; await new Promise(r=>setTimeout(r,6000)); return 'nav'; })()","awaitPromise":true,"timeoutMs":120000,"reconnectWaitMs":6000}]

@@ -1,7 +1,7 @@
 (function() {
   try {
   // happymail.co.jp 快乐 · 收件箱抓取原语（对应测绘图 docs/plan/happy-platform-survey.md §10.1）
-  // 收件箱 = POST /sp/app/html/api/list_message.php（cookie 会话态，服务端渲染列表）
+  // 收件箱 = POST /sp/app/api/html/list_message.php（cookie 会话态，服务端渲染列表）
   // 客户条目 = .ds_message_list_mini（.php 壳 + JS 填充）；本 Expr 只读 DOM 抽取结构化数据（CDP eval）
   // 风控边界：本文件只读抓取，不点 #kidoku 全既读 / 不点发送入口（§3.1 风控红线）
   var items = Array.from(document.querySelectorAll('.ds_message_list_mini')).map(function(el) {
@@ -45,7 +45,7 @@
     unreadAddition: unreadAdd,
     hasTab: !!document.querySelector('.ds_message_tab_item'),
     // POST 请求体参考（cookie + CSRF 占位，本 Expr 只读不发起 POST，仅供 CDP 抓取时构造）
-    postRef: { url: '/sp/app/html/api/list_message.php', note: 'cookie 会话态 + CSRF token 占位（需真发/真操作时由页面自身带）' }
+    postRef: { url: '/sp/app/api/html/list_message.php', note: 'cookie 会话态 + CSRF token 占位（需真发/真操作时由页面自身带）' }
   };
   } catch (e) { return { contacts: items, unread: '', unreadAddition: '', hasTab: false, postRef: {}, exprError: String(e && e.message || e) }; }
 })()

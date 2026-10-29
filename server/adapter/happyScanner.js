@@ -34,6 +34,9 @@ const EXPR_PROFILE_SEARCH = loadExpr('happyProfileSearchExpr.js');
 const EXPR_TYPE = loadExpr('happyTypeExpr.js');
 const EXPR_BILLBOARD = loadExpr('happyBillboardExpr.js');
 const EXPR_LOAD_MORE = loadExpr('happyLoadMoreExpr.js');
+// v5.2 新增：客户招募帖（只读情报维度：帖子列表 + 单帖正文/标签，均 .php 服务端渲染页）
+const EXPR_BILLBOARD_LIST = loadExpr('happyBillboardListExpr.js');
+const EXPR_BILLBOARD_DETAIL = loadExpr('happyBillboardDetailExpr.js');
 // 红线：本 Scanner 不装载/不 eval 发送 Expr（只读不真发，happySend 仅测绘注释不执行）
 
 // happymail 平台匹配 url
@@ -106,10 +109,33 @@ function createHappyScanner(deps = {}) {
   }
 
   /**
+   * 只读窗口状态探测：用 /browser/list（只读，不启动窗口）判断快乐窗口是否已打开。
+   * 供 unreadPoller（autoOpenWindow=false）用：探测不可达 → 跳过该轮，不主动 /browser/open 开窗。
+   * @returns {Promise<{ok:boolean, reason?:string, window?:object}>} ok=true 表示窗口 running。
+   */
+  async function probeCdp() {
+    if (closed) return { ok: false, reason: 'scanner-closed' };
+    if (!windowId) return { ok: false, reason: 'no-happy-window-configured' };
+    try {
+      // /browser/list 是只读列表查询，绝不启动窗口（API 文档：opened 参数=已打开的窗口）
+      const resp = await bit.listBrowsers({ page: 0, pageSize: 100 });
+      // BitBrowser /browser/list 返回 { success, data: { list: [...] } }
+      const items = (resp && resp.data && Array.isArray(resp.data.list)) ? resp.data.list : [];
+      const win = items.find(function(w) { return w && String(w.id) === String(windowId); });
+      if (win) {
+        return { ok: true, window: { id: windowId, opened: true } };
+      }
+      return { ok: false, reason: 'window-closed', window: { id: windowId, opened: false } };
+    } catch (e) {
+      return { ok: false, reason: 'probe-failed', msg: String((e && e.message) || e) };
+    }
+  }
+
+  /**
    * 抓收件箱（message_list.php）：eval happyInboxExpr → { contacts, unread }。
    * @returns {Promise<{ok:boolean, reason?:string, windowId, contacts?:Array, unread?, fetchedAt}>}
    */
-  async function scanInbox(more, opts) {
+  async   function scanInbox(more, opts) {
     opts = opts || {};
     if (closed) return { ok: false, reason: 'scanner-closed' };
     if (!windowId) return { ok: false, reason: 'no-happy-window-configured' };
@@ -208,7 +234,7 @@ function createHappyScanner(deps = {}) {
     catch (err) { return { ok: false, reason: 'window-not-open', msg: String(err && err.message || err), windowId }; }
     const client = live.client;
     lastClient = client;
-    const result = { ok: true, source: 'live-cdp-happy', windowId, memberID, contact: null, profile: null, messages: [], fetchedAt: new Date().toISOString() };
+    const result = { ok: true, source: 'live-cdp-happy', windowId, memberID, contact: null, profile: null, recruitPosts: [], messages: [], fetchedAt: new Date().toISOString() };
     try {
       const targets = await fetchTargets(live.http || live.ws);
       const happy = await findHappyTarget(targets);
@@ -224,6 +250,16 @@ function createHappyScanner(deps = {}) {
           result.profile = p.data;
         }
       }
+      // 1.5) 客户招募帖（v5.2 新增情报维度）：navigate profile_billboard.php?tid={memberID} → eval 帖子列表
+      const nav1b = await navigate(client, happy.id, '/sp/app/html/profile_billboard.php?tid=' + encodeURIComponent(memberID), pWs);
+      if (nav1b.ok) {
+        const bl = await evalExpr(client, happy.id, EXPR_BILLBOARD_LIST, { memberID }, pWs);
+        if (bl.ok) {
+          result.recruitPosts = Array.isArray(bl.data.items) ? bl.data.items : [];
+        }
+      }
+      // 回到客户详情页（后续会话历史导航不依赖，保持状态干净）
+      await navigate(client, happy.id, '/sp/app/html/profile_detail.php?tid=' + encodeURIComponent(memberID), pWs);
       // 2) 会话历史：navigate message_detail.php?mailID={mailID}（若传 mailID）
       if (mailID) {
         // mailID 是 base64（含 +/=），encodeURIComponent 会二次编码成 %2B/%3D 致会话页空白；
@@ -287,7 +323,7 @@ function createHappyScanner(deps = {}) {
     if (lastClient) { try { lastClient.close(); } catch (_) { /* ignore */ } lastClient = null; }
   }
 
-  return { scanInbox, scanCustomer, scanSource, close, get windowId() { return windowId; } };
+  return { scanInbox, scanCustomer, scanSource, probeCdp, close, get windowId() { return windowId; } };
 }
 
 module.exports = { createHappyScanner, EXPR_INBOX, EXPR_HISTORY, EXPR_PROFILE_DETAIL, EXPR_PROFILE_SEARCH, EXPR_TYPE, EXPR_BILLBOARD, HAPPY_MATCH };

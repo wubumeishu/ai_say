@@ -1,0 +1,139 @@
+[
+  {
+    "action": {},
+    "method": "post",
+    "id": "",
+    "cls": "",
+    "fields": [
+      {
+        "tag": "input",
+        "type": "checkbox",
+        "name": "selToAll[]",
+        "id": "informationAll",
+        "cls": "ds_js_check_box_input ds_check_box_all",
+        "maxl": -1
+      },
+      {
+        "tag": "input",
+        "type": "checkbox",
+        "name": "sel[]",
+        "cls": "ds_js_check_box_input check_box_list",
+        "maxl": -1
+      },
+      {
+        "tag": "input",
+        "type": "hidden",
+        "name": "pin[]",
+        "maxl": -1
+      },
+      {
+        "tag": "input",
+        "type": "checkbox",
+        "name": "sel[]",
+        "cls": "ds_js_check_box_input check_box_list",
+        "maxl": -1
+      },
+      {
+        "tag": "input",
+        "type": "hidden",
+        "name": "pin[]",
+        "maxl": -1
+      },
+      {
+        "tag": "input",
+        "type": "checkbox",
+        "name": "sel[]",
+        "cls": "ds_js_check_box_input check_box_list",
+        "maxl": -1
+      },
+      {
+        "tag": "input",
+        "type": "hidden",
+        "name": "pin[]",
+        "maxl": -1
+      },
+      {
+        "tag": "input",
+        "type": "checkbox",
+        "name": "sel[]",
+        "cls": "ds_js_check_box_input check_box_list",
+        "maxl": -1
+      },
+      {
+        "tag": "input",
+        "type": "hidden",
+        "name": "pin[]",
+        "maxl": -1
+      },
+      {
+        "tag": "input",
+        "type": "checkbox",
+        "name": "sel[]",
+        "cls": "ds_js_check_box_input check_box_list",
+        "maxl": -1
+      },
+      {
+        "tag": "input",
+        "type": "hidden",
+        "name": "pin[]",
+        "maxl": -1
+      },
+      {
+        "tag": "input",
+        "type": "checkbox",
+        "name": "sel[]",
+        "cls": "ds_js_check_box_input check_box_list",
+        "maxl": -1
+      },
+      {
+        "tag": "input",
+        "type": "hidden",
+        "name": "pin[]",
+        "maxl": -1
+      },
+      {
+        "tag": "button",
+        "type": "button",
+        "name": "delete",
+        "cls": "ds_round_btn ds_w30 ds_edit_button_white ds_text_align_center"
+      },
+      {
+        "tag": "button",
+        "type": "button",
+        "name": "deny",
+        "cls": "ds_round_btn ds_w30 ds_edit_button_white ds_text_align_center"
+      },
+      {
+        "tag": "button",
+        "type": "button",
+        "name": "noWatch",
+        "cls": "ds_round_btn ds_w30 ds_edit_button_white ds_text_align_center ds_p_35_1"
+      },
+      {
+        "tag": "button",
+        "type": "button",
+        "name": "read",
+        "cls": "ds_round_btn ds_w30 ds_edit_button_white ds_text_align_center ds_p_35_1"
+      },
+      {
+        "tag": "input",
+        "type": "hidden",
+        "name": "action",
+        "maxl": -1
+      },
+      {
+        "tag": "button",
+        "type": "button",
+        "name": "pinning",
+        "id": "pinning",
+        "cls": "ds_round_btn ds_w30 ds_edit_button_white ds_text_align_center ds_p_35_1 hidden"
+      },
+      {
+        "tag": "input",
+        "type": "hidden",
+        "name": "pin_flg",
+        "maxl": -1
+      }
+    ]
+  }
+]

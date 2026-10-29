@@ -1,0 +1,582 @@
+{
+ "savedAt": "2026-10-27T09:44:13.342Z",
+ "tabs": {
+  "received": {
+   "ok": true,
+   "tab": "received",
+   "likes": [],
+   "total": 0,
+   "pages": 1,
+   "via": "cdp-typed-likes-paged",
+   "fetchedAt": "2026-10-27T09:43:30.599Z",
+   "_pages": [
+    {
+     "page": 1,
+     "url": "https://sp.194964.com/sns/snstype/show_typed_list.html",
+     "got": 0,
+     "nextQuery": null
+    }
+   ]
+  },
+  "sent": {
+   "ok": true,
+   "tab": "sent",
+   "likes": [
+    {
+     "tab": "sent",
+     "memberId": "5653394",
+     "name": "",
+     "age": "",
+     "city": "",
+     "source": "タイプした",
+     "time": "10/26 22:53",
+     "onlineIcon": "online-icon2"
+    },
+    {
+     "tab": "sent",
+     "memberId": "5619311",
+     "name": "",
+     "age": "",
+     "city": "",
+     "source": "タイプした",
+     "time": "10/26 22:53",
+     "onlineIcon": "online-icon2"
+    },
+    {
+     "tab": "sent",
+     "memberId": "13208270",
+     "name": "",
+     "age": "",
+     "city": "",
+     "source": "タイプした",
+     "time": "10/26 22:53",
+     "onlineIcon": "online-icon1"
+    },
+    {
+     "tab": "sent",
+     "memberId": "8162440",
+     "name": "",
+     "age": "",
+     "city": "",
+     "source": "タイプした",
+     "time": "10/26 22:53",
+     "onlineIcon": "online-icon2"
+    },
+    {
+     "tab": "sent",
+     "memberId": "13133341",
+     "name": "",
+     "age": "",
+     "city": "",
+     "source": "タイプした",
+     "time": "10/26 22:53",
+     "onlineIcon": "online-icon2"
+    },
+    {
+     "tab": "sent",
+     "memberId": "13304097",
+     "name": "",
+     "age": "",
+     "city": "",
+     "source": "タイプした",
+     "time": "10/26 22:53",
+     "onlineIcon": "online-icon1"
+    },
+    {
+     "tab": "sent",
+     "memberId": "9956452",
+     "name": "",
+     "age": "",
+     "city": "",
+     "source": "タイプした",
+     "time": "10/26 22:53",
+     "onlineIcon": "online-icon2"
+    },
+    {
+     "tab": "sent",
+     "memberId": "8603687",
+     "name": "",
+     "age": "",
+     "city": "",
+     "source": "タイプした",
+     "time": "10/26 22:52",
+     "onlineIcon": "online-icon2"
+    },
+    {
+     "tab": "sent",
+     "memberId": "9582884",
+     "name": "",
+     "age": "",
+     "city": "",
+     "source": "タイプした",
+     "time": "10/26 22:52",
+     "onlineIcon": "online-icon2"
+    },
+    {
+     "tab": "sent",
+     "memberId": "13102100",
+     "name": "",
+     "age": "",
+     "city": "",
+     "source": "タイプした",
+     "time": "10/26 22:52",
+     "onlineIcon": "online-icon2"
+    },
+    {
+     "tab": "sent",
+     "memberId": "10924737",
+     "name": "",
+     "age": "",
+     "city": "",
+     "source": "タイプした",
+     "time": "10/25 19:39",
+     "onlineIcon": "online-icon1"
+    },
+    {
+     "tab": "sent",
+     "memberId": "12701312",
+     "name": "",
+     "age": "",
+     "city": "",
+     "source": "タイプした",
+     "time": "10/25 19:39",
+     "onlineIcon": null
+    },
+    {
+     "tab": "sent",
+     "memberId": "12147655",
+     "name": "",
+     "age": "",
+     "city": "",
+     "source": "タイプした",
+     "time": "10/25 19:39",
+     "onlineIcon": "online-icon1"
+    },
+    {
+     "tab": "sent",
+     "memberId": "1360327",
+     "name": "",
+     "age": "",
+     "city": "",
+     "source": "タイプした",
+     "time": "10/25 19:39",
+     "onlineIcon": "online-icon2"
+    },
+    {
+     "tab": "sent",
+     "memberId": "9042202",
+     "name": "",
+     "age": "",
+     "city": "",
+     "source": "タイプした",
+     "time": "10/25 19:39",
+     "onlineIcon": "online-icon2"
+    },
+    {
+     "tab": "sent",
+     "memberId": "10855125",
+     "name": "",
+     "age": "",
+     "city": "",
+     "source": "タイプした",
+     "time": "10/25 19:39",
+     "onlineIcon": "online-icon2"
+    },
+    {
+     "tab": "sent",
+     "memberId": "13338927",
+     "name": "",
+     "age": "",
+     "city": "",
+     "source": "タイプした",
+     "time": "10/25 19:39",
+     "onlineIcon": "online-icon3"
+    },
+    {
+     "tab": "sent",
+     "memberId": "13145683",
+     "name": "",
+     "age": "",
+     "city": "",
+     "source": "タイプした",
+     "time": "10/25 19:39",
+     "onlineIcon": "online-icon1"
+    },
+    {
+     "tab": "sent",
+     "memberId": "7026280",
+     "name": "",
+     "age": "",
+     "city": "",
+     "source": "タイプした",
+     "time": "10/25 19:39",
+     "onlineIcon": "online-icon2"
+    },
+    {
+     "tab": "sent",
+     "memberId": "7177298",
+     "name": "",
+     "age": "",
+     "city": "",
+     "source": "タイプした",
+     "time": "10/25 19:39",
+     "onlineIcon": null
+    },
+    {
+     "tab": "sent",
+     "memberId": "13328170",
+     "name": "",
+     "age": "",
+     "city": "",
+     "source": "タイプした",
+     "time": "10/19 15:24",
+     "onlineIcon": "online-icon2"
+    },
+    {
+     "tab": "sent",
+     "memberId": "13378628",
+     "name": "",
+     "age": "",
+     "city": "",
+     "source": "タイプした",
+     "time": "10/06 01:16",
+     "onlineIcon": "online-icon3"
+    },
+    {
+     "tab": "sent",
+     "memberId": "160551",
+     "name": "",
+     "age": "",
+     "city": "",
+     "source": "タイプした",
+     "time": "10/06 01:16",
+     "onlineIcon": "online-icon2"
+    },
+    {
+     "tab": "sent",
+     "memberId": "12119036",
+     "name": "",
+     "age": "",
+     "city": "",
+     "source": "タイプした",
+     "time": "10/06 01:16",
+     "onlineIcon": null
+    },
+    {
+     "tab": "sent",
+     "memberId": "8364087",
+     "name": "",
+     "age": "",
+     "city": "",
+     "source": "タイプした",
+     "time": "10/06 01:16",
+     "onlineIcon": "online-icon2"
+    },
+    {
+     "tab": "sent",
+     "memberId": "13128288",
+     "name": "",
+     "age": "",
+     "city": "",
+     "source": "タイプした",
+     "time": "10/06 01:16",
+     "onlineIcon": "online-icon2"
+    },
+    {
+     "tab": "sent",
+     "memberId": "12770854",
+     "name": "",
+     "age": "",
+     "city": "",
+     "source": "タイプした",
+     "time": "10/06 01:16",
+     "onlineIcon": "online-icon2"
+    },
+    {
+     "tab": "sent",
+     "memberId": "7018817",
+     "name": "",
+     "age": "",
+     "city": "",
+     "source": "タイプした",
+     "time": "10/06 01:16",
+     "onlineIcon": "online-icon2"
+    },
+    {
+     "tab": "sent",
+     "memberId": "12879066",
+     "name": "",
+     "age": "",
+     "city": "",
+     "source": "タイプした",
+     "time": "10/06 01:16",
+     "onlineIcon": "online-icon2"
+    },
+    {
+     "tab": "sent",
+     "memberId": "13330041",
+     "name": "",
+     "age": "",
+     "city": "",
+     "source": "タイプした",
+     "time": "10/06 01:16",
+     "onlineIcon": null
+    },
+    {
+     "tab": "sent",
+     "memberId": "2369644",
+     "name": "",
+     "age": "",
+     "city": "",
+     "source": "タイプした",
+     "time": "09/28 16:42",
+     "onlineIcon": "online-icon3"
+    },
+    {
+     "tab": "sent",
+     "memberId": "13324407",
+     "name": "",
+     "age": "",
+     "city": "",
+     "source": "タイプした",
+     "time": "09/28 16:40",
+     "onlineIcon": "online-icon2"
+    },
+    {
+     "tab": "sent",
+     "memberId": "12977477",
+     "name": "",
+     "age": "",
+     "city": "",
+     "source": "タイプした",
+     "time": "09/28 16:30",
+     "onlineIcon": "online-icon2"
+    },
+    {
+     "tab": "sent",
+     "memberId": "5481739",
+     "name": "",
+     "age": "",
+     "city": "",
+     "source": "タイプした",
+     "time": "09/25 19:37",
+     "onlineIcon": "online-icon2"
+    },
+    {
+     "tab": "sent",
+     "memberId": "9256695",
+     "name": "",
+     "age": "",
+     "city": "",
+     "source": "タイプした",
+     "time": "09/25 19:36",
+     "onlineIcon": null
+    },
+    {
+     "tab": "sent",
+     "memberId": "9379742",
+     "name": "",
+     "age": "",
+     "city": "",
+     "source": "タイプした",
+     "time": "09/25 19:11",
+     "onlineIcon": "online-icon2"
+    },
+    {
+     "tab": "sent",
+     "memberId": "13355052",
+     "name": "",
+     "age": "",
+     "city": "",
+     "source": "タイプした",
+     "time": "09/25 19:11",
+     "onlineIcon": "online-icon4"
+    }
+   ],
+   "total": 37,
+   "pages": 4,
+   "via": "cdp-typed-likes-paged",
+   "fetchedAt": "2026-10-27T09:43:58.922Z",
+   "_pages": [
+    {
+     "page": 1,
+     "url": "https://sp.194964.com/sns/snstype/show_type_list.html",
+     "got": 10,
+     "nextQuery": "?q=cFRyY3NOdVJJYlBxdW9yOU1jSFZ2QT09"
+    },
+    {
+     "page": 2,
+     "url": "https://sp.194964.com/sns/snstype/show_type_list.html?q=cFRyY3NOdVJJYlBxdW9yOU1jSFZ2QT09",
+     "got": 10,
+     "nextQuery": "?q=S3VpU1lBRDNMUHVtY2h4Z0xZeXpaUT09"
+    },
+    {
+     "page": 3,
+     "url": "https://sp.194964.com/sns/snstype/show_type_list.html?q=S3VpU1lBRDNMUHVtY2h4Z0xZeXpaUT09",
+     "got": 10,
+     "nextQuery": "?q=TDBKOVlKQnkzbEpnOUZnUHFSZDNidz09"
+    },
+    {
+     "page": 4,
+     "url": "https://sp.194964.com/sns/snstype/show_type_list.html?q=TDBKOVlKQnkzbEpnOUZnUHFSZDNidz09",
+     "got": 7,
+     "nextQuery": null
+    }
+   ]
+  },
+  "mutual": {
+   "ok": true,
+   "tab": "mutual",
+   "likes": [
+    {
+     "tab": "mutual",
+     "memberId": "8603687",
+     "name": "",
+     "age": "",
+     "city": "",
+     "source": "両想い",
+     "time": "10/27 10:08",
+     "onlineIcon": "online-icon2"
+    },
+    {
+     "tab": "mutual",
+     "memberId": "5619311",
+     "name": "",
+     "age": "",
+     "city": "",
+     "source": "両想い",
+     "time": "10/26 22:53",
+     "onlineIcon": "online-icon2"
+    },
+    {
+     "tab": "mutual",
+     "memberId": "13208270",
+     "name": "",
+     "age": "",
+     "city": "",
+     "source": "両想い",
+     "time": "10/26 22:53",
+     "onlineIcon": "online-icon1"
+    },
+    {
+     "tab": "mutual",
+     "memberId": "12701312",
+     "name": "",
+     "age": "",
+     "city": "",
+     "source": "両想い",
+     "time": "10/25 19:39",
+     "onlineIcon": null
+    },
+    {
+     "tab": "mutual",
+     "memberId": "7177298",
+     "name": "",
+     "age": "",
+     "city": "",
+     "source": "両想い",
+     "time": "10/25 19:39",
+     "onlineIcon": null
+    },
+    {
+     "tab": "mutual",
+     "memberId": "13328170",
+     "name": "",
+     "age": "",
+     "city": "",
+     "source": "両想い",
+     "time": "10/19 15:24",
+     "onlineIcon": "online-icon2"
+    },
+    {
+     "tab": "mutual",
+     "memberId": "7018817",
+     "name": "",
+     "age": "",
+     "city": "",
+     "source": "両想い",
+     "time": "10/07 00:34",
+     "onlineIcon": "online-icon2"
+    },
+    {
+     "tab": "mutual",
+     "memberId": "12879066",
+     "name": "",
+     "age": "",
+     "city": "",
+     "source": "両想い",
+     "time": "10/06 01:16",
+     "onlineIcon": "online-icon2"
+    },
+    {
+     "tab": "mutual",
+     "memberId": "13330041",
+     "name": "",
+     "age": "",
+     "city": "",
+     "source": "両想い",
+     "time": "10/06 01:16",
+     "onlineIcon": null
+    },
+    {
+     "tab": "mutual",
+     "memberId": "8162440",
+     "name": "",
+     "age": "",
+     "city": "",
+     "source": "両想い",
+     "time": "10/26 22:53",
+     "onlineIcon": "online-icon2"
+    },
+    {
+     "tab": "mutual",
+     "memberId": "2369644",
+     "name": "",
+     "age": "",
+     "city": "",
+     "source": "両想い",
+     "time": "09/28 16:42",
+     "onlineIcon": "online-icon3"
+    },
+    {
+     "tab": "mutual",
+     "memberId": "5481739",
+     "name": "",
+     "age": "",
+     "city": "",
+     "source": "両想い",
+     "time": "09/25 19:37",
+     "onlineIcon": "online-icon2"
+    },
+    {
+     "tab": "mutual",
+     "memberId": "9256695",
+     "name": "",
+     "age": "",
+     "city": "",
+     "source": "両想い",
+     "time": "09/25 19:36",
+     "onlineIcon": null
+    }
+   ],
+   "total": 13,
+   "pages": 2,
+   "via": "cdp-typed-likes-paged",
+   "fetchedAt": "2026-10-27T09:44:13.324Z",
+   "_pages": [
+    {
+     "page": 1,
+     "url": "https://sp.194964.com/sns/snstype/show_mutual_list.html",
+     "got": 10,
+     "nextQuery": "?q=cFRyY3NOdVJJYlBxdW9yOU1jSFZ2QT09"
+    },
+    {
+     "page": 2,
+     "url": "https://sp.194964.com/sns/snstype/show_mutual_list.html?q=cFRyY3NOdVJJYlBxdW9yOU1jSFZ2QT09",
+     "got": 3,
+     "nextQuery": null
+    }
+   ]
+  }
+ }
+}

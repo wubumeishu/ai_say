@@ -1,0 +1,282 @@
+<html><head>
+    <meta charset="utf-8">
+    <meta content="width=device-width, initial-scale=1.0,user-scalable=no" name="viewport">
+    
+    <title>イククル</title>
+    <link rel="stylesheet" type="text/css" media="screen" href="/assets/css/Common.css?23">
+    <link href="/assets/css/Setting.css?7" media="screen" type="text/css" rel="stylesheet">
+    <link href="/assets/css/FooterMenu.css?1" media="screen" type="text/css" rel="stylesheet">
+    
+    <script type="text/javascript" src="/assets/js/jquery.min.js?1"></script>
+    <script src="/assets/js/Common.js?2" type="text/javascript"></script>
+    <script src="/assets/js/megapix-image_for_194.js?1"></script>
+    <script src="/assets/js/exif.js?1"></script>
+    <script src="/assets/js/imageInputFileCompressProfile.js?1"></script>
+    <script>
+        $( document ).ready(function() {
+            var profileImage = new ImageInputFile({
+                preview_width: 90,
+                preview_height: 90,
+                canvas:       '#profile_preview',
+                preview_area: ['#preview','#profileWarningAfter', '#profile_preview_message'],
+                select_area:  ['#profile_select_area','#profileWarningBefore',  '#profile_select_etc_area'],
+                file_input:   '#fileupload',
+                compress_image_data_id: '#compressImageData1',
+            });
+            var profileImage2 = new ImageInputFile({
+                preview_width: 90,
+                preview_height: 90,
+                canvas:       '#profile_preview2',
+                preview_area: ['#preview2','#profileWarningAfter2','#profile_preview_message2'],
+                select_area:  ['#profile_select_area2','#profileWarningBefore2','#profile_select_etc_area2'],
+                file_input:   '#fileupload2',
+                compress_image_data_id: '#compressImageData2',
+            });
+            profileImage.init(profileImage);
+            profileImage.init(profileImage2);
+        });
+    </script>
+    <meta http-equiv="Cache-Control" content="no-cache">
+    <meta http-equiv="Pragma" content="no-cache">
+        <link rel="apple-touch-icon" href="/assets/img/favicon/72.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="/assets/img/favicon/72.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="/assets/img/favicon/114.png">
+    <link rel="apple-touch-icon" sizes="120x120" href="/assets/img/favicon/120.png">
+    <link rel="apple-touch-icon" sizes="144x144" href="/assets/img/favicon/144.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="/assets/img/favicon/152.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/assets/img/favicon/180.png">
+
+    <link rel="icon" sizes="192x192" href="/assets/img/favicon/192.png">
+    <link rel="icon" sizes="128x128" href="/assets/img/favicon/128.png">
+    <meta name="robots" content="noindex">
+</head>
+<body class="">
+
+
+<header>
+    <a class="btn-home" href="/menu.html">
+        <img src="/assets/img/site/mainmenu/ic-home-white.png?20201204">
+    </a>
+    <h1 class="header-position"><a href="/menu.html">イククル</a></h1>
+            <a class="btn-tomorrow" href="/sns/snsashiato/show.html">
+                                                <span class="caution">!</span>
+                                        <img src="/assets/img/site/mainmenu/ic-tomorrow.png?20201204">
+        </a>
+    </header>
+
+        
+<div class="head_pt">
+  <div class="head_pt01">
+    <p class="head_pt02">
+      <span class="head_pt03"><img src="/assets/img/site/mainmenu/icon_point.png" width="22px" class="head_middle"></span>
+      <span class="head_font4vw head_middle header_point_value" id="header_point_value">50pt</span>
+    </p>
+    <p class="head_pt04">
+      <span class="head_pta head_pt05 head_middle"><a href="/point/purchase/show_top.html">追加</a></span>
+    </p>
+  </div>
+  <div class="head_pt01 head_pt01a">
+    <p class="head_pt02">
+      <span class="head_pt03"><img src="/assets/img/site/mainmenu/icon_g.png" width="22px" class="head_middle"></span>
+      <span class="head_font4vw head_middle header_gold_value" id="header_gold_value">577G</span>
+    </p>
+    <p class="head_pt04">
+      <span class="head_ptb head_pt05 head_middle"><a href="/point/ptfemale/show_main_menu.html">交換</a></span>
+    </p>
+  </div>
+</div>
+
+
+    <div id="title">プロフィール画像を登録</div>
+
+
+            <div id="jserror" style="width:100%;margin:0px;padding:0.2rem;" class="center bgText  red">JavaScriptが無効です。<br>ブラウザの設定でJavaScriptを有功にしてください。<br></div>
+            <article>
+	<p class="rightLink">
+		<a href="/static/contents/show.html?q=QkM0clo0ZVY1aFpEOGhmWjU4SGRwSk9DYnZIV0o5K2ZzeHhVdjlkWHhpNW9lL1JYbWc5VThHdTJqVDdDL05JeA%3D%3D">
+			<span class="btnHint"><img alt="使い方とQ&amp;A" src="/assets/img/site/setting/btnSetting24.png">使い方とQ&amp;A</span>
+		</a>
+	</p>
+        <div class="bgTopBlue bgLightGreen3 ">
+            <div class="title-11--box grid-box">
+                <div class="title-11--box__left">フェイス画像</div>
+                <div class="title-11--box__right">※アダルトNG</div>
+            </div>
+        </div>
+
+        <div class="bgFrame tabFrame">
+			<!--▼画像登録が0~2枚のとき表示するブロック-->
+
+			<div class="bgMiddle">
+				<div class="contentsContribute">
+					<form method="post" name="face" id="face" action="/sns/snssetting/exec_face_image_register.html" enctype="multipart/form-data">
+<input type="hidden" name="identifier" value="face">
+<input type="hidden" name="compressImageData" id="compressImageData1" value="">
+						<div class="contentsImgContribute3">
+							<div class="contentsImgContribute3--camera cont-light-green cameraBox margin-bottom10" id="profile_select_area">
+										<img alt="ここをタップして ファイル選択" src="/assets/img/site/setting/btnSetting23.png" class="contentsImgContribute3--camera__icon">
+								<div class="contentsImgContribute3--camera__desc">
+									ココをタップ
+								</div>
+								</div>
+<input type="file" name="imageFile" id="fileupload" accept="image/*">
+							<div id="preview" class="contentsImgContribute3--camera_preview" style="display: none;">
+								<canvas id="profile_preview" width="90" class="preview"></canvas>
+							</div>
+						</div>
+
+						<div class="contentsTextContribute3">
+							<p class="contentsTextContribute3-content contentsTextContribute3-content__before" id="profile_select_etc_area">
+<!--//デザイン変更移動-->
+			</p><div class="bgMiddle box-warning-upload">
+						<div class="box-warning-upload--other contentsTextContribute3-content__before" id="profileWarningBefore">
+					<img alt="マークをタップしてファイルを選択して下さい" src="/assets/img/site/setting/btnSetting23.png" class="box-warning-upload--other_icon">をタップして画像を選択後、登録ボタンで申請して下さい
+						<div class="blue-box--desc">あと2枚登録できます</div>
+				</div>
+				<div class="box-warning-upload--other contentsTextContribute3-content__after" id="profileWarningAfter" style="display: none;">
+					画像をタップしてファイルを選択後、以下のボタンで申請してください
+				</div>
+								<div class="contentsTextContribute3-content__after" id="profile_preview_message" style="display: none;">
+								<div class="contentsTextContribute3-content center">
+									<button type="submit" class="blue-box">画像を登録する＞</button>
+
+									<div>あと2枚登録できます</div>
+								</div>
+							</div>
+			</div>
+								
+
+							<p></p>
+
+						</div>
+					</form>
+				</div>
+			</div>
+			<!--▲画像登録が0~2枚のとき表示するブロック-->
+			<!--▲画像を3枚登録している時表示するブロック-->
+			<!--▼画像ループ-->
+			<div class="bgMiddle">
+				<div class="contentsContribute">
+					<div class="contentsImgContribute3">
+						<img alt="" src="//images.194964.com/snsprofr/d4d83fdd0de19b389ba56c6d117f55b7_88dd80a215_4.jpg" class="contentsImgContribute3--img">
+					</div>
+
+					<div class="contentsTextContribute3">
+							<p class="contentsTextContribute3-content orange">
+									フェイスメイン画像
+									<br>
+									マイページに表示中
+								</p>
+							<div class="bin-mini2-box">
+
+							<a href="/sns/snssetting/show_delete_image_confirm.html?q=UkJIK0R4aytib1Y3RnpyT2NpbVVwRC9iY2tQT2hEWGtURVlSbHltTW1uYz0%3D" class="btnTrash">
+								<img alt="bin" src="/assets/img/common/icon/icon_trash2.png" class="bin-mini2--img">
+							</a>
+						</div>
+					</div>
+				</div>
+			</div>
+
+
+			<!--▲画像ループ-->
+	</div>
+	
+        <div class="bgTopBlue bgLightPink3">
+            <div class="title-11--box grid-box">
+                <div class="title-11--box__left">その他の画像</div>
+                <div class="title-11--box__right">※アダルトOK</div>
+            </div>
+        </div>
+	
+		<div class="bgFrame tabFrame">
+			<!--▼画像登録が0~2枚のとき表示するブロック-->
+
+
+			<div class="bgMiddle">
+				<div class="contentsContribute">
+					<form method="post" name="other" id="other" action="/sns/snssetting/exec_profile_image_register.html" enctype="multipart/form-data">
+<input type="hidden" name="identifier" value="other">
+<input type="hidden" name="compressImageData" id="compressImageData2" value="">
+						<div class="contentsImgContribute3 margin-bottom5">
+							<div class="contentsImgContribute3--camera pink cursorPointer" id="profile_select_area2">
+										<img alt="ここをタップして ファイル選択" src="/assets/img/site/setting/btnSetting22.png" class="contentsImgContribute3--camera__icon">
+								<div class="contentsImgContribute3--camera__desc">
+									ココをタップ
+								</div>
+								</div>
+<input type="file" name="imageFile" id="fileupload2" accept="image/*">
+							<div id="preview2" class="contentsImgContribute3--camera_preview">
+								<canvas id="profile_preview2" width="90" class="preview"></canvas>
+							</div>
+						</div>
+						<div class="contentsTextContribute3">
+							<p class="contentsTextContribute3-content" id="profile_select_etc_area2">
+<!--デザイン変更・移動//-->
+			</p><div class="bgMiddle box-warning-upload">
+						<div class="box-warning-upload--other" id="profileWarningBefore2">
+					<img alt="マークをタップしてファイルを選択して下さい" src="/assets/img/site/setting/btnSetting22.png" class="box-warning-upload--other_icon">をタップして画像を選択後、登録ボタンで申請して下さい
+						<div class="blue-box--desc">あと3枚登録できます</div>
+				</div>
+
+				<div class="box-warning-upload--other contentsTextContribute3-content__after" id="profileWarningAfter2">
+					画像をタップしてファイルを選択後、以下のボタンで申請してください
+				</div>
+								<div class="contentsTextContribute3-content__after" id="profile_preview_message2">
+								<div class="contentsTextContribute3-content center">
+									<button type="submit" class="blue-box">画像を登録する＞</button>
+									<div class="blue-box--desc">あと3枚登録できます</div>
+								</div>
+							</div>
+			</div>
+							<p></p>
+							
+
+
+						</div>
+					</form>
+				</div>
+			</div>
+			<!--▲画像登録が0~2枚のとき表示するブロック-->
+
+			<!--▼画像が1枚以上登録されている時表示-->
+			<!--▲画像が1枚以上登録されている時表示-->
+
+		</div>
+		
+		<span id="submitDisableTime" data-timer="10000"></span>
+	</article>
+
+            <nav class="bottom-nav">
+            
+                            <div class="bottom-nav-item">
+                                <a href="/sns/snssearch/show_faces.html" class="bottom-nav-item-txt nav-search">お相手探し</a>
+                </div>
+
+            
+                            <div class="bottom-nav-item">
+                                <a href="/bbs/show_bbs.html" class="bottom-nav-item-txt nav-recruit">募集</a>
+                </div>
+
+            
+                            <div class="bottom-nav-item relative">
+                                                    <a href="/mail/inbox/show_mailbox.html" class="bottom-nav-item-txt nav-mail">メッセージ</a>
+                </div>
+
+            
+                            <div class="bottom-nav-item relative">
+                                                                                    <span class="caution">99</span>
+                                                                <a href="/sns/snstype/show_typed_list.html" class="bottom-nav-item-txt nav-type">タイプ</a>
+                </div>
+                
+            
+                            <div class="bottom-nav-item relative">
+                                                        <span class="caution">!</span>
+                                        <a href="/mypage.html" class="bottom-nav-item-txt nav-mypage">
+                        マイページ
+                    </a>
+                </div>
+        </nav>
+        
+                
+
+</body></html>

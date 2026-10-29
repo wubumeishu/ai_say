@@ -1,0 +1,42 @@
+[
+  {
+    "memberSeqId": 45210791,
+    "nickname": "しんや",
+    "sex": "♂",
+    "age": "30代後半",
+    "residence": "札幌市中央区",
+    "lastMsg": "おいくらですか？",
+    "lastMsgTime": "10/23 17:24",
+    "messageTab": "1",
+    "pinning": "1",
+    "pin": "71182882,45210791,1",
+    "mailID": "DeN%2B9JIDCuJ9OvV%2B6vm4hxVF7uCB5N46CMNFgtQAuhs%3D",
+    "seq_id": "71182882,45210791",
+    "thumbnail": "./images/renewal/lazy/noimage_male.png?v=22031401",
+    "quit_flag": false,
+    "save_mail_flag": null,
+    "favorite_profile": false,
+    "opened_on": 0,
+    "replied_on": 0
+  },
+  {
+    "memberSeqId": 51053024,
+    "nickname": "クロニクル",
+    "sex": "♂",
+    "age": "50代前半",
+    "residence": "北海道(道央)",
+    "lastMsg": "ごっくんしてくれるなら大丈夫です😊\nいかがでしょうか？",
+    "lastMsgTime": "10/22 07:28",
+    "messageTab": "1",
+    "pinning": "1",
+    "pin": "71182882,51053024,1",
+    "mailID": "DeN%2B9JIDCuJ9OvV%2B6vm4h90RiKUCro1AQk3ExGFBk7E%3D",
+    "seq_id": "71182882,51053024",
+    "thumbnail": "./images/renewal/lazy/noimage_male.png?v=22031401",
+    "quit_flag": false,
+    "save_mail_flag": null,
+    "favorite_profile": false,
+    "opened_on": 0,
+    "replied_on": 0
+  }
+]

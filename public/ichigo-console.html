@@ -535,6 +535,22 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
     <div class="nav-item" data-view="agents">🤖 代理</div>
     <div class="nav-item" data-view="models">🧠 模型</div>
     <div class="nav-item" data-view="agentPkg">📦 agent 包</div>
+    <div class="nav-group" data-open="false">
+      <div class="nav-item has-children" data-view="domain">全域运营</div>
+      <div class="nav-children">
+        <div class="nav-item" data-view="domain-ashiato">足迹反撩</div>
+        <div class="nav-item" data-view="domain-faces">找对象</div>
+        <div class="nav-item" data-view="domain-search">高级搜索</div>
+        <div class="nav-item" data-view="domain-ignore">忽略列表</div>
+        <div class="nav-item" data-view="domain-calendar">日历</div>
+        <div class="nav-item" data-view="domain-diary">日记</div>
+        <div class="nav-item" data-view="domain-unified">📋 统一待办</div>
+          <div class="nav-item" data-view="domain-toolbox">🧰 工具箱（备忘/日历/模板）</div>
+          <div class="nav-item" data-view="domain-pool">🖥 账号池/窗口池</div>
+          <div class="nav-item" data-view="domain-pool">🖥 账号池/窗口池</div>
+          <div class="nav-item" data-view="domain-toolbox">🧰 运营工具箱</div>
+      </div>
+    </div>
   </div>
 
   <div class="col-customers" id="colCustomers">
@@ -725,6 +741,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
       <button class="ai-chip" data-intent="reply" title="生成高情商回复">💬 高情商回复</button>
       <button class="ai-chip" data-intent="deflect" title="委婉拉扯/拒绝">🛡️ 委婉拉扯</button>
       <button class="ai-chip" data-intent="meet" title="引导线下约会">🎯 引导见面</button>
+      <button class="ai-chip" data-intent="followup" title="跟进 SOP：关心/软推进ライン/理解退路">⏰ 跟进 SOP（加ライン）</button>
     </div>
     <div class="ai-input">
       <textarea id="aiInput" placeholder="向 Ai SAY 提问…"></textarea>
@@ -815,6 +832,13 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 import { initMain } from './ichigo-assets/main.js';
 document.addEventListener('DOMContentLoaded', function() { initMain(); });
 </script>
+
+  <div class="domain-page" id="domainPage" style="display:none;padding:20px;overflow-y:auto">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+      <h2 id="domainTitle" style="margin:0;font-size:16px">全域运营</h2>
+    </div>
+    <div id="domainContent"><div style="color:var(--muted,#888);font-size:12px">加载中...</div></div>
+  </div>
 
 </body>
 </html>

@@ -1,0 +1,33 @@
+{
+  "messageId": "8210187062",
+  "target": "はるき (tid=40447426)",
+  "revokeAt": "2026-10-26T17:32:49.181Z",
+  "steps": {
+    "clickRevokeBtn": "Input.dispatchMouseEvent 真实鼠标点 .revokeTextMessage",
+    "confirmModal": "点 .modal-confirm「送信取消」（remodal 确认层）"
+  },
+  "revokeApi": [
+    {
+      "url": "https://happymail.co.jp/sp/app/api/html/getTextMessageRevokeStatus.php",
+      "status": 200,
+      "postData": "token=474291416adf5974b8b0a2.15098799.s0.1&messageId=8210187062&HTTP_X_HAPPY_USER_AGENT=HappyHills%2FWeb%2F8.3.0"
+    },
+    {
+      "url": "https://happymail.co.jp/sp/app/api/html/revokeTextMessage.php",
+      "status": 200,
+      "postData": "token=474291416adf5974b8b0a2.15098799.s0.1&messageId=8210187062&HTTP_X_HAPPY_USER_AGENT=HappyHills%2FWeb%2F8.3.0"
+    },
+    {
+      "url": "https://happymail.co.jp/sp/app/api/html/message_detail.php",
+      "postData": "token=474291416adf5974b8b0a2.15098799.s0.1&offset=1&count=10&member_seq_id=40447426&my_profile_id=71182882&memuse=false&HTTP_X_HAPPY_USER_AGENT=HappyH"
+    }
+  ],
+  "domAfter": {
+    "targetStillInDom": true,
+    "targetText": "会いたいって嬉しいよ。ただ、私はまずちゃんと話し合って、交わると決めた上で会いたいタイプ。君もそういう考え？\n未読01:53",
+    "revokeBtnStill": true,
+    "sendBlocks": 1,
+    "revokedMarker": []
+  },
+  "apiAllCount": 0
+}

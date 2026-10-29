@@ -103,6 +103,26 @@ try {
   console.warn('[bbs-cooldown] 落库失败（表未建？跑 migrate）:', e.message);
 }
 
+// v5.3 · 默认跟进 SOP 种子（"3 天加ライン"软推进规则；幂等：同 scope+stage+actionKind 不重复插）
+try {
+  const DEFAULT_SOPS = [
+    { scope: 'global', stage: 1, afterDays: 3, actionKind: 'nudge', templateKey: 'line', note: '3 天没回 → 软推进ライン（LINE 一律写 ライン，不直说品牌）', active: 1 },
+    { scope: 'global', stage: 1, afterDays: 2, actionKind: 'care', templateKey: 'care', note: '2 天没回 → 先关心（男性付费语境，不硬逼）', active: 1 },
+    { scope: 'global', stage: 2, afterDays: 3, actionKind: 'understand', templateKey: 'line', note: '推过ライン 3 天没回应 → 理解退路（给台阶不掉价）', active: 1 },
+    { scope: 'global', stage: 1, afterDays: 1, actionKind: 'meet', templateKey: 'meet', note: 'stage=1 推进线下（可选，热客户才触发）', active: 0 },
+  ];
+  let created = 0;
+  for (const s of DEFAULT_SOPS) {
+    // 幂等：同 scope+stage+actionKind 已存在则跳过
+    const exists = store.db.prepare('SELECT 1 FROM FollowupSop WHERE scope = ? AND stage = ? AND actionKind = ? AND (accountId IS NULL OR accountId = ?) LIMIT 1')
+      .get(s.scope, s.stage, s.actionKind, s.accountId || null);
+    if (!exists) { store.upsertFollowupSop(s); created++; }
+  }
+  console.log('[followup-sop] 默认 SOP 种子：新增 ' + created + ' 条 / 共 ' + store.listFollowupSops().length + ' 条');
+} catch (e) {
+  console.warn('[followup-sop] 种子落库失败（表未建？跑 migrate）:', e.message);
+}
+
 // --- M1: 意向评分 ---
 const { createLeadScoring } = require('./db/leadScoring');
 const leadScoring = createLeadScoring({ store });
@@ -202,6 +222,35 @@ try {
 
 
 // --- 挂载 console 路由（一次性） ---
+// --- v5.3 · 批2：未读轮询器（非秒回，30s 一轮，发现新未读 → 待跟进，不自动发消息 §0.1） ---
+const { createUnreadPoller } = require('./adapter/unreadPoller');
+const unreadPoller = createUnreadPoller({
+  intervalMs: Number(process.env.POLL_INTERVAL_MS) || 30000,
+  platforms: [
+    { label: 'ichigo', getScanner: () => liveScanner },
+    { label: 'kairaku', getScanner: () => happyScanner },
+  ],
+});
+// v5.3 · 批2+批3 组合：发现新未读 → 自动"备料"（查资料/历史/招募帖，不发消息；非秒回）
+async function autoPrepareCustomer(evt) {
+  const isHappy = evt.platform === 'kairaku';
+  const scanner = isHappy ? happyScanner : liveScanner;
+  if (!scanner || typeof scanner.scanCustomer !== 'function') return;
+  try {
+    const r = await scanner.scanCustomer(evt.memberKey, '');
+    if (r && r.ok && isHappy && happyCache) {
+      happyCache.upsertCustomer(evt.memberKey, r.profile, r.messages, r.mailID, r.recruitPosts);
+      console.log('[auto-prepare] ' + (evt.memberName || evt.memberKey) + ' 资料/历史/招募帖已备料（缓存 5min，非秒回，不发消息）');
+    }
+  } catch (e) { /* CDP 不可达降级，下一轮再试 */ }
+}
+unreadPoller.onUnread((evt) => {
+  console.log('[unread-poller] 新未读 ' + evt.platform + ' ' + (evt.memberName || evt.memberKey) + '（+' + (evt.delta || 1) + '）→ 自动备料（查资料/历史/招募帖；不自动发消息 §0.1）');
+  autoPrepareCustomer(evt).catch((e) => console.warn('[unread-poller] 自动备料失败（不阻断）:', e && e.message));
+});
+try { unreadPoller.start(); console.log('[unread-poller] 启动（间隔 ' + unreadPoller.snapshot().intervalMs + 'ms）'); }
+catch (e) { console.warn('[unread-poller] 启动失败（不阻断）:', e && e.message); }
+
 const { mountConsoleRoutes } = require('./consoleRoutes');
 const consoleRoutes = []; // { method, pathname, handler }
 const consoleApp = {
@@ -323,7 +372,7 @@ try {
   // settingsForLive：进程内 settings（模型切换时同步）— 已在文件头部声明
 
   // Mount console read-only routes on the main app (task-19 起挂 /api/console/*)
-  mountConsoleRoutes(consoleApp, { store, talkEngine, dedup, adapters, recommender, liveScanner, happyScanner, happyCache, deepScrape, ichigoCache, modelStore, translationCache, consolePrefs, accountInfo, proxyPool, assistant, settings: settingsForLive, settingsForLive: settingsForLive });
+  mountConsoleRoutes(consoleApp, { store, talkEngine, dedup, adapters, recommender, liveScanner, happyScanner, happyCache, deepScrape, ichigoCache, modelStore, translationCache, consolePrefs, accountInfo, proxyPool, assistant, unreadPoller, settings: settingsForLive, settingsForLive: settingsForLive });
 
 
   function matchConsoleRoute(req, res) {
@@ -400,6 +449,11 @@ try {
           return serveStatic(res, 'console.css', 'text/css; charset=utf-8');
         case '/console.js':
           return serveStatic(res, 'console.js', 'text/javascript; charset=utf-8');
+        case '/card-deck':
+        case '/card-deck.html':
+          return serveStatic(res, 'card-deck.html', 'text/html; charset=utf-8');
+        case '/card-deck.js':
+          return serveStatic(res, 'card-deck.js', 'text/javascript; charset=utf-8');
         default:
           break;
       }

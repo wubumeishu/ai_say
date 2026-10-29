@@ -136,6 +136,31 @@ CREATE TABLE IF NOT EXISTS Conversation (
   createdAt        TEXT NOT NULL,
   updatedAt        TEXT NOT NULL
 );
+-- v5.3 · C 阶段多轮状态机：Conversation.followupStage 由 store.ensureFollowupColumns 探测式 ADD COLUMN（幂等）；
+--   stage 语义：0=破冰 1=跟进中 2=约见面 3=已推ライン 4=私域(ライン已绑) 5=冷却/终止
+
+-- -----------------------------------------------------------------------------
+-- FollowupSop · 跟进 SOP 配置（v5.3 C 阶段；"第 N 天做动作 X" 的规则表）
+-- 一条 SOP = 在 stage 停留满 afterDays 天 → 触发 kind 动作（用哪类话术）
+-- pk: sopId = sha1('sop/' + scope + '/' + seq)
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS FollowupSop (
+  sopId         TEXT PRIMARY KEY,
+  scope         TEXT NOT NULL DEFAULT 'global',   -- global | platform | account
+  accountId     TEXT,
+  platform      TEXT,
+  stage         INTEGER NOT NULL,                 -- 从哪个 stage 出发
+  afterDays     INTEGER NOT NULL,                 -- 停留 N 天后触发
+  actionKind    TEXT NOT NULL,                    -- care(关心) | nudge(软推进) | line-push(推ライン) | understand(理解退路) | meet(约见面)
+  templateKey   TEXT,                             -- 指向 PhraseLibrary 的 scene/intent
+  note          TEXT,
+  active        INTEGER NOT NULL DEFAULT 1,
+  createdAt     TEXT NOT NULL,
+  updatedAt     TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_sop_stage ON FollowupSop(stage);
+
+
 CREATE INDEX IF NOT EXISTS idx_conv_account   ON Conversation(accountId);
 CREATE INDEX IF NOT EXISTS idx_conv_contact   ON Conversation(contactId);
 CREATE INDEX IF NOT EXISTS idx_conv_lastActive ON Conversation(lastActiveAt);
@@ -393,6 +418,33 @@ CREATE TABLE IF NOT EXISTS PendingQueue (
 CREATE INDEX IF NOT EXISTS idx_pending_active  ON PendingQueue(confirmed, expired, accountId, contactId, createdAt DESC);
 CREATE INDEX IF NOT EXISTS idx_pending_lookup  ON PendingQueue(accountId, contactId, text);
 
+
+-- -----------------------------------------------------------------------------
+-- ContactRecruitPost · 客户招募帖（v5.2 快乐平台新增情报维度；独立于 ContactProfile 落库隔离）
+-- 来源：快乐 get_profile_billboard.php（列表）+ get_billboard.php（单帖正文/标签）
+-- pk: postId = sha1(contactId + '|' + billboardId)（幂等，一客户多帖按 billboardId 分）
+-- 字段（坐实）：subject/body/genre/postTime/readCount/retCount/tags（JSON 数组）/telephone
+-- 三要素隔离：招募帖属客户侧情报，落库挂 contactId，不混入 AccountPersona
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS ContactRecruitPost (
+  postId           TEXT PRIMARY KEY,
+  contactId        TEXT NOT NULL REFERENCES Contact(contactId),
+  billboardId      TEXT,
+  subject          TEXT,
+  body             TEXT,
+  genreName        TEXT,
+  postTime         TEXT,
+  readCount        INTEGER,
+  retCount         INTEGER,
+  tags             TEXT,          -- JSON 数组（scene_name_list）
+  telephone        TEXT,          -- 客户电话（PII，落库走脱敏，展示前掩码）
+  source           TEXT NOT NULL DEFAULT 'happy-billboard',
+  createdAt        TEXT NOT NULL,
+  updatedAt        TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_recruitpost_contact ON ContactRecruitPost(contactId);
+
+
 -- -----------------------------------------------------------------------------
 -- GateBlock · 拦截审计（append-only，供看板/审计视图）
 -- kind 判定：rateLimit（频控前缀）/ blacklist（黑名单|denyByDefault|红线）/ compliance（其余）/ other
@@ -411,7 +463,108 @@ INSERT OR IGNORE INTO _migration (version, appliedAt, note) VALUES
   (1, datetime('now'), 'M0: 14 实体初版 schema'),
   (2, datetime('now'), 'task-2 双存储统一：三级嵌套新表 Platform/PlatformGroup/AccountGroup/InboxSnapshot/AccountProfileRaw + 缓存轨归位'),
   (3, datetime('now'), 'task-3 频控账本落库：SentLog/PendingQueue/GateBlock 三表（Variant A，挂 v2 外键）'),
-  (4, datetime('now'), 'kairaku 快乐平台种子（happymail.co.jp）+ 7 Expr 草案');
+  (4, datetime('now'), 'kairaku 快乐平台种子（happymail.co.jp）+ 7 Expr 草案'),
+  (5, datetime('now'), 'kairaku v5.2：ContactRecruitPost 表（客户招募帖 13 API 坐实）+ 4 新 Expr（帖子列表/详情/撤回/发送坐实）'),
+  (6, datetime('now'), 'v5.3 运营工具箱：Memo（备忘录）+ CalendarEvent（日历）+ PhraseLibrary（模板库/常用语升级）三表'),
+  (7, datetime('now'), 'v5.3 C 阶段：Conversation.followupStage（探测式 ADD）+ FollowupSop 跟进 SOP 表（3天加ライン规则）'),
+  (8, datetime('now'), 'v5.3 批1 群控基座：TaskQueue 跨账号任务分发表（pending→assigned→running→done/failed）');
+
+-- -----------------------------------------------------------------------------
+-- Memo · 运营备忘录（v5.3；按 账号 维度，挂 accountId，独立于会话）
+-- 用途：给某个客户/账号记"别的事"（例：客户说下周三面试、上次聊到约千歳、忌讳话题等）
+-- pk: memoId = sha1('memo/' + accountId + '/' + seq)
+-- kind: customer（挂客户）| account（账号级）| general（全局）
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS Memo (
+  memoId        TEXT PRIMARY KEY,
+  accountId     TEXT,
+  contactId     TEXT,            -- 可空；customer 类挂客户
+  kind          TEXT NOT NULL DEFAULT 'general',
+  title         TEXT NOT NULL DEFAULT '',
+  body          TEXT NOT NULL DEFAULT '',
+  dueAt         TEXT,            -- 可空；到期提醒（配合日历）
+  pinned        INTEGER NOT NULL DEFAULT 0,
+  createdAt     TEXT NOT NULL,
+  updatedAt     TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_memo_account ON Memo(accountId);
+CREATE INDEX IF NOT EXISTS idx_memo_contact ON Memo(contactId);
+
+-- -----------------------------------------------------------------------------
+-- CalendarEvent · 运营日历（v5.3；时间约定/跟进节点，非群发）
+-- 用途：记录"和客户约的见面时间"、"3 天后追ライン"、"明天发新帖"等节点
+-- pk: eventId = sha1('cal/' + accountId + '/' + seq)
+-- kind: meet（见面约定）| followup（跟进节点）| line-push（加ライン节点）| post（发帖节点）
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS CalendarEvent (
+  eventId       TEXT PRIMARY KEY,
+  accountId     TEXT,
+  contactId     TEXT,            -- 可空
+  kind          TEXT NOT NULL DEFAULT 'followup',
+  title         TEXT NOT NULL DEFAULT '',
+  scheduledAt   TEXT NOT NULL,   -- ISO 时间
+  reminded      INTEGER NOT NULL DEFAULT 0,
+  done          INTEGER NOT NULL DEFAULT 0,
+  createdAt     TEXT NOT NULL,
+  updatedAt     TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_calevent_account ON CalendarEvent(accountId);
+CREATE INDEX IF NOT EXISTS idx_calevent_sched ON CalendarEvent(scheduledAt);
+
+-- -----------------------------------------------------------------------------
+-- PhraseLibrary · 模板库/常用语（v5.3 升级；场景标签 + 多语言 + 人设贴合）
+-- 用途：可复用的话术模板（比 consolePrefs 种子更强：带场景、可翻译、可按人设过滤）
+-- pk: phraseId = sha1('phrase/' + scope + '/' + seq)
+-- scope: global | platform | account
+-- scene: opening（破冰）| followup（跟进）| meet（约见面）| line（加ライン软推进）
+--        | deflect（婉拒）| care（关心）| understand（理解/退路）| close（收尾）
+-- lang: ja（默认）| zh | en
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS PhraseLibrary (
+  phraseId      TEXT PRIMARY KEY,
+  scope         TEXT NOT NULL DEFAULT 'global',
+  accountId     TEXT,
+  platform      TEXT,
+  scene         TEXT NOT NULL DEFAULT 'general',
+  intent        TEXT,              -- reply/deflect/meet/analyze/care
+  lang          TEXT NOT NULL DEFAULT 'ja',
+  content       TEXT NOT NULL,     -- 模板正文（可含 {name} {place} {time} 占位符）
+  translated    TEXT,              -- 译文（zh 对照）
+  tags          TEXT,             -- JSON 数组
+  usageCount    INTEGER NOT NULL DEFAULT 0,
+  source        TEXT NOT NULL DEFAULT 'manual',
+  createdAt     TEXT NOT NULL,
+  updatedAt     TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_phrase_scene ON PhraseLibrary(scene);
+CREATE INDEX IF NOT EXISTS idx_phrase_account ON PhraseLibrary(accountId);
+
+
+
+-- -----------------------------------------------------------------------------
+-- TaskQueue · 跨账号任务分发（v5.3 · 批1；群控基座 §-1.1）
+-- 一条任务 = 给某账号的某个动作（scan/followup/post/recruit），由分配器按账号 idle 状态领取
+-- pk: taskId = sha1('task/' + seq + '/' + Date.now())
+-- status: pending（待分发）| assigned（已分给账号）| running | done | failed | skipped
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS TaskQueue (
+  taskId      TEXT PRIMARY KEY,
+  platform    TEXT NOT NULL DEFAULT 'ichigo',
+  accountId   TEXT,               -- 目标账号（pending 时可为 null，由分配器定）
+  type        TEXT NOT NULL,      -- scan / followup / post / recruit / line-push
+  payload     TEXT,               -- JSON（任务参数：contactId/conversationId 等）
+  status      TEXT NOT NULL DEFAULT 'pending',
+  priority    INTEGER NOT NULL DEFAULT 0,
+  assignedAt  TEXT,
+  finishedAt  TEXT,
+  error       TEXT,
+  createdAt   TEXT NOT NULL,
+  updatedAt   TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_task_status ON TaskQueue(status);
+CREATE INDEX IF NOT EXISTS idx_task_account ON TaskQueue(accountId);
+
+
 -- 注：v4 = task-H1 快乐平台识别 + 抓取原语；v2/v21/v3 各单写源不变
   -- 注：Conversation/Contact/ContactProfile/Account/AccountPersona 的 ADD COLUMN（未读4字段/头像/profileUrl/candidates/ageNum/pageUrl/mypageUrl/platformId）
   --    由独立迁移批次 002_add_columns.sql.js 承载（SQLite 无 ADD IF NOT EXISTS；探测式幂等，见 server/db/migrations/）；

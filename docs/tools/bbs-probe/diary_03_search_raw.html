@@ -1,0 +1,1090 @@
+<html lang="ja"><head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0,user-scalable=no">
+    
+    <title>イククル</title>
+    <link href="/assets/css/Common.css?23" media="screen" type="text/css" rel="stylesheet">
+    <link href="/assets/css/FooterMenu.css?1" media="screen" type="text/css" rel="stylesheet">
+    <link href="/assets/css/DiaryDetail.css?6" media="screen" type="text/css" rel="stylesheet">
+    <link href="/assets/css/diarytab/style.css?8" media="screen" type="text/css" rel="stylesheet">
+    <link rel="stylesheet" type="text/css" media="screen" href="/assets/css/diary/style.css?7">
+    <link rel="stylesheet" type="text/css" media="screen" href="/assets/css/fontawesome/css/all.css?1">
+    
+    <script src="/assets/js/jquery.min.js?1" type="text/javascript"></script>
+    <script src="/assets/js/Common.js?2" type="text/javascript"></script>
+    <script src="/assets/js/ct.js?18" type="text/javascript"></script>
+    <script src="/assets/js/diaryList.js?3" type="text/javascript"></script>
+    <script src="/assets/js/searchSlider3.js?2" type="text/javascript"></script>
+    <meta http-equiv="Cache-Control" content="no-cache">
+    <meta http-equiv="Pragma" content="no-cache">
+    <link rel="apple-touch-icon" href="/assets/img/favicon/72.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="/assets/img/favicon/72.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="/assets/img/favicon/114.png">
+    <link rel="apple-touch-icon" sizes="120x120" href="/assets/img/favicon/120.png">
+    <link rel="apple-touch-icon" sizes="144x144" href="/assets/img/favicon/144.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="/assets/img/favicon/152.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/assets/img/favicon/180.png">
+
+    <link rel="icon" sizes="192x192" href="/assets/img/favicon/192.png">
+    <link rel="icon" sizes="128x128" href="/assets/img/favicon/128.png">
+    <meta name="robots" content="noindex">
+</head>
+<body class="">
+
+
+
+<header>
+    <a class="btn-home" href="/menu.html">
+        <img src="/assets/img/site/mainmenu/ic-home-white.png?20201204">
+    </a>
+    <h1 class="header-position"><a href="/menu.html">イククル</a></h1>
+    <div class="top-line"></div>
+    
+    <a class="btn-mydairy" href="/sns/snsdiary/show_mydiaries.html">
+        
+        
+                                <img src="/assets/img/site/diary/my_diary.png?20201204">
+    </a>
+    <a class="btn-search search-open" alt="検索">
+        <img src="/assets/img/site/mainmenu/recruit-search.png?20201204">
+    </a>
+    <a class="btn-edit" href="/sns/snsdiary/show_mydiary_form.html">
+        <img src="/assets/img/site/mainmenu/recruit-write.png?20201204">
+    </a>
+
+    <div class="search-box">
+        <button type="button" class="btn-diary-header search-close"><i class="fa fa-times" aria-hidden="true"></i>閉じる</button>
+        <form action="/sns/snsdiary/show_search_result.html" id="form1" method="post">
+        <input type="hidden" name="identifier" value="main">
+            <h3>みんなの日記から検索</h3>
+            <label>
+        <input type="text" name="targetSearchText" class="form-control" placeholder="キーワードを入力" value="">
+                <button type="submit" class="btn-diary-header submit-btn" id="submit1">検索</button>
+            </label>
+            <input type="hidden" name="tabSelectPrefId" value="24">
+                    </form>
+    </div>
+</header>
+
+            
+<div class="head_pt">
+  <div class="head_pt01">
+    <p class="head_pt02">
+      <span class="head_pt03"><img src="/assets/img/site/mainmenu/icon_point.png" width="22px" class="head_middle"></span>
+      <span class="head_font4vw head_middle header_point_value" id="header_point_value">50pt</span>
+    </p>
+    <p class="head_pt04">
+      <span class="head_pta head_pt05 head_middle"><a href="/point/purchase/show_top.html">追加</a></span>
+    </p>
+  </div>
+  <div class="head_pt01 head_pt01a">
+    <p class="head_pt02">
+      <span class="head_pt03"><img src="/assets/img/site/mainmenu/icon_g.png" width="22px" class="head_middle"></span>
+      <span class="head_font4vw head_middle header_gold_value" id="header_gold_value">577G</span>
+    </p>
+    <p class="head_pt04">
+      <span class="head_ptb head_pt05 head_middle"><a href="/point/ptfemale/show_main_menu.html">交換</a></span>
+    </p>
+  </div>
+</div>
+
+
+
+            <div id="jserror" style="width:100%;margin:0px;padding:0.2rem;" class="center bgText  red">JavaScriptが無効です。<br>ブラウザの設定でJavaScriptを有功にしてください。<br></div>
+            
+
+
+<main class="main-area">
+    
+  
+    <div class="top-line"></div>
+    <div class="nav-link3">
+      <div class="nav-link3-item">
+        <div class="nav-link3-txt active">みんなの日記</div>
+      </div>
+
+      <div class="nav-link3-item">
+  
+        <a href="/sns/snsdiary/show_friends.html?q=MEVKdnNDMkVoVDRTdFRTMXgwajBKUU43NzFNT0xqRU5kVWE1M2txUjJrUT0%3D" class="nav-link3-txt ">フレンド日記</a>
+      </div>
+
+      <div class="nav-link3-item">
+  
+  
+      
+          <a href="/sns/snsdiary/show_ranking_pure.html?q=NlVqQ3c1Z1k1bnBScUFHc2RwUzBWMGJ2NnVzVXJ6SUpGUzd6N1ZiRnVUK1c0WUlUalkwNzZRalRKb3ptbU96dg%3D%3D" class="nav-link3-txt ">ランキング</a>
+      </div>
+    </div>
+
+    <div class="blog-list">
+      <div id="nav-link" class="nav-link4 navcol-4" data-url="/sns/snsdiary/ajax_show_search.html">
+        <div class="nav-link4-item"><a class="loadData nav-link4-txt select">全国</a></div>
+        <div class="nav-link4-item"><a id="tabMenu2" class="loadData nav-link4-txt" data-area="7">東海</a></div>
+        <div class="nav-link4-item"><a id="tabMenu3" class="loadData nav-link4-txt" data-pref="24">三重</a></div>
+        <div class="nav-link4-item">
+            <div class="diary-selectbox-wrapper">
+                <select class="diary-selectbox" name="select-pref">
+                    <option class="select-pref" value="0" disabled="" selected="">地域選択</option>
+                    
+                                                                                                                                        <option class="select-pref" value="53" data-pref="53" data-area="1" data-areaname="北海道">北海道(道央)</option>
+                                                                                                <option class="select-pref" value="54" data-pref="54" data-area="1" data-areaname="北海道">北海道(道北)</option>
+                                                                                                <option class="select-pref" value="55" data-pref="55" data-area="1" data-areaname="北海道">北海道(道東)</option>
+                                                                                                <option class="select-pref" value="56" data-pref="56" data-area="1" data-areaname="北海道">北海道(道南)</option>
+                                                                                                                                            <option class="select-pref" value="2" data-pref="2" data-area="2" data-areaname="東北">青森</option>
+                                                                                                <option class="select-pref" value="3" data-pref="3" data-area="2" data-areaname="東北">岩手</option>
+                                                                                                <option class="select-pref" value="4" data-pref="4" data-area="2" data-areaname="東北">福島</option>
+                                                                                                <option class="select-pref" value="5" data-pref="5" data-area="2" data-areaname="東北">秋田</option>
+                                                                                                <option class="select-pref" value="6" data-pref="6" data-area="2" data-areaname="東北">宮城</option>
+                                                                                                <option class="select-pref" value="7" data-pref="7" data-area="2" data-areaname="東北">山形</option>
+                                                                                                                                            <option class="select-pref" value="8" data-pref="8" data-area="3" data-areaname="北陸">福井</option>
+                                                                                                <option class="select-pref" value="9" data-pref="9" data-area="3" data-areaname="北陸">新潟</option>
+                                                                                                <option class="select-pref" value="10" data-pref="10" data-area="3" data-areaname="北陸">石川</option>
+                                                                                                <option class="select-pref" value="11" data-pref="11" data-area="3" data-areaname="北陸">富山</option>
+                                                                                                                                            <option class="select-pref" value="21" data-pref="21" data-area="6" data-areaname="東京">東京</option>
+                                                                                                                                            <option class="select-pref" value="15" data-pref="15" data-area="5" data-areaname="関東">神奈川</option>
+                                                                                                <option class="select-pref" value="16" data-pref="16" data-area="5" data-areaname="関東">埼玉</option>
+                                                                                                <option class="select-pref" value="17" data-pref="17" data-area="5" data-areaname="関東">茨城</option>
+                                                                                                <option class="select-pref" value="18" data-pref="18" data-area="5" data-areaname="関東">栃木</option>
+                                                                                                <option class="select-pref" value="19" data-pref="19" data-area="5" data-areaname="関東">群馬</option>
+                                                                                                <option class="select-pref" value="20" data-pref="20" data-area="5" data-areaname="関東">千葉</option>
+                                                                                                                                            <option class="select-pref" value="12" data-pref="12" data-area="4" data-areaname="中部">岐阜</option>
+                                                                                                <option class="select-pref" value="13" data-pref="13" data-area="4" data-areaname="中部">長野</option>
+                                                                                                <option class="select-pref" value="14" data-pref="14" data-area="4" data-areaname="中部">山梨</option>
+                                                                                                                                            <option class="select-pref" value="22" data-pref="22" data-area="7" data-areaname="東海">愛知</option>
+                                                                                                <option class="select-pref" value="23" data-pref="23" data-area="7" data-areaname="東海">静岡</option>
+                                                                                                <option class="select-pref" value="24" data-pref="24" data-area="7" data-areaname="東海">三重</option>
+                                                                                                                                            <option class="select-pref" value="25" data-pref="25" data-area="8" data-areaname="大阪">大阪</option>
+                                                                                                                                            <option class="select-pref" value="26" data-pref="26" data-area="9" data-areaname="関西">兵庫</option>
+                                                                                                <option class="select-pref" value="27" data-pref="27" data-area="9" data-areaname="関西">奈良</option>
+                                                                                                <option class="select-pref" value="28" data-pref="28" data-area="9" data-areaname="関西">滋賀</option>
+                                                                                                <option class="select-pref" value="29" data-pref="29" data-area="9" data-areaname="関西">和歌山</option>
+                                                                                                <option class="select-pref" value="30" data-pref="30" data-area="9" data-areaname="関西">京都</option>
+                                                                                                                                            <option class="select-pref" value="31" data-pref="31" data-area="10" data-areaname="中国">岡山</option>
+                                                                                                <option class="select-pref" value="32" data-pref="32" data-area="10" data-areaname="中国">広島</option>
+                                                                                                <option class="select-pref" value="33" data-pref="33" data-area="10" data-areaname="中国">島根</option>
+                                                                                                <option class="select-pref" value="34" data-pref="34" data-area="10" data-areaname="中国">鳥取</option>
+                                                                                                <option class="select-pref" value="35" data-pref="35" data-area="10" data-areaname="中国">山口</option>
+                                                                                                                                            <option class="select-pref" value="36" data-pref="36" data-area="11" data-areaname="四国">愛媛</option>
+                                                                                                <option class="select-pref" value="37" data-pref="37" data-area="11" data-areaname="四国">香川</option>
+                                                                                                <option class="select-pref" value="38" data-pref="38" data-area="11" data-areaname="四国">高知</option>
+                                                                                                <option class="select-pref" value="39" data-pref="39" data-area="11" data-areaname="四国">徳島</option>
+                                                                                                                                            <option class="select-pref" value="40" data-pref="40" data-area="12" data-areaname="九州・沖縄">福岡</option>
+                                                                                                <option class="select-pref" value="41" data-pref="41" data-area="12" data-areaname="九州・沖縄">熊本</option>
+                                                                                                <option class="select-pref" value="42" data-pref="42" data-area="12" data-areaname="九州・沖縄">宮崎</option>
+                                                                                                <option class="select-pref" value="43" data-pref="43" data-area="12" data-areaname="九州・沖縄">長崎</option>
+                                                                                                <option class="select-pref" value="45" data-pref="45" data-area="12" data-areaname="九州・沖縄">鹿児島</option>
+                                                                                                <option class="select-pref" value="46" data-pref="46" data-area="12" data-areaname="九州・沖縄">大分</option>
+                                                                                                <option class="select-pref" value="47" data-pref="47" data-area="12" data-areaname="九州・沖縄">佐賀</option>
+                                                                                                <option class="select-pref" value="44" data-pref="44" data-area="12" data-areaname="九州・沖縄">沖縄</option>
+                                                            </select>
+            </div>
+        </div>
+        <textarea id="storedTab" style="display:none;"></textarea> 
+      </div>      
+      <div id="list-data">
+          <div id="storedDisplay">
+                         <div class="list-item list-female">
+        <div class="type-list-link">
+          <div class="type-list-img listImageRelative">
+                                    <div class="type-list-thumb">
+              
+              
+              <a href="/sns/snsprofile/exec_profile_redirect.html?q=MEVKdnNDMkVoVDRTdFRTMXgwajBKY013bldtNUp2MC9ncFkwTExiQWk1bFhHTXV2MVJQeHp1NE5DNXM3MkdiNw%3D%3D">
+                              <img src="//images.194964.com/snsprofrses/a3f374daa177324db3a174156d4274da_5adba1aaca495660_7bafd141b5_4_200.jpg">
+                            </a>
+            </div><!-- type-list-thumb -->
+            
+                      </div><!-- type-list-link -->
+
+                      
+            <a href="/sns/snsdiary/show_diary_detail.html?q=L3Qxd0w3bVR2TTNkN1dLNWEyQk4xa1hEeEREMkZwdHJJNlZWeFZ0dGRnQT0%3D" class="type-list-txt">
+                       <div class="type-row">
+              <div class="row-inside">
+                                  <div class="tag-photo">写真あり</div>  
+                              </div>
+              <div class="row-inside">
+                <div class="type-list-date">10/25 15:27</div>  
+              </div>
+            </div>              
+            <div class="type-list-title">
+                            〜うっかりん〜
+            </div>
+            <div class="type-list-view">
+              <span><img src="/assets/img/common/icon/ic-view.png" height="19" style="margin-top: 1px; vertical-align: text-bottom;"><img src="/assets/img/common/icon/ic-x-x.png" height="8">1</span>
+                          </div>
+            <div class="type-list-detail">
+              <span><img src="/assets/img/common/icon/ic-female.png" width="11" style="vertical-align: middle;"></span>
+              <span style="margin: 0 5px 0 0;">〜麗子〜</span>
+              <span style="margin: 0 5px 0 0;">60歳</span>
+              <span><img src="/assets/img/common/icon/home.png" width="12" style="margin-top: 3px; margin-right: 3px; vertical-align: text-top;">奈良</span>              
+            </div>
+          </a>
+        </div><!-- type-list-link -->
+      </div><!-- list-item -->
+           <div class="list-item list-female">
+        <div class="type-list-link">
+          <div class="type-list-img listImageRelative">
+                                    <div class="type-list-thumb">
+              
+              
+              <a href="/sns/snsprofile/exec_profile_redirect.html?q=MEVKdnNDMkVoVDRTdFRTMXgwajBKY1pWbWVDejl1dEYrT1YyZm12R2lJS2Z3M2lNc0swY1Z5WlhVQnljVWhPLw%3D%3D">
+                              <img src="//images.194964.com/snsprofrses/f1bc56c1d91e3da7bf2f565a1665820a_5adba1aaca495660_0bfc0ed21e_4_200.jpg">
+                            </a>
+            </div><!-- type-list-thumb -->
+            
+                      </div><!-- type-list-link -->
+
+                      
+            <a href="/sns/snsdiary/show_diary_detail.html?q=L3Qxd0w3bVR2TTNkN1dLNWEyQk4xdWJIYWhtcGQ5OGRyUHllRGdHd2h4MD0%3D" class="type-list-txt">
+                       <div class="type-row">
+              <div class="row-inside">
+                              </div>
+              <div class="row-inside">
+                <div class="type-list-date">10/25 15:24</div>  
+              </div>
+            </div>              
+            <div class="type-list-title">
+                            今離婚したらもれなく
+            </div>
+            <div class="type-list-view">
+              <span><img src="/assets/img/common/icon/ic-view.png" height="19" style="margin-top: 1px; vertical-align: text-bottom;"><img src="/assets/img/common/icon/ic-x-x.png" height="8">8</span>
+                          </div>
+            <div class="type-list-detail">
+              <span><img src="/assets/img/common/icon/ic-female.png" width="11" style="vertical-align: middle;"></span>
+              <span style="margin: 0 5px 0 0;">楓</span>
+              <span style="margin: 0 5px 0 0;">54歳</span>
+              <span><img src="/assets/img/common/icon/home.png" width="12" style="margin-top: 3px; margin-right: 3px; vertical-align: text-top;">北海道(道央)</span>              
+            </div>
+          </a>
+        </div><!-- type-list-link -->
+      </div><!-- list-item -->
+           <div class="list-item list-male">
+        <div class="type-list-link">
+          <div class="type-list-img listImageRelative">
+                                    <div class="type-list-thumb">
+              
+              
+              <a href="/sns/snsprofile/exec_profile_redirect.html?q=MEVKdnNDMkVoVDRTdFRTMXgwajBKWGo4bXluVTBLbWg4djFBd2RwQVJEdVFiY1N4TU1RNVdrK0RtNFp4cHlqOA%3D%3D">
+                              <img src="//images.194964.com/snsprofrses/2996ec84f69912be0b112fb2c38a8ab8_5adba1aaca495660_30cb5cfc6e_4_200.jpg">
+                            </a>
+            </div><!-- type-list-thumb -->
+            
+                      </div><!-- type-list-link -->
+
+                      
+            <a href="/sns/snsdiary/show_diary_detail.html?q=L3Qxd0w3bVR2TTNkN1dLNWEyQk4xcCtkWDc2VFJqZXBFMi9rbHZYQm1mWT0%3D" class="type-list-txt">
+                       <div class="type-row">
+              <div class="row-inside">
+                              </div>
+              <div class="row-inside">
+                <div class="type-list-date">10/25 15:22</div>  
+              </div>
+            </div>              
+            <div class="type-list-title">
+                              <img src="/assets/img/common/icon/icon_red_mouth.png">
+                            『初めての複数プレイ』＠花ちゃん
+            </div>
+            <div class="type-list-view">
+              <span><img src="/assets/img/common/icon/ic-view.png" height="19" style="margin-top: 1px; vertical-align: text-bottom;"><img src="/assets/img/common/icon/ic-x-x.png" height="8">12</span>
+                          </div>
+            <div class="type-list-detail">
+              <span><img src="/assets/img/common/icon/ic-male.png" width="11" style="vertical-align: middle;"></span>
+              <span style="margin: 0 5px 0 0;">たくま</span>
+              <span style="margin: 0 5px 0 0;">40歳</span>
+              <span><img src="/assets/img/common/icon/home.png" width="12" style="margin-top: 3px; margin-right: 3px; vertical-align: text-top;">愛知</span>              
+            </div>
+          </a>
+        </div><!-- type-list-link -->
+      </div><!-- list-item -->
+           <div class="list-item list-male">
+        <div class="type-list-link">
+          <div class="type-list-img listImageRelative">
+                                    <div class="type-list-thumb">
+              
+              
+              <a href="/sns/snsprofile/exec_profile_redirect.html?q=MEVKdnNDMkVoVDRTdFRTMXgwajBKU1UxeCs4L0VqMlA1SWZKR1JSV2grK25WRW1udWZGaTVZZnRxUXlvQUwwdg%3D%3D">
+                              <img src="//images.194964.com/snsprofrses/1fddbbb605303c79162e91e27fc5ca19_5adba1aaca495660_f6fdac7721_4_200.jpg">
+                            </a>
+            </div><!-- type-list-thumb -->
+            
+                      </div><!-- type-list-link -->
+
+                      
+            <a href="/sns/snsdiary/show_diary_detail.html?q=L3Qxd0w3bVR2TTNkN1dLNWEyQk4xaktPMG5kbnNHRlZzZDF5b3RWa3RGVT0%3D" class="type-list-txt">
+                       <div class="type-row">
+              <div class="row-inside">
+                                  <div class="tag-photo">写真あり</div>  
+                              </div>
+              <div class="row-inside">
+                <div class="type-list-date">10/25 15:20</div>  
+              </div>
+            </div>              
+            <div class="type-list-title">
+                            夜遊び
+            </div>
+            <div class="type-list-view">
+              <span><img src="/assets/img/common/icon/ic-view.png" height="19" style="margin-top: 1px; vertical-align: text-bottom;"><img src="/assets/img/common/icon/ic-x-x.png" height="8">4</span>
+                          </div>
+            <div class="type-list-detail">
+              <span><img src="/assets/img/common/icon/ic-male.png" width="11" style="vertical-align: middle;"></span>
+              <span style="margin: 0 5px 0 0;">リセッシュ</span>
+              <span style="margin: 0 5px 0 0;">非公開</span>
+              <span><img src="/assets/img/common/icon/home.png" width="12" style="margin-top: 3px; margin-right: 3px; vertical-align: text-top;">福岡</span>              
+            </div>
+          </a>
+        </div><!-- type-list-link -->
+      </div><!-- list-item -->
+           <div class="list-item list-male">
+        <div class="type-list-link">
+          <div class="type-list-img listImageRelative">
+                                                              <div class="type-list-thumb">
+              
+              
+              <a href="/sns/snsprofile/exec_profile_redirect.html?q=MEVKdnNDMkVoVDRTdFRTMXgwajBKVG5UaldvNVdBeFpCZGpuYVpZREtaOGF5bVBYblQzaTlKYVZZTWhwcW92cw%3D%3D">
+                              <img src="//images.194964.com/images/no_image_man.png">
+                            </a>
+            </div><!-- type-list-thumb -->
+            
+                      </div><!-- type-list-link -->
+
+                      
+            <a href="/sns/snsdiary/show_diary_detail.html?q=L3Qxd0w3bVR2TTNkN1dLNWEyQk4xclV6Ly9ZMXJUVWlKVGlhOGR4Z0lsOD0%3D" class="type-list-txt">
+                       <div class="type-row">
+              <div class="row-inside">
+                                  <div class="tag-photo">写真あり</div>  
+                              </div>
+              <div class="row-inside">
+                <div class="type-list-date">10/25 15:19</div>  
+              </div>
+            </div>              
+            <div class="type-list-title">
+                            菊花賞はキマットル！！( ﾟдﾟ)ﾊｯ!
+            </div>
+            <div class="type-list-view">
+              <span><img src="/assets/img/common/icon/ic-view.png" height="19" style="margin-top: 1px; vertical-align: text-bottom;"><img src="/assets/img/common/icon/ic-x-x.png" height="8">8</span>
+                          </div>
+            <div class="type-list-detail">
+              <span><img src="/assets/img/common/icon/ic-male.png" width="11" style="vertical-align: middle;"></span>
+              <span style="margin: 0 5px 0 0;">中年よもぎ</span>
+              <span style="margin: 0 5px 0 0;">48歳</span>
+              <span><img src="/assets/img/common/icon/home.png" width="12" style="margin-top: 3px; margin-right: 3px; vertical-align: text-top;">愛知</span>              
+            </div>
+          </a>
+        </div><!-- type-list-link -->
+      </div><!-- list-item -->
+           <div class="list-item list-male">
+        <div class="type-list-link">
+          <div class="type-list-img listImageRelative">
+                                    <div class="type-list-thumb">
+              
+              
+              <a href="/sns/snsprofile/exec_profile_redirect.html?q=MEVKdnNDMkVoVDRTdFRTMXgwajBKU1FxbEoyMFZiYURtei9UNlpFSWUyZlF1cmVsYmsxaWFubmFtbGw1YU9QSA%3D%3D">
+                              <img src="//images.194964.com/snsprofrses/7f2c976fb8ae738032620df7dc5cb85f_5adba1aaca495660_52f95380c6_4_200.jpg">
+                            </a>
+            </div><!-- type-list-thumb -->
+            
+                      </div><!-- type-list-link -->
+
+                      
+            <a href="/sns/snsdiary/show_diary_detail.html?q=L3Qxd0w3bVR2TTNkN1dLNWEyQk4xcmxHMHl1OTBnTi9wdlQzMFhiREMrcz0%3D" class="type-list-txt">
+                       <div class="type-row">
+              <div class="row-inside">
+                              </div>
+              <div class="row-inside">
+                <div class="type-list-date">10/25 15:18</div>  
+              </div>
+            </div>              
+            <div class="type-list-title">
+                            菊花賞<span style="font-weight:normal">🐴</span>
+            </div>
+            <div class="type-list-view">
+              <span><img src="/assets/img/common/icon/ic-view.png" height="19" style="margin-top: 1px; vertical-align: text-bottom;"><img src="/assets/img/common/icon/ic-x-x.png" height="8">13</span>
+                          </div>
+            <div class="type-list-detail">
+              <span><img src="/assets/img/common/icon/ic-male.png" width="11" style="vertical-align: middle;"></span>
+              <span style="margin: 0 5px 0 0;">さとう</span>
+              <span style="margin: 0 5px 0 0;">40歳</span>
+              <span><img src="/assets/img/common/icon/home.png" width="12" style="margin-top: 3px; margin-right: 3px; vertical-align: text-top;">神奈川</span>              
+            </div>
+          </a>
+        </div><!-- type-list-link -->
+      </div><!-- list-item -->
+           <div class="list-item list-female">
+        <div class="type-list-link">
+          <div class="type-list-img listImageRelative">
+                                    <div class="type-list-thumb">
+              
+              
+              <a href="/sns/snsprofile/exec_profile_redirect.html?q=MEVKdnNDMkVoVDRTdFRTMXgwajBKWWpJc1B6OWdFdHNkbU1wSFROeEdYMk9McWRVYzJHUk1KY1Vpc2NjY3IrMQ%3D%3D">
+                              <img src="//images.194964.com/snsprofrses/c3e6456b333821327d511fd68b4f7a96_5adba1aaca495660_27c6052f43_4_200.jpg">
+                            </a>
+            </div><!-- type-list-thumb -->
+            
+                      </div><!-- type-list-link -->
+
+                      
+            <a href="/sns/snsdiary/show_diary_detail.html?q=L3Qxd0w3bVR2TTNkN1dLNWEyQk4xakQ0aFhpcUVCdTVPRG9nZVgyNmNROD0%3D" class="type-list-txt">
+                       <div class="type-row">
+              <div class="row-inside">
+                              </div>
+              <div class="row-inside">
+                <div class="type-list-date">10/25 15:16</div>  
+              </div>
+            </div>              
+            <div class="type-list-title">
+                              <img src="/assets/img/common/icon/icon_red_mouth.png">
+                            歩道走行不可の道路では、自転車は「路側帯」を走行してはならない
+            </div>
+            <div class="type-list-view">
+              <span><img src="/assets/img/common/icon/ic-view.png" height="19" style="margin-top: 1px; vertical-align: text-bottom;"><img src="/assets/img/common/icon/ic-x-x.png" height="8">4</span>
+                          </div>
+            <div class="type-list-detail">
+              <span><img src="/assets/img/common/icon/ic-female.png" width="11" style="vertical-align: middle;"></span>
+              <span style="margin: 0 5px 0 0;">とまとカ゚レーパン</span>
+              <span style="margin: 0 5px 0 0;">非公開</span>
+              <span><img src="/assets/img/common/icon/home.png" width="12" style="margin-top: 3px; margin-right: 3px; vertical-align: text-top;">愛知</span>              
+            </div>
+          </a>
+        </div><!-- type-list-link -->
+      </div><!-- list-item -->
+           <div class="list-item list-male">
+        <div class="type-list-link">
+          <div class="type-list-img listImageRelative">
+                                                              <div class="type-list-thumb">
+              
+              
+              <a href="/sns/snsprofile/exec_profile_redirect.html?q=MEVKdnNDMkVoVDRTdFRTMXgwajBKVzNZNk5MTDlTdDZCcXFXblU3ZEIyZGZRU09iL241SHZ4aE4wMmU5cG5lcA%3D%3D">
+                              <img src="//images.194964.com/images/no_image_man.png">
+                            </a>
+            </div><!-- type-list-thumb -->
+            
+                      </div><!-- type-list-link -->
+
+                      
+            <a href="/sns/snsdiary/show_diary_detail.html?q=L3Qxd0w3bVR2TTNkN1dLNWEyQk4xaUxtT09KbFV0aWo5SVF3S2F2OTVyUT0%3D" class="type-list-txt">
+                       <div class="type-row">
+              <div class="row-inside">
+                              </div>
+              <div class="row-inside">
+                <div class="type-list-date">10/25 15:16</div>  
+              </div>
+            </div>              
+            <div class="type-list-title">
+                            25日、明日は通院
+            </div>
+            <div class="type-list-view">
+              <span><img src="/assets/img/common/icon/ic-view.png" height="19" style="margin-top: 1px; vertical-align: text-bottom;"><img src="/assets/img/common/icon/ic-x-x.png" height="8">1</span>
+                          </div>
+            <div class="type-list-detail">
+              <span><img src="/assets/img/common/icon/ic-male.png" width="11" style="vertical-align: middle;"></span>
+              <span style="margin: 0 5px 0 0;">こぞう</span>
+              <span style="margin: 0 5px 0 0;">54歳</span>
+              <span><img src="/assets/img/common/icon/home.png" width="12" style="margin-top: 3px; margin-right: 3px; vertical-align: text-top;">静岡</span>              
+            </div>
+          </a>
+        </div><!-- type-list-link -->
+      </div><!-- list-item -->
+           <div class="list-item list-male">
+        <div class="type-list-link">
+          <div class="type-list-img listImageRelative">
+                                    <div class="type-list-thumb">
+              
+              
+              <a href="/sns/snsprofile/exec_profile_redirect.html?q=MEVKdnNDMkVoVDRTdFRTMXgwajBKWjZ1d21aSllBQUwxd2FJb3ZPOUQvRktnK0FUdGw5NmphNEk1ZVd5eFBUNg%3D%3D">
+                              <img src="//images.194964.com/snsprofrses/faf55319aa7b79f7705067d370822089_5adba1aaca495660_15eb236e8e_4_200.jpg">
+                            </a>
+            </div><!-- type-list-thumb -->
+            
+                      </div><!-- type-list-link -->
+
+                      
+            <a href="/sns/snsdiary/show_diary_detail.html?q=L3Qxd0w3bVR2TTNkN1dLNWEyQk4xam1ML3FvVDhKU1pBYWN0b05hL0RUTT0%3D" class="type-list-txt">
+                       <div class="type-row">
+              <div class="row-inside">
+                              </div>
+              <div class="row-inside">
+                <div class="type-list-date">10/25 15:14</div>  
+              </div>
+            </div>              
+            <div class="type-list-title">
+                              <img src="/assets/img/common/icon/icon_red_mouth.png">
+                            菊花賞2026
+            </div>
+            <div class="type-list-view">
+              <span><img src="/assets/img/common/icon/ic-view.png" height="19" style="margin-top: 1px; vertical-align: text-bottom;"><img src="/assets/img/common/icon/ic-x-x.png" height="8">12</span>
+                          </div>
+            <div class="type-list-detail">
+              <span><img src="/assets/img/common/icon/ic-male.png" width="11" style="vertical-align: middle;"></span>
+              <span style="margin: 0 5px 0 0;">じーじ</span>
+              <span style="margin: 0 5px 0 0;">63歳</span>
+              <span><img src="/assets/img/common/icon/home.png" width="12" style="margin-top: 3px; margin-right: 3px; vertical-align: text-top;">大阪</span>              
+            </div>
+          </a>
+        </div><!-- type-list-link -->
+      </div><!-- list-item -->
+           <div class="list-item list-male">
+        <div class="type-list-link">
+          <div class="type-list-img listImageRelative">
+                                                              <div class="type-list-thumb">
+              
+              
+              <a href="/sns/snsprofile/exec_profile_redirect.html?q=MEVKdnNDMkVoVDRTdFRTMXgwajBKYUg0N0UyRlJreFAxU0VwRldwMU5yUHEyem9wWGlJM0VsMlZUWGp2Qk84Ug%3D%3D">
+                              <img src="//images.194964.com/images/no_image_man.png">
+                            </a>
+            </div><!-- type-list-thumb -->
+            
+                      </div><!-- type-list-link -->
+
+                      
+            <a href="/sns/snsdiary/show_diary_detail.html?q=L3Qxd0w3bVR2TTNkN1dLNWEyQk4xc3Z0L1M5c1ZsRFBlZEthd2VodnMrRT0%3D" class="type-list-txt">
+                       <div class="type-row">
+              <div class="row-inside">
+                              </div>
+              <div class="row-inside">
+                <div class="type-list-date">10/25 15:12</div>  
+              </div>
+            </div>              
+            <div class="type-list-title">
+                            当たる気がしない
+            </div>
+            <div class="type-list-view">
+              <span><img src="/assets/img/common/icon/ic-view.png" height="19" style="margin-top: 1px; vertical-align: text-bottom;"><img src="/assets/img/common/icon/ic-x-x.png" height="8">10</span>
+                          </div>
+            <div class="type-list-detail">
+              <span><img src="/assets/img/common/icon/ic-male.png" width="11" style="vertical-align: middle;"></span>
+              <span style="margin: 0 5px 0 0;">既婚者禁止！レオン</span>
+              <span style="margin: 0 5px 0 0;">59歳</span>
+              <span><img src="/assets/img/common/icon/home.png" width="12" style="margin-top: 3px; margin-right: 3px; vertical-align: text-top;">岡山</span>              
+            </div>
+          </a>
+        </div><!-- type-list-link -->
+      </div><!-- list-item -->
+           <div class="list-item list-female">
+        <div class="type-list-link">
+          <div class="type-list-img listImageRelative">
+                                                              <div class="type-list-thumb">
+              
+              
+              <a href="/sns/snsprofile/exec_profile_redirect.html?q=MEVKdnNDMkVoVDRTdFRTMXgwajBKVEMxK1J6ek1rS2ljS3Vaa1NPZVJObHNEVlBCbGtZZFZVS2pwdVdzVmsyeQ%3D%3D">
+                              <img src="//images.194964.com/images/no_image_woman.png">
+                            </a>
+            </div><!-- type-list-thumb -->
+            
+                          <img src="/assets/img/common/icon/icon_new_triangle.png" class="icon-new-diary">
+                      </div><!-- type-list-link -->
+
+                      
+            <a href="/sns/snsdiary/show_diary_detail.html?q=L3Qxd0w3bVR2TTNkN1dLNWEyQk4xak5CcVhlcDIyZzI5QXNkakdndG91ND0%3D" class="type-list-txt">
+                       <div class="type-row">
+              <div class="row-inside">
+                              </div>
+              <div class="row-inside">
+                <div class="type-list-date">10/25 15:10</div>  
+              </div>
+            </div>              
+            <div class="type-list-title">
+                            あれ？おかしいなぁー。
+            </div>
+            <div class="type-list-view">
+              <span><img src="/assets/img/common/icon/ic-view.png" height="19" style="margin-top: 1px; vertical-align: text-bottom;"><img src="/assets/img/common/icon/ic-x-x.png" height="8">25</span>
+                              <span><img src="/assets/img/common/icon/ic-write.png" width="18" style="vertical-align: top;"><img src="/assets/img/common/icon/ic-x-x.png" width="8" style="margin: 0 3px 0 0; vertical-align: baseline;">3</span>
+                          </div>
+            <div class="type-list-detail">
+              <span><img src="/assets/img/common/icon/ic-female.png" width="11" style="vertical-align: middle;"></span>
+              <span style="margin: 0 5px 0 0;">ぶーこ</span>
+              <span style="margin: 0 5px 0 0;">46歳</span>
+              <span><img src="/assets/img/common/icon/home.png" width="12" style="margin-top: 3px; margin-right: 3px; vertical-align: text-top;">京都</span>              
+            </div>
+          </a>
+        </div><!-- type-list-link -->
+      </div><!-- list-item -->
+           <div class="list-item list-female">
+        <div class="type-list-link">
+          <div class="type-list-img listImageRelative">
+                                    <div class="type-list-thumb">
+              
+              
+              <a href="/sns/snsprofile/exec_profile_redirect.html?q=MEVKdnNDMkVoVDRTdFRTMXgwajBKV3FkZHZWWGNrcitEVGE1VDNnMnVzanJXbThKWER5c01Xdy82a0ZRM0ZESw%3D%3D">
+                              <img src="//images.194964.com/snsprofrses/bfd1d338ab04d447ba3ed45b282ae911_5adba1aaca495660_2406ef9c44_4_200.jpg">
+                            </a>
+            </div><!-- type-list-thumb -->
+            
+                      </div><!-- type-list-link -->
+
+                      
+            <a href="/sns/snsdiary/show_diary_detail.html?q=L3Qxd0w3bVR2TTNkN1dLNWEyQk4xa0R1ejZ3aXNFK1AxZjJaTktoRzM5ND0%3D" class="type-list-txt">
+                       <div class="type-row">
+              <div class="row-inside">
+                                  <div class="tag-photo">写真あり</div>  
+                              </div>
+              <div class="row-inside">
+                <div class="type-list-date">10/25 15:09</div>  
+              </div>
+            </div>              
+            <div class="type-list-title">
+                            2回目
+            </div>
+            <div class="type-list-view">
+              <span><img src="/assets/img/common/icon/ic-view.png" height="19" style="margin-top: 1px; vertical-align: text-bottom;"><img src="/assets/img/common/icon/ic-x-x.png" height="8">33</span>
+                          </div>
+            <div class="type-list-detail">
+              <span><img src="/assets/img/common/icon/ic-female.png" width="11" style="vertical-align: middle;"></span>
+              <span style="margin: 0 5px 0 0;">ユナ</span>
+              <span style="margin: 0 5px 0 0;">39歳</span>
+              <span><img src="/assets/img/common/icon/home.png" width="12" style="margin-top: 3px; margin-right: 3px; vertical-align: text-top;">京都</span>              
+            </div>
+          </a>
+        </div><!-- type-list-link -->
+      </div><!-- list-item -->
+           <div class="list-item list-female">
+        <div class="type-list-link">
+          <div class="type-list-img listImageRelative">
+                                    <div class="type-list-thumb">
+              
+              
+              <a href="/sns/snsprofile/exec_profile_redirect.html?q=MEVKdnNDMkVoVDRTdFRTMXgwajBKVjFQQW01NndyMFRzaHppcE80RDdVOHNTaEdCb1ZpY1hBOE1ldUFLb3h2UQ%3D%3D">
+                              <img src="//images.194964.com/snsprofrses/451c2beda5347b4f436b8c16ce5e39fc_5adba1aaca495660_bb6abde863_4_200.jpg">
+                            </a>
+            </div><!-- type-list-thumb -->
+            
+                      </div><!-- type-list-link -->
+
+                      
+            <a href="/sns/snsdiary/show_diary_detail.html?q=L3Qxd0w3bVR2TTNkN1dLNWEyQk4xZzFLSU5rUUUvRk1aWXZPL2RPaGIrZz0%3D" class="type-list-txt">
+                       <div class="type-row">
+              <div class="row-inside">
+                              </div>
+              <div class="row-inside">
+                <div class="type-list-date">10/25 15:07</div>  
+              </div>
+            </div>              
+            <div class="type-list-title">
+                            <span style="font-weight:normal">💜</span>
+            </div>
+            <div class="type-list-view">
+              <span><img src="/assets/img/common/icon/ic-view.png" height="19" style="margin-top: 1px; vertical-align: text-bottom;"><img src="/assets/img/common/icon/ic-x-x.png" height="8">7</span>
+                          </div>
+            <div class="type-list-detail">
+              <span><img src="/assets/img/common/icon/ic-female.png" width="11" style="vertical-align: middle;"></span>
+              <span style="margin: 0 5px 0 0;">多忙です。byめち</span>
+              <span style="margin: 0 5px 0 0;">42歳</span>
+              <span><img src="/assets/img/common/icon/home.png" width="12" style="margin-top: 3px; margin-right: 3px; vertical-align: text-top;">宮城</span>              
+            </div>
+          </a>
+        </div><!-- type-list-link -->
+      </div><!-- list-item -->
+           <div class="list-item list-male">
+        <div class="type-list-link">
+          <div class="type-list-img listImageRelative">
+                                                              <div class="type-list-thumb">
+              
+              
+              <a href="/sns/snsprofile/exec_profile_redirect.html?q=MEVKdnNDMkVoVDRTdFRTMXgwajBKWE9PUlg4d0hWeWphQ3BQbmRGRkdaOXJQV0xreUIrbWVYSWYzZXpPQk9tZw%3D%3D">
+                              <img src="//images.194964.com/images/no_image_man.png">
+                            </a>
+            </div><!-- type-list-thumb -->
+            
+                      </div><!-- type-list-link -->
+
+                      
+            <a href="/sns/snsdiary/show_diary_detail.html?q=L3Qxd0w3bVR2TTNkN1dLNWEyQk4xaE12dUlETW52Z1dNZTdQM0hUOFdRcz0%3D" class="type-list-txt">
+                       <div class="type-row">
+              <div class="row-inside">
+                                  <div class="tag-photo">写真あり</div>  
+                              </div>
+              <div class="row-inside">
+                <div class="type-list-date">10/25 15:07</div>  
+              </div>
+            </div>              
+            <div class="type-list-title">
+                            クラシック最終は菊花賞だ
+            </div>
+            <div class="type-list-view">
+              <span><img src="/assets/img/common/icon/ic-view.png" height="19" style="margin-top: 1px; vertical-align: text-bottom;"><img src="/assets/img/common/icon/ic-x-x.png" height="8">9</span>
+                          </div>
+            <div class="type-list-detail">
+              <span><img src="/assets/img/common/icon/ic-male.png" width="11" style="vertical-align: middle;"></span>
+              <span style="margin: 0 5px 0 0;">終活</span>
+              <span style="margin: 0 5px 0 0;">51歳</span>
+              <span><img src="/assets/img/common/icon/home.png" width="12" style="margin-top: 3px; margin-right: 3px; vertical-align: text-top;">富山</span>              
+            </div>
+          </a>
+        </div><!-- type-list-link -->
+      </div><!-- list-item -->
+           <div class="list-item list-male">
+        <div class="type-list-link">
+          <div class="type-list-img listImageRelative">
+                                                              <div class="type-list-thumb">
+              
+              
+              <a href="/sns/snsprofile/exec_profile_redirect.html?q=MEVKdnNDMkVoVDRTdFRTMXgwajBKVUdqaDZ4MU9KUkMzU1VUcEFqamVFR043TGlTSzk4UGlzVHdYTmdZVU9rSA%3D%3D">
+                              <img src="//images.194964.com/images/no_image_man.png">
+                            </a>
+            </div><!-- type-list-thumb -->
+            
+                      </div><!-- type-list-link -->
+
+                      
+            <a href="/sns/snsdiary/show_diary_detail.html?q=L3Qxd0w3bVR2TTNkN1dLNWEyQk4xa1lzRUVIR3krZVpFWS9sVU5pbGtoWT0%3D" class="type-list-txt">
+                       <div class="type-row">
+              <div class="row-inside">
+                              </div>
+              <div class="row-inside">
+                <div class="type-list-date">10/25 14:56</div>  
+              </div>
+            </div>              
+            <div class="type-list-title">
+                            イククルの競馬好きさんは
+            </div>
+            <div class="type-list-view">
+              <span><img src="/assets/img/common/icon/ic-view.png" height="19" style="margin-top: 1px; vertical-align: text-bottom;"><img src="/assets/img/common/icon/ic-x-x.png" height="8">22</span>
+                          </div>
+            <div class="type-list-detail">
+              <span><img src="/assets/img/common/icon/ic-male.png" width="11" style="vertical-align: middle;"></span>
+              <span style="margin: 0 5px 0 0;">花道</span>
+              <span style="margin: 0 5px 0 0;">51歳</span>
+              <span><img src="/assets/img/common/icon/home.png" width="12" style="margin-top: 3px; margin-right: 3px; vertical-align: text-top;">兵庫</span>              
+            </div>
+          </a>
+        </div><!-- type-list-link -->
+      </div><!-- list-item -->
+           <div class="list-item list-male">
+        <div class="type-list-link">
+          <div class="type-list-img listImageRelative">
+                                    <div class="type-list-thumb">
+              
+              
+              <a href="/sns/snsprofile/exec_profile_redirect.html?q=MEVKdnNDMkVoVDRTdFRTMXgwajBKWmt1LzBxa0dIbWdIQzcxZmJLLzBQVzkvWk9jRFM3ZzV1VnBEY2FpN0NuaA%3D%3D">
+                              <img src="//images.194964.com/snsprofrses/e954e1fd004f1b241af179dfdbb70bf7_5adba1aaca495660_154e9c463c_4_200.jpg">
+                            </a>
+            </div><!-- type-list-thumb -->
+            
+                      </div><!-- type-list-link -->
+
+                      
+            <a href="/sns/snsdiary/show_diary_detail.html?q=L3Qxd0w3bVR2TTNkN1dLNWEyQk4xcElWUTVFYUkrNkhUZDhncjFqSGl3Yz0%3D" class="type-list-txt">
+                       <div class="type-row">
+              <div class="row-inside">
+                                  <div class="tag-photo">写真あり</div>  
+                              </div>
+              <div class="row-inside">
+                <div class="type-list-date">10/25 14:55</div>  
+              </div>
+            </div>              
+            <div class="type-list-title">
+                            こんな３連休でした②
+            </div>
+            <div class="type-list-view">
+              <span><img src="/assets/img/common/icon/ic-view.png" height="19" style="margin-top: 1px; vertical-align: text-bottom;"><img src="/assets/img/common/icon/ic-x-x.png" height="8">15</span>
+                          </div>
+            <div class="type-list-detail">
+              <span><img src="/assets/img/common/icon/ic-male.png" width="11" style="vertical-align: middle;"></span>
+              <span style="margin: 0 5px 0 0;">ほじ丸(￣σ・￣)</span>
+              <span style="margin: 0 5px 0 0;">52歳</span>
+              <span><img src="/assets/img/common/icon/home.png" width="12" style="margin-top: 3px; margin-right: 3px; vertical-align: text-top;">和歌山</span>              
+            </div>
+          </a>
+        </div><!-- type-list-link -->
+      </div><!-- list-item -->
+           <div class="list-item list-female">
+        <div class="type-list-link">
+          <div class="type-list-img listImageRelative">
+                                    <div class="type-list-thumb">
+              
+              
+              <a href="/sns/snsprofile/exec_profile_redirect.html?q=MEVKdnNDMkVoVDRTdFRTMXgwajBKVi9MdjRXYXp2alFORXlJQmUxdW5uSTJMZ291MFBDOTdCdXJSZll5V3U5Tw%3D%3D">
+                              <img src="//images.194964.com/snsprofrses/13dd6fade57874d8dd8891da7904a229_5adba1aaca495660_dd97380fed_4_200.jpg">
+                            </a>
+            </div><!-- type-list-thumb -->
+            
+                      </div><!-- type-list-link -->
+
+                      
+            <a href="/sns/snsdiary/show_diary_detail.html?q=L3Qxd0w3bVR2TTNkN1dLNWEyQk4xaEN1aDNheGFmOERML0hKOFVkdmdoRT0%3D" class="type-list-txt">
+                       <div class="type-row">
+              <div class="row-inside">
+                                  <div class="tag-photo">写真あり</div>  
+                              </div>
+              <div class="row-inside">
+                <div class="type-list-date">10/25 14:51</div>  
+              </div>
+            </div>              
+            <div class="type-list-title">
+                            どこ行く？
+            </div>
+            <div class="type-list-view">
+              <span><img src="/assets/img/common/icon/ic-view.png" height="19" style="margin-top: 1px; vertical-align: text-bottom;"><img src="/assets/img/common/icon/ic-x-x.png" height="8">71</span>
+                              <span><img src="/assets/img/common/icon/ic-write.png" width="18" style="vertical-align: top;"><img src="/assets/img/common/icon/ic-x-x.png" width="8" style="margin: 0 3px 0 0; vertical-align: baseline;">16</span>
+                          </div>
+            <div class="type-list-detail">
+              <span><img src="/assets/img/common/icon/ic-female.png" width="11" style="vertical-align: middle;"></span>
+              <span style="margin: 0 5px 0 0;">在庫</span>
+              <span style="margin: 0 5px 0 0;">非公開</span>
+              <span><img src="/assets/img/common/icon/home.png" width="12" style="margin-top: 3px; margin-right: 3px; vertical-align: text-top;">千葉</span>              
+            </div>
+          </a>
+        </div><!-- type-list-link -->
+      </div><!-- list-item -->
+           <div class="list-item list-male">
+        <div class="type-list-link">
+          <div class="type-list-img listImageRelative">
+                                    <div class="type-list-thumb">
+              
+              
+              <a href="/sns/snsprofile/exec_profile_redirect.html?q=MEVKdnNDMkVoVDRTdFRTMXgwajBKY01jYWt3MDdnMVhsLzJpeCtDWU9SM3pGdnZhdFFncGU4TFR6Uzc1Zlh4MA%3D%3D">
+                              <img src="//images.194964.com/snsprofrses/115cd79dce8b723d04cf8c7d98b50992_5adba1aaca495660_1c5459ed72_4_200.jpg">
+                            </a>
+            </div><!-- type-list-thumb -->
+            
+                      </div><!-- type-list-link -->
+
+                      
+            <a href="/sns/snsdiary/show_diary_detail.html?q=L3Qxd0w3bVR2TTNkN1dLNWEyQk4xckR0blNST1dwRHJ0cHN2dnFZOEk0WT0%3D" class="type-list-txt">
+                       <div class="type-row">
+              <div class="row-inside">
+                              </div>
+              <div class="row-inside">
+                <div class="type-list-date">10/25 14:49</div>  
+              </div>
+            </div>              
+            <div class="type-list-title">
+                            中央競馬1025(日)メインRの予想
+            </div>
+            <div class="type-list-view">
+              <span><img src="/assets/img/common/icon/ic-view.png" height="19" style="margin-top: 1px; vertical-align: text-bottom;"><img src="/assets/img/common/icon/ic-x-x.png" height="8">10</span>
+                          </div>
+            <div class="type-list-detail">
+              <span><img src="/assets/img/common/icon/ic-male.png" width="11" style="vertical-align: middle;"></span>
+              <span style="margin: 0 5px 0 0;">マンキンタン</span>
+              <span style="margin: 0 5px 0 0;">非公開</span>
+              <span><img src="/assets/img/common/icon/home.png" width="12" style="margin-top: 3px; margin-right: 3px; vertical-align: text-top;">神奈川</span>              
+            </div>
+          </a>
+        </div><!-- type-list-link -->
+      </div><!-- list-item -->
+           <div class="list-item list-male">
+        <div class="type-list-link">
+          <div class="type-list-img listImageRelative">
+                                    <div class="type-list-thumb">
+              
+              
+              <a href="/sns/snsprofile/exec_profile_redirect.html?q=MEVKdnNDMkVoVDRTdFRTMXgwajBKZmh2VUlMNTduZ0lrSnZWUUdTM2FDbjZoNVMwZjdSQVlidFNITnFpM0hGNw%3D%3D">
+                              <img src="//images.194964.com/snsprofrses/156b23086fcd9822b965b1d239c0de01_5adba1aaca495660_60b40004c3_4_200.jpg">
+                            </a>
+            </div><!-- type-list-thumb -->
+            
+                      </div><!-- type-list-link -->
+
+                      
+            <a href="/sns/snsdiary/show_diary_detail.html?q=L3Qxd0w3bVR2TTNkN1dLNWEyQk4xaGxBZmdXZ2lPeUlSYWczb0ZjMVNKOD0%3D" class="type-list-txt">
+                       <div class="type-row">
+              <div class="row-inside">
+                              </div>
+              <div class="row-inside">
+                <div class="type-list-date">10/25 14:40</div>  
+              </div>
+            </div>              
+            <div class="type-list-title">
+                            皆〜？皆な〜？皆んな〜？
+            </div>
+            <div class="type-list-view">
+              <span><img src="/assets/img/common/icon/ic-view.png" height="19" style="margin-top: 1px; vertical-align: text-bottom;"><img src="/assets/img/common/icon/ic-x-x.png" height="8">8</span>
+                          </div>
+            <div class="type-list-detail">
+              <span><img src="/assets/img/common/icon/ic-male.png" width="11" style="vertical-align: middle;"></span>
+              <span style="margin: 0 5px 0 0;">とし</span>
+              <span style="margin: 0 5px 0 0;">39歳</span>
+              <span><img src="/assets/img/common/icon/home.png" width="12" style="margin-top: 3px; margin-right: 3px; vertical-align: text-top;">青森</span>              
+            </div>
+          </a>
+        </div><!-- type-list-link -->
+      </div><!-- list-item -->
+           <div class="list-item list-male">
+        <div class="type-list-link">
+          <div class="type-list-img listImageRelative">
+                                    <div class="type-list-thumb">
+              
+              
+              <a href="/sns/snsprofile/exec_profile_redirect.html?q=MEVKdnNDMkVoVDRTdFRTMXgwajBKUm1jeG9nS1d0Q0hrM0E5MzFGbVJZb3hsQ2UxaVl0Zk9HdUxyT3UyM1NGZw%3D%3D">
+                              <img src="//images.194964.com/snsprofrses/f01cb9b0c536739a160aabbcd56130d7_5adba1aaca495660_12421fc4bf_4_200.jpg">
+                            </a>
+            </div><!-- type-list-thumb -->
+            
+                      </div><!-- type-list-link -->
+
+                      
+            <a href="/sns/snsdiary/show_diary_detail.html?q=L3Qxd0w3bVR2TTNkN1dLNWEyQk4xbHB5K29MT25pbExPSVBLbnpBbXd6Zz0%3D" class="type-list-txt">
+                       <div class="type-row">
+              <div class="row-inside">
+                              </div>
+              <div class="row-inside">
+                <div class="type-list-date">10/25 14:40</div>  
+              </div>
+            </div>              
+            <div class="type-list-title">
+                            <span style="font-weight:normal">🐴</span>負けない馬競馬<span style="font-weight:normal">🐴</span>
+            </div>
+            <div class="type-list-view">
+              <span><img src="/assets/img/common/icon/ic-view.png" height="19" style="margin-top: 1px; vertical-align: text-bottom;"><img src="/assets/img/common/icon/ic-x-x.png" height="8">23</span>
+                          </div>
+            <div class="type-list-detail">
+              <span><img src="/assets/img/common/icon/ic-male.png" width="11" style="vertical-align: middle;"></span>
+              <span style="margin: 0 5px 0 0;">すーさん</span>
+              <span style="margin: 0 5px 0 0;">66歳</span>
+              <span><img src="/assets/img/common/icon/home.png" width="12" style="margin-top: 3px; margin-right: 3px; vertical-align: text-top;">東京</span>              
+            </div>
+          </a>
+        </div><!-- type-list-link -->
+      </div><!-- list-item -->
+
+          </div>
+          <div id="endFlag"></div>
+      </div>
+      <input type="hidden" id="apiURL" value="/sns/snsdiary/ajax_show_search.html">
+      <textarea id="storedData" style="display:none;"></textarea>
+      <div id="reqParams">
+        <input type="text" style="display:none;" id="storedPage" name="page" value="2">
+              <input type="hidden" name="targetAreaId" value="">
+                    <input type="hidden" name="targetPrefId" value="">
+                    <input type="hidden" name="count" value="20">
+      </div>
+      <textarea id="storedRequestParams" style="display:none;"></textarea> 
+    </div> 
+</main>
+
+<script>
+$(document).ready(function(){
+  var SelectArea = parseInt($("#tabMenu2").attr("data-area"));
+  if (SelectArea === 6 || SelectArea === 8) {
+        $("#tabMenu2").parent().hide();
+        $("#nav-link").removeClass("navcol-4");
+        $("#nav-link").addClass("navcol-3");
+  }
+
+  $(window).on("pageshow", function(){
+      if ( $('#storedTab').val() !== '') {
+        var tempData = $('#storedTab').val();
+        $('#nav-link').html(tempData);
+        $("#storedTab").val(tempData);
+      }
+      if ( $('#storedRequestParams').val() !== '') {
+        var tempData = $('#storedRequestParams').val();
+        $('#reqParams').html(tempData);
+        $("#storedRequestParams").val(tempData);
+      }
+  });
+
+
+  $(document).on("change", "select.diary-selectbox", function(e){
+      var selectedOption = $("select.diary-selectbox option:selected");
+
+      var SelectArea = parseInt(selectedOption.attr("data-area"));
+      var AreaName   = selectedOption.attr("data-areaname");
+      var Pref       = parseInt(selectedOption.attr("data-pref"));
+      var PrefName   = selectedOption.html();
+
+      // 北海道の場合は北海道(xxx)のカッコの中身をタグ内に表示する
+      if ( SelectArea === 1 ) {
+          PrefName = PrefName.match(/\((\D+)\)/)[1];
+      }
+      
+      // 東京、大阪は3タブ
+      if(SelectArea === 6 || SelectArea === 8){
+        $("#tabMenu2").parent().hide();
+        $("#nav-link").removeClass("navcol-4");
+        $("#nav-link").addClass("navcol-3");
+      }else{
+        $("#nav-link").removeClass("navcol-3");
+        $("#nav-link").addClass("navcol-4");
+        $("#tabMenu2").parent().show();
+        $("#tabMenu2").html(AreaName);
+      }
+      $("#tabMenu2").attr("data-area", SelectArea);
+      $("#tabMenu3").html(PrefName);
+      $("#tabMenu3").attr("data-pref", Pref);
+      $("select.diary-selectbox").val(0);
+      $("#tabMenu3").trigger("click");
+  });
+
+
+  $(document).on("click", ".loadData", function(e){
+    $(".loadData").removeClass("select");
+    $(this).addClass("select");
+    
+    var tempData = $('#nav-link').html();
+    $("#storedTab").val(tempData);
+    
+    var Area = $(this).attr("data-area");
+    var Pref = $(this).attr("data-pref");
+    var count            = 15;
+    var page             = 1;
+    var targetPrefId     = $(this).attr("data-pref");
+    var targetAreaId     = $(this).attr("data-area")
+
+    var url          = $('#nav-link').data('url');
+
+
+    $.ajax({
+        "url": url,
+        "type": "POST",
+        "data": {"count": count, "page": page, "targetPrefId": targetPrefId, "targetAreaId": targetAreaId}
+    }).done(function( result, textStatus, jqXHR ) {
+        $('#storedDisplay').html(result["subject"]);
+
+        // 保管する
+        $('#storedData').val(result["subject"]);
+            
+        $('input[name="page"]').val(2);
+        $('input[name="targetPrefId"]').val(Pref);
+        $('input[name="targetAreaId"]').val(Area);
+        
+        var tempRequestParams = $('#reqParams').html();
+        $("#storedRequestParams").val(tempRequestParams);
+    }).fail(function( jqXHR, textStatus, errorThrown ){
+       var uri = '/log/xhr/'
+              +encodeURIComponent(textStatus)+'/'
+              +encodeURIComponent(jqXHR.readyState)+'/'
+              +encodeURIComponent(jqXHR.status)+'.html';
+        $('body').append('<img style="display:none;" src="'+uri+'">');
+
+                setTimeout(function(){alert("まことに申し訳ございませんが、通信に失敗しました。今一度お試しください。")},500);
+    });
+
+  });
+  
+  
+});
+</script>
+            <nav class="bottom-nav">
+            
+                            <div class="bottom-nav-item">
+                                <a href="/sns/snssearch/show_faces.html" class="bottom-nav-item-txt nav-search">お相手探し</a>
+                </div>
+
+            
+                            <div class="bottom-nav-item">
+                                <a href="/bbs/show_bbs.html" class="bottom-nav-item-txt nav-recruit">募集</a>
+                </div>
+
+            
+                            <div class="bottom-nav-item relative">
+                                                    <a href="/mail/inbox/show_mailbox.html" class="bottom-nav-item-txt nav-mail">メッセージ</a>
+                </div>
+
+            
+                            <div class="bottom-nav-item relative">
+                                                                                    <span class="caution">99</span>
+                                                                <a href="/sns/snstype/show_typed_list.html" class="bottom-nav-item-txt nav-type">タイプ</a>
+                </div>
+                
+            
+                            <div class="bottom-nav-item relative">
+                                                    <a href="/mypage.html" class="bottom-nav-item-txt nav-mypage">
+                        マイページ
+                    </a>
+                </div>
+        </nav>
+        
+                
+
+</body></html>

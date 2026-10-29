@@ -1,0 +1,272 @@
+{
+  "candidatesTotal": 68,
+  "footmarks": 20,
+  "members": 48,
+  "tierDist": {
+    "1": 8,
+    "2": 54,
+    "5": 6
+  },
+  "catCount": {
+    "footmark": 20,
+    "browse": 48
+  },
+  "top15": [
+    {
+      "cat": "footmark",
+      "name": "かず",
+      "age": "55",
+      "city": "津市",
+      "source": "プロフィール検索・その他より",
+      "time": "10/27 01:58",
+      "footmarkId": "2629587026",
+      "online": {
+        "present": true,
+        "iconClass": "online-icon1",
+        "label": ""
+      },
+      "onlineTier": 1,
+      "catPriority": 5,
+      "onlineSub": 0
+    },
+    {
+      "cat": "footmark",
+      "name": "みち",
+      "age": "58",
+      "city": "鈴鹿市",
+      "source": "プロフィール検索・その他より",
+      "time": "10/27 01:53",
+      "footmarkId": "2629584547",
+      "online": {
+        "present": true,
+        "iconClass": "online-icon1",
+        "label": ""
+      },
+      "onlineTier": 1,
+      "catPriority": 5,
+      "onlineSub": 0
+    },
+    {
+      "cat": "footmark",
+      "name": "だー",
+      "age": "44",
+      "city": "四日市市",
+      "source": "プロフィール検索・その他より",
+      "time": "10/27 01:25",
+      "footmarkId": "2629568724",
+      "online": {
+        "present": true,
+        "iconClass": "online-icon1",
+        "label": ""
+      },
+      "onlineTier": 1,
+      "catPriority": 5,
+      "onlineSub": 0
+    },
+    {
+      "cat": "footmark",
+      "name": "カメ吉",
+      "age": "53",
+      "city": "神奈川",
+      "source": "プロフィール検索・その他より",
+      "time": "10/26 23:58",
+      "footmarkId": "2629477629",
+      "online": {
+        "present": true,
+        "iconClass": "online-icon2",
+        "label": ""
+      },
+      "onlineTier": 2,
+      "catPriority": 5,
+      "onlineSub": 99
+    },
+    {
+      "cat": "footmark",
+      "name": "小林",
+      "age": "65",
+      "city": "松阪市",
+      "source": "プロフィール検索・その他より",
+      "time": "10/26 23:47",
+      "footmarkId": "2629469412",
+      "online": {
+        "present": true,
+        "iconClass": "online-icon2",
+        "label": ""
+      },
+      "onlineTier": 2,
+      "catPriority": 5,
+      "onlineSub": 99
+    },
+    {
+      "cat": "footmark",
+      "name": "レッズ",
+      "age": "57",
+      "city": "津市",
+      "source": "プロフィール検索・その他より",
+      "time": "10/26 23:25",
+      "footmarkId": "2629450093",
+      "online": {
+        "present": true,
+        "iconClass": "online-icon2",
+        "label": ""
+      },
+      "onlineTier": 2,
+      "catPriority": 5,
+      "onlineSub": 99
+    },
+    {
+      "cat": "footmark",
+      "name": "Hiro",
+      "age": "39",
+      "city": "鈴鹿市",
+      "source": "プロフィール検索・その他より",
+      "time": "10/26 22:54",
+      "footmarkId": "2629421483",
+      "online": {
+        "present": true,
+        "iconClass": "online-icon2",
+        "label": ""
+      },
+      "onlineTier": 2,
+      "catPriority": 5,
+      "onlineSub": 99
+    },
+    {
+      "cat": "footmark",
+      "name": "シン",
+      "age": "47",
+      "city": "尾鷲市",
+      "source": "プロフィール検索・その他より",
+      "time": "10/26 22:50",
+      "footmarkId": "2629417696",
+      "online": {
+        "present": true,
+        "iconClass": "online-icon2",
+        "label": ""
+      },
+      "onlineTier": 2,
+      "catPriority": 5,
+      "onlineSub": 99
+    },
+    {
+      "cat": "footmark",
+      "name": "ペン",
+      "age": "58",
+      "city": "松阪市",
+      "source": "プロフィール検索・その他より",
+      "time": "10/26 19:23",
+      "footmarkId": "2629205865",
+      "online": {
+        "present": true,
+        "iconClass": "online-icon2",
+        "label": ""
+      },
+      "onlineTier": 2,
+      "catPriority": 5,
+      "onlineSub": 99
+    },
+    {
+      "cat": "footmark",
+      "name": "らい",
+      "age": "34",
+      "city": "津市",
+      "source": "プロフィール検索・その他より",
+      "time": "10/26 18:58",
+      "footmarkId": "2629179311",
+      "online": {
+        "present": true,
+        "iconClass": "online-icon2",
+        "label": ""
+      },
+      "onlineTier": 2,
+      "catPriority": 5,
+      "onlineSub": 99
+    },
+    {
+      "cat": "footmark",
+      "name": "T",
+      "age": "50",
+      "city": "津市",
+      "source": "プロフィール検索・その他より",
+      "time": "10/26 18:58",
+      "footmarkId": "2629179296",
+      "online": {
+        "present": true,
+        "iconClass": "online-icon2",
+        "label": ""
+      },
+      "onlineTier": 2,
+      "catPriority": 5,
+      "onlineSub": 99
+    },
+    {
+      "cat": "footmark",
+      "name": "ﾏｽﾀ",
+      "age": "75",
+      "city": "伊賀市",
+      "source": "プロフィール検索・その他より",
+      "time": "10/26 18:51",
+      "footmarkId": "2629171711",
+      "online": {
+        "present": true,
+        "iconClass": "online-icon2",
+        "label": ""
+      },
+      "onlineTier": 2,
+      "catPriority": 5,
+      "onlineSub": 99
+    },
+    {
+      "cat": "footmark",
+      "name": "まさ",
+      "age": "37",
+      "city": "松阪市",
+      "source": "プロフィール検索・その他より",
+      "time": "10/26 18:50",
+      "footmarkId": "2629170507",
+      "online": {
+        "present": true,
+        "iconClass": "online-icon2",
+        "label": ""
+      },
+      "onlineTier": 2,
+      "catPriority": 5,
+      "onlineSub": 99
+    },
+    {
+      "cat": "footmark",
+      "name": "よっしぃ",
+      "age": "45",
+      "city": "新潟",
+      "source": "日記を見て",
+      "time": "10/26 18:43",
+      "footmarkId": "2629164052",
+      "online": {
+        "present": true,
+        "iconClass": "online-icon2",
+        "label": ""
+      },
+      "onlineTier": 2,
+      "catPriority": 5,
+      "onlineSub": 99
+    },
+    {
+      "cat": "footmark",
+      "name": "マルシオ",
+      "age": "46",
+      "city": "伊賀市",
+      "source": "プロフィール検索・その他より",
+      "time": "10/26 15:09",
+      "footmarkId": "2628941860",
+      "online": {
+        "present": true,
+        "iconClass": "online-icon2",
+        "label": ""
+      },
+      "onlineTier": 2,
+      "catPriority": 5,
+      "onlineSub": 99
+    }
+  ],
+  "fetchedAt": "2026-10-26T16:59:39.059Z"
+}
