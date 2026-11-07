@@ -343,6 +343,7 @@ export function renderDomainPage(view) {
     case 'domain-diary': loadDiary(); break;
     case 'domain-unified': renderUnifiedList(); break;
     case 'domain-leads': loadLeads(); break;
+    case 'domain-persona': loadPersona(); break;
     case 'domain-toolbox': loadToolbox(); break;
     case 'domain-pool': loadAccountPool(); break;
     default: page.style.display = 'none'; return;
@@ -754,3 +755,70 @@ export async function loadLeads() {
   fetchAndRender().catch(function(e) { console.error('[leads] fetch error:', e); });
 }
 
+
+
+// ---------- 账号人设(出会 17098 本账号资料卡) ----------
+// 抓出会 17098 本账号(ともね)的资料卡 → AccountPersona, 供 AI 生成话术时注入"人设"要素
+export async function loadPersona() {
+  var el = document.getElementById('domainContent');
+  var title = document.getElementById('domainTitle');
+  if (title) title.textContent = '账号人设（出会 17098 · ともね）';
+  if (!el) return;
+  el.innerHTML = '<div style="padding:20px;color:var(--muted);font-size:13px">加载中…</div>';
+  // 读当前 AccountPersona
+  var persona = null;
+  try {
+    var r = await fetch('/api/console/account-persona?accountId=17098');
+    var d = await r.json();
+    if (d.ok && d.persona) {
+      persona = JSON.parse(d.persona.persona || '{}');
+    }
+  } catch (e) { /* 未注入降级 */ }
+  var rows = '';
+  if (persona && (persona.name || persona.interests)) {
+    rows = '<div class="persona-grid">'
+      + personaField('姓名', persona.name)
+      + personaField('年龄', persona.age)
+      + personaField('地区', persona.region)
+      + personaField('职业', persona.occupation)
+      + personaField('身高', persona.height)
+      + personaField('收入', persona.income)
+      + personaField('风格', persona.style)
+      + '<div class="persona-field"><h5>兴趣</h5><p>' + (Array.isArray(persona.interests) ? persona.interests.join(' · ') : '<span style="color:var(--muted)">（无）</span>') + '</p></div>'
+      + '<div class="persona-field"><h5>自我介绍</h5><p>' + (persona.selfIntro || '<span style="color:var(--muted)">（无）</span>') + '</p></div>'
+      + (persona.crawledAt ? '<div style="font-size:11px;color:var(--muted);margin-top:8px">抓取于 ' + persona.crawledAt + '</div>' : '')
+      + '</div>';
+  } else {
+    rows = '<div style="padding:16px;color:var(--muted);font-size:13px">暂无账户人设数据。开 17098 窗口后点「抓取本账号资料卡」。</div>';
+  }
+  el.innerHTML = rows
+    + '<div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap">'
+    + '<button id="btnPersonaCrawl" style="background:var(--accent,#4f8cff);color:#fff;border:none;border-radius:6px;padding:8px 16px;font-size:12px;cursor:pointer">🔭 抓取本账号资料卡（17098）</button>'
+    + '<button id="btnPersonaUpdate" style="background:var(--panel2,#22252f);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px 16px;font-size:12px;cursor:pointer">✏️ 一键修改（后续）</button>'
+    + '</div>';
+  var bc = document.getElementById('btnPersonaCrawl');
+  if (bc) bc.onclick = function() { crawlPersona(); };
+  // 样式内联
+  var st = document.createElement('style');
+  st.textContent = '.persona-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.persona-field{background:var(--panel2);border-radius:8px;padding:8px 12px}.persona-field h5{font-size:11px;color:var(--muted);margin-bottom:4px;font-weight:600}.persona-field p{font-size:12px;line-height:1.5}';
+  el.appendChild(st);
+}
+
+function personaField(label, val) {
+  return '<div class="persona-field"><h5>' + label + '</h5><p>' + (val != null && val !== '' ? val : '<span style="color:var(--muted)">（无）</span>') + '</p></div>';
+}
+
+async function crawlPersona() {
+  var btn = document.getElementById('btnPersonaCrawl');
+  if (btn) { btn.textContent = '⏳ 抓取中…'; btn.disabled = true; }
+  try {
+    var r = await fetch('/api/console/account-persona/crawl', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accountId: '17098' }) });
+    var d = await r.json();
+    if (btn) { btn.textContent = '🔭 抓取本账号资料卡（17098）'; btn.disabled = false; }
+    if (d.ok) { loadPersona(); }
+    else { alert('抓取失败: ' + (d.msg || d.reason)); }
+  } catch (e) {
+    if (btn) { btn.textContent = '🔭 抓取本账号资料卡（17098）'; btn.disabled = false; }
+    alert('请求失败: ' + e.message);
+  }
+}

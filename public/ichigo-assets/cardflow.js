@@ -21,7 +21,7 @@ export async function loadLeads() {
     return;
   }
   try {
-    var r = await fetch('/api/console/card-leads?maxLeads=60&maxLikes=20&maxChats=10');
+    var r = await fetch('/api/console/card-leads?inbox=1&maxLeads=60&maxLikes=20&maxChats=30');
     var d = await r.json();
     if (d.ok && Array.isArray(d.cards) && d.cards.length) {
       leads = d.cards.map(function(c, i) { return mapCard(c, i); });
@@ -38,6 +38,60 @@ export async function loadLeads() {
   leadsLoaded = true;
   loadQueueSnapshot();
   render();
+  // 需求5: 当前卡自动调真 AI(assistant B v1.1), 替换固定占位; 有 conversationId/资料卡才调
+  autoGenerateCurrent();
+}
+
+// 自动给当前卡生成真 AI 话术(只在有 conversationId 或 customer 资料时; 避免空卡乱调)
+export function autoGenerateCurrent() {
+  var l = leads[currentIdx];
+  if (!l) return;
+  // 已有 ai 就不重生成
+  if (l.ai && Array.isArray(l.ai.talks) && l.ai.talks.length && l.ai.recommendedKey) { render(); return; }
+  var hasCtx = (l.conversationId || l.memberId || l.customer && l.customer.interests && l.customer.interests.length);
+  if (!hasCtx) { render(); return; }
+  generateTalks(l, 'reply', '');
+}
+
+// 精细爬取: 把当前候选的资料卡 URL 入队, 呼吸式抓 Lead.extras(需求2)
+export function refineCrawl() {
+  var l = leads[currentIdx];
+  if (!l) return;
+  // 收集: 当前卡 + 后续几张带 sourceHref/资料卡的
+  var items = leads.filter(function(x) { return x.sourceHref || (x.customer && x.customer.avatarUrls); }).slice(0, 5).map(function(x) {
+    return { leadId: x.id, name: x.customer && x.customer.name, memberId: x.memberId, url: x.sourceHref || (x.customer && x.customer.avatarUrls) || null, age: x.customer && x.customer.age, region: x.customer && x.customer.city };
+  });
+  items = items.filter(function(x) { return x.url; });
+  if (!items.length) {
+    // 无资料卡链接(收件箱模式候选没 sourceHref)→ 提示需先有资料卡
+    alert('当前候选没有资料卡链接（收件箱模式候选不带 sourceHref）。\n请先在「线索池」精确定位客户的资料卡链接，或开 17098 窗口让卡片流带 sourceHref。');
+    return;
+  }
+  fetch('/api/console/card/refine-crawl', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items: items, max: 5 }) })
+    .then(function(r) { return r.json(); }).then(function(d) {
+      if (d.ok) { toastCf('已启动精细爬取 ' + d.started + ' 个资料卡（呼吸式 20-40s 间隔, 后台跑不挡操作）'); pollRefineStatus(); }
+      else if (d.reason === 'already-running') toastCf('精细爬取进行中, 等完再发');
+      else toastCf('精细爬取失败: ' + (d.msg || d.reason));
+    }).catch(function() { toastCf('精细爬取请求失败'); });
+}
+
+function pollRefineStatus() {
+  if (pollRefineStatus._t) return;
+  pollRefineStatus._t = setInterval(function() {
+    fetch('/api/console/card/refine-crawl/status').then(function(r) { return r.json(); }).then(function(d) {
+      if (!d.running && d.total > 0) {
+        clearInterval(pollRefineStatus._t); pollRefineStatus._t = null;
+        toastCf('精细爬取完成: ' + d.done + '/' + d.total + (d.lastError ? ' (末次错: ' + d.lastError + ')' : ''));
+        // 补完资料卡后重生成当前卡 AI
+        loadLeads();
+      }
+    }).catch(function() {});
+  }, 5000);
+}
+
+function toastCf(msg) {
+  var t = document.getElementById('toast');
+  if (t) { t.textContent = msg; t.style.display = 'block'; setTimeout(function() { t.style.display = 'none'; }, 3500); }
 }
 
 function mapCard(c, i) {
@@ -48,6 +102,9 @@ function mapCard(c, i) {
     noRevoke: c.noRevoke !== false,
     cat: c.cat || '', source: c.source || '',
     memberId: c.memberId || null,
+    contactId: c.contactId || null,
+    conversationId: c.conversationId || null,
+    unread: c.unread || 0,
     customer: {
       name: c.name || '（未名）', age: c.age || '', city: c.city || '',
       interests: c.interests || [], selfIntro: c.selfIntro || '',
@@ -122,19 +179,23 @@ export function render() {
   if (!root || !leadsLoaded) return;
   var l = leads[currentIdx];
   if (!l) {
-    root.innerHTML = '<div style="padding:40px;color:var(--muted);text-align:center;font-size:13px">（无候选——CDP 窗口未开或线索池为空）</div>';
+    root.innerHTML = '<div class="cf-main"><div style="padding:40px;color:var(--muted,#8b8fa3);text-align:center;font-size:13px">（无候选——CDP 窗口未开或线索池为空）</div></div>';
     return;
   }
   if (!l.ai || !l.ai.talks) l.ai = buildPlaceholderAi(l);
   root.innerHTML =
-    '<div style="display:grid;grid-template-columns:260px 1fr 400px;gap:0;height:100%;overflow:hidden">'
-    + '<div class="cf-col cf-left">' + renderLeft(l) + '</div>'
-    + '<div class="cf-col cf-mid">' + renderMid(l) + '</div>'
-    + '<div class="cf-col cf-right">' + renderRight(l) + '</div>'
-    + '</div>'
-    + '<div class="cf-progress"><span id="cfProgress"></span><div class="cf-bar"><div id="cfBar" style="width:0%"></div></div><div id="cfQueueStats"></div></div>'
-    + '<div class="cf-toolbar"><div class="cf-hint"><kbd>A</kbd>~<kbd>D</kbd> 选话术入队 · <kbd>1</kbd>标记 <kbd>2</kbd>拉黑 <kbd>3</kbd>跳过 <kbd>4</kbd>重生成 <kbd>5</kbd>微调 · <kbd>→</kbd>下一张 <kbd>←</kbd>上一张</div><div class="cf-queue" id="cfQueue"></div></div>';
+    '<div class="cf-main">'
+    +   '<div class="cf-grid">'
+    +     '<div class="cf-col cf-left">' + renderLeft(l) + '</div>'
+    +     '<div class="cf-col cf-mid">' + renderMid(l) + '</div>'
+    +     '<div class="cf-col cf-right">' + renderRight(l) + '</div>'
+    +   '</div>'
+    +   '<div class="cf-progress"><span id="cfProgress"></span><div class="cf-bar"><div id="cfBar" style="width:0%"></div></div><div id="cfQueueStats"></div></div>'
+    +   '<div class="cf-toolbar"><div class="cf-hint"><kbd>A</kbd>~<kbd>D</kbd> 选话术入队 · <kbd>1</kbd>标记 <kbd>2</kbd>拉黑 <kbd>3</kbd>跳过 <kbd>4</kbd>重生成 <kbd>5</kbd>微调 · <kbd>→</kbd>下一张 <kbd>←</kbd>上一张</div><div class="cf-queue" id="cfQueue"></div></div>'
+    + '</div>';
   renderProgress(); renderQueue();
+  var brc = document.getElementById('btnRefineCrawl');
+  if (brc) brc.onclick = function() { refineCrawl(); };
 }
 
 function renderLeft(l) {
@@ -187,7 +248,7 @@ function renderRight(l) {
   return '<div style="font-size:11px;color:var(--muted,#8b8fa3);margin-bottom:8px">💬 话术 A-D（日原文 + 中译文 · 按 A~D 入队）</div>'
     + (talks || '<div style="color:var(--muted,#8b8fa3);font-size:11px">（按 4 键生成话术）</div>')
     + '<div style="margin-top:10px;font-size:11px;color:var(--muted,#8b8fa3);line-height:1.8">'
-    + '按 A~D 选话术入待发送队列（20s±10s 浮动串行）· 4 重生成 · 5 微调</div>';
+    + '按 A~D 选话术入队（20s±10s 浮动串行）· 4 重生成 · 5 微调 · <button id="btnRefineCrawl" style="margin-top:8px;background:var(--accent,#4f8cff);color:#fff;border:none;border-radius:5px;padding:5px 12px;font-size:11px;cursor:pointer">🔭 精细爬取资料卡</button></div>';
 }
 
 function renderProgress() {

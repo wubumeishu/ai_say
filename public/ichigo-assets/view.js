@@ -91,19 +91,34 @@ export function switchView(view) {
     if (cols.account) cols.account.style.display = 'none';
     cols.ai.style.display = 'none';
     setCrossPages(null);
+    var _cpOff = document.getElementById('cardPage'); if (_cpOff) _cpOff.style.display = 'none';
     var domPage = document.getElementById('domainPage'); if (domPage) domPage.style.display = 'none';
     var cardPage = document.getElementById('cardPage');
     if (cardPage) cardPage.style.display = '';
     Array.prototype.forEach.call(document.querySelectorAll('.nav-item'), function(i) {
       i.classList.toggle('active', i.getAttribute('data-view') === view);
     });
-    try {
+    // cardflow ESM 异步 import 可能未就绪 → 轮询直到 window.__cardflow 存在(最多 8s)
+    var cfRoot = document.getElementById('cardPage');
+    if (cfRoot) {
+      cfRoot.innerHTML = '<div class="cf-main"><div style="text-align:center;padding:60px;color:var(--muted,#8b8fa3);font-size:13px">⏳ 卡片流加载中…（拉取候选）</div></div>';
+    }
+    (function tryCf(n) {
       var cf = window.__cardflow;
-      if (cf) { cf.startQueueTick(); cf.loadLeads(); }
-    } catch (e) { console.warn('[cards] cardflow 未注入', e); }
+      if (cf) {
+        cf.startQueueTick();
+        cf.loadLeads();
+        return;
+      }
+      if (n <= 0) {
+        if (cfRoot) cfRoot.innerHTML = '<div class="cf-main"><div style="text-align:center;padding:60px;color:#e07b39;font-size:13px">卡片流模块未加载（cardflow.js 未注入 window.__cardflow）。请强刷（Ctrl+Shift+R）。</div></div>';
+        return;
+      }
+      setTimeout(function() { tryCf(n - 1); }, 500);
+    })(16); // 16 次 × 500ms = 8s
     return;
   }
-  var domainViews = ['domain', 'domain-ashiato', 'domain-faces', 'domain-search', 'domain-ignore', 'domain-calendar', 'domain-toolbox', 'domain-pool', 'domain-pool', 'domain-toolbox', 'domain-diary', 'domain-unified', 'domain-leads', 'cards'];
+  var domainViews = ['domain', 'domain-ashiato', 'domain-faces', 'domain-search', 'domain-ignore', 'domain-calendar', 'domain-toolbox', 'domain-pool', 'domain-pool', 'domain-toolbox', 'domain-diary', 'domain-unified', 'domain-leads'];
   if (domainViews.indexOf(view) !== -1) {
     cols.customers.style.display = 'none';
     cols.messages.style.display = 'none';
@@ -111,6 +126,7 @@ export function switchView(view) {
     if (cols.account) cols.account.style.display = 'none';
     cols.ai.style.display = 'none';
     setCrossPages(null);
+    var _cpOff = document.getElementById('cardPage'); if (_cpOff) _cpOff.style.display = 'none';
     var domPage = document.getElementById('domainPage');
     if (domPage) domPage.style.display = '';
     Array.prototype.forEach.call(document.querySelectorAll('.nav-item'), function(i) {
@@ -126,6 +142,7 @@ export function switchView(view) {
     if (cols.account) cols.account.style.display = 'none';
     cols.ai.style.display = 'none';
     setCrossPages(null);
+    var _cpOff = document.getElementById('cardPage'); if (_cpOff) _cpOff.style.display = 'none';
     cols.customers.style.display = '';
     Array.prototype.forEach.call(document.querySelectorAll('.nav-item'), function(i) {
       i.classList.toggle('active', i.getAttribute('data-view') === view);
@@ -134,6 +151,7 @@ export function switchView(view) {
     return;
   }
   setCrossPages(null);
+    var _cpOff = document.getElementById('cardPage'); if (_cpOff) _cpOff.style.display = 'none';
   var _dp1 = document.getElementById('domainPage'); if (_dp1) _dp1.style.display = 'none';
   cols.analysis.style.display = '';
   if (cols.account) cols.account.style.display = '';

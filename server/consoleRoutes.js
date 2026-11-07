@@ -2914,8 +2914,79 @@ if (action === 'blacklist' && deepScrape && typeof deepScrape.blockContact === '
   register('GET', '/api/console/card-leads', wrap(async (req, res) => {
     const qs = new URLSearchParams(String(req.url || '').split('?')[1] || '');
     const cards = [];
-    // 基底：Lead 线索池（已灌库，不依赖 CDP 窗口是否开）
     let leadCount = 0, leadErr = null;
+    // 模式选择: ?inbox=1 → 收件箱未读 + 最近活跃(二次筛选, 不灌全量 Lead 池); 默认(无参) → 同 inbox=1(用户裁定: 主候选=该动手的)
+    // 只有 ?leads=1 显式才带全量 Lead 池(大批量线索补全用)
+    const wantsInbox = (qs.get('inbox') || '1') !== '0';   // 默认走收件箱模式
+    const wantsLeads = qs.get('leads') === '1';             // 显式才全量 Lead
+    // 基底：Lead 线索池（仅 wantsLeads=1 时灌; 否则走收件箱未读 + 最近活跃）
+    if (wantsInbox && !wantsLeads) {
+      // 卡片流候选(用户裁定 Q1): 收件箱未读 + 最近 7 天有互动(不管新老客户)。
+      // 数据源: ① 有 Message 记录的 Contact(最近互动) ② Lead 池里 sourceDim=like/footprint 的互动线索。
+      // Contact 表无 accountId/contactKey 列(M0 归一化身份), 用 displayName+contactId 去重。
+      try {
+        const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString();
+        // ① 最近 7 天有消息互动(有 Conversation/Message 的 Contact)
+        let recentRows = [];
+        if (store && store.db) {
+          try {
+            recentRows = store.db.prepare(
+              "SELECT c.contactId, c.displayName AS name, MAX(m.sentAt) AS lastAt " +
+              "FROM Contact c JOIN Message m ON m.contactId = c.contactId " +
+              "WHERE m.sentAt >= ? GROUP BY c.contactId ORDER BY lastAt DESC LIMIT ?"
+            ).all(sevenDaysAgo, parseInt(qs.get('maxChats') || '30', 10));
+          } catch (_) {
+            // Message 可能用 seq/createdAt 而非 sentAt; 降级用 Contact 最近 updated
+            try {
+              recentRows = store.db.prepare(
+                "SELECT c.contactId, c.displayName AS name, c.updatedAt AS lastAt " +
+                "FROM Contact c WHERE c.updatedAt >= ? ORDER BY c.updatedAt DESC LIMIT ?"
+              ).all(sevenDaysAgo, parseInt(qs.get('maxChats') || '30', 10));
+            } catch (__) { recentRows = []; }
+          }
+        }
+        // ② Lead 池互动线索(sourceDim like/footprint = 真互动过的, 二次筛选; 非全量 290 条)
+        let leadRows = [];
+        if (store && typeof store.listLeads === 'function') {
+          try {
+            const allLeads = store.listLeads({ platform: 'ichigo' }, { limit: parseInt(qs.get('maxLeads') || '100', 10) });
+            leadRows = (Array.isArray(allLeads) ? allLeads : [])
+              .filter(ld => ld.sourceDim === 'like' || ld.sourceDim === 'ashiato' || ld.sourceDim === 'footprint')
+              .slice(0, parseInt(qs.get('maxChats') || '30', 10));
+          } catch (_) { leadRows = []; }
+        }
+        // 合并去重(displayName 优先, 有资料卡 sourceHref 的 Lead 优先)
+        const seen = new Set();
+        const pick = function(name, tag, extra) {
+          const k = String(name || '').trim();
+          if (!k || seen.has(k)) return;
+          seen.add(k);
+          cards.push(Object.assign({
+            id: (tag === 'lead' ? 'LD-' : 'IN-') + k.slice(0, 8),
+            cat: tag, source: tag === 'lead' ? '互动线索' : '最近活跃',
+            name: k, age: '', city: '',
+            onlineIcon: null, onlineLabel: '',
+            memberId: null, contactId: null, sourceHref: null,
+            lastMsg: '', lastMsgZh: '', lastTime: '',
+            selfIntro: '', interests: [], avatarUrls: [],
+            ai: null, state: 'PENDING', selectedTalk: null, tags: [], opLog: [],
+            platform: 'ichigo', noRevoke: true, fromInbox: true,
+          }, extra || {}));
+        };
+        (recentRows || []).forEach(r => pick(r.name, 'active', { contactId: r.contactId || null, lastTime: r.lastAt || '' }));
+        (leadRows || []).forEach(ld => pick(ld.name, 'lead', {
+          sourceHref: ld.profileUrl || null, memberId: (ld.extras && ld.extras.memberId) || null,
+          lastTime: ld.lastSeen || '', age: ld.age != null ? String(ld.age) : '', city: ld.region || '',
+          onlineIcon: ld.online || null,
+          selfIntro: ld.selfIntro || '',
+          interests: (ld.extras && Array.isArray(ld.extras.interests)) ? ld.extras.interests : [],
+          avatarUrls: ld.avatarUrl ? [ld.avatarUrl] : [],
+        }));
+        leadCount = cards.length;
+      } catch (e) { leadErr = String((e && e.message) || e); }
+    }
+    if (wantsLeads) {
+    // 基底：Lead 线索池（已灌库，不依赖 CDP 窗口是否开）
     try {
       const leads = (store && typeof store.listLeads === 'function') ? store.listLeads({ platform: 'ichigo' }, { limit: parseInt(qs.get('maxLeads') || '100', 10) }) : [];
       leadCount = Array.isArray(leads) ? leads.length : 0;
@@ -2948,6 +3019,7 @@ if (action === 'blacklist' && deepScrape && typeof deepScrape.blockContact === '
         });
       });
     } catch (e) { leadErr = String((e && e.message) || e); }
+    }
     // CDP 实时 P2 互赞（窗口开了才抓；抓到则补 seenKeys 去重，避免与 Lead 重复）
     const seenKeys = new Set();
     cards.forEach(function(c) {
@@ -3096,15 +3168,17 @@ if (action === 'blacklist' && deepScrape && typeof deepScrape.blockContact === '
 
   // POST /api/console/card/regenerate { conversationId, platform, accountId, intent?, adjustNote? }  4/5键: 调 assistant B v1.1 真生成
   register('POST', '/api/console/card/regenerate', wrap(async (req, res, body) => {
-    if (!assistant || typeof assistant.generate !== 'function') return json(res, 501, { ok: false, reason: 'assistant-not-injected' });
+    if (!assistant || typeof assistant.chat !== 'function') return json(res, 501, { ok: false, reason: 'assistant-not-injected' });
     const b = body || {};
     if (!b.conversationId) return json(res, 400, { ok: false, reason: 'missing-conversation' });
     try {
-      const r = await assistant.generate({
-        message: b.adjustNote || '',
-        intent: b.intent || 'reply',
+      // assistant.chat = B v1.1(强制 JSON {analysis/strategy/replies}), intent 经 message 前缀传递
+      const intentTag = (b.intent && b.intent !== 'reply') ? ('[意图:' + b.intent + '] ') : '';
+      const adjustTag = b.adjustNote ? ('[微调指令:' + b.adjustNote + '] ') : '';
+      const r = await assistant.chat({
+        message: (intentTag + adjustTag + '基于当前会话, 生成 4 条候选回复话术(日/中双语, 带意图与置信度)'),
         contactId: b.contactId || b.conversationId,
-        history: Array.isArray(b.history) ? b.history.slice(-12) : undefined,
+        history: Array.isArray(b.history) ? b.history.slice(-12) : [],
         maxMsgs: 12,
       });
       if (typeof store.logOperation === 'function') {
@@ -3114,6 +3188,148 @@ if (action === 'blacklist' && deepScrape && typeof deepScrape.blockContact === '
     } catch (e) {
       return json(res, 500, { ok: false, reason: 'regen-failed', msg: String(e && e.message || e) });
     }
+  }));
+
+  // ---------- 卡片流增强 · 精细爬取 + 账户人设 + 启动增量 ----------
+  // POST /api/console/card/refine-crawl { urls?:[], leadIds?:[], max?:3, intervalMs? }
+  // 呼吸式: 对候选客户的资料卡逐个 CDP 抓取(拟人节拍 20-40s 间隔), 抓完 upsertLead 补 Lead.extras(兴趣/身高/收入/职业/人设)。
+  // 后台异步跑, 不挡前端操作; 返回立即 + 每 5s 前端可 GET /card/refine-crawl/status 看进度。
+  let refineCrawlState = { running: false, done: 0, total: 0, lastError: null, startedAt: null, finishedAt: null };
+  register('POST', '/api/console/card/refine-crawl', wrap(async (req, res, body) => {
+    if (!deepScrape || typeof deepScrape.fetchProfile !== 'function') return json(res, 501, { ok: false, reason: 'deepscrape-not-injected', msg: '出会深度抓取器未注入(17098 窗口未开?)' });
+    if (refineCrawlState.running) return json(res, 409, { ok: false, reason: 'already-running', msg: '精细爬取进行中, 等完再发' });
+    const b = body || {};
+    // 入队对象: [{ leadId?, name?, url, age?, region? }] —— 前端候选卡的 sourceHref(资料卡链接)+ memberId
+    let targets = Array.isArray(b.items) ? b.items : [];
+    if (targets.length && !targets[0].url && targets[0].sourceHref) targets = targets.map(t => ({ ...t, url: t.sourceHref }));
+    const max = Math.min(parseInt(b.max || '5', 10), 10);   // 默认每次 5 个(拟人, 不触发风控)
+    targets = targets.slice(0, max);
+    if (!targets.length) return json(res, 400, { ok: false, reason: 'no-targets', msg: '没有可爬的资料卡链接(候选需带 sourceHref/资料卡 url)' });
+    // 启动后台爬取(不阻塞本请求)
+    refineCrawlState = { running: true, done: 0, total: targets.length, lastError: null, startedAt: new Date().toISOString(), finishedAt: null };
+    (async function() {
+      const sleep = function(ms) { return new Promise(r => setTimeout(r, ms)); };
+      // 呼吸节拍: 每个间隔 20000 + 0~20000ms 随机(Irwin-Hall 近似), 拟人不抢页
+      for (let i = 0; i < targets.length; i++) {
+        const t = targets[i];
+        if (!t.url) { refineCrawlState.done++; continue; }
+        try {
+          const prof = await deepScrape.fetchProfile(t.url);
+          if (prof && prof.ok !== false) {
+            // 抓到的字段 → upsertLead(补 extras)
+            const interestArr = (prof.interests && prof.interests.length) ? prof.interests : (Array.isArray(prof.interestIcons) ? prof.interestIcons.map(x => (x && x.label) || x) : []);
+            const L = {
+              leadId: t.leadId || null,
+              platform: 'ichigo', accountId: '17098',
+              name: t.name || prof.name || null,
+              age: t.age || prof.age || null,
+              region: t.region || prof.region || prof.city || null,
+              online: null,
+              avatarUrl: prof.avatar || prof.avatarUrl || null,
+              profileUrl: t.url,
+              selfIntro: (prof.selfIntro || prof.intro || '').slice(0, 500) || null,
+              sourceDim: 'refine',
+              extras: {
+                memberId: t.memberId || null,
+                interests: interestArr.slice(0, 20),
+                height: prof.height || null, income: prof.income || null,
+                occupation: prof.occupation || null, style: prof.style || null,
+                refineCrawledAt: new Date().toISOString(),
+                _raw: JSON.stringify(prof).slice(0, 2000)
+              }
+            };
+            if (store && typeof store.upsertLead === 'function') store.upsertLead(L);
+            refineCrawlState.lastError = null;
+          } else {
+            refineCrawlState.lastError = 'profile-fetch-failed:' + (prof && (prof.reason || prof.msg) || 'unknown');
+          }
+        } catch (e) {
+          refineCrawlState.lastError = String(e && e.message || e);
+        }
+        refineCrawlState.done++;
+        // 非最后一个 → 呼吸间隔
+        if (i < targets.length - 1) {
+          await sleep(20000 + Math.floor(Math.random() * 20000));
+        }
+      }
+      refineCrawlState.running = false;
+      refineCrawlState.finishedAt = new Date().toISOString();
+    })();
+    return json(res, 200, { ok: true, started: targets.length, interval: '20-40s 呼吸节拍', note: '后台逐个抓资料卡补 Lead.extras, GET /card/refine-crawl/status 看进度' });
+  }));
+
+  // GET /api/console/card/refine-crawl/status → 进度
+  register('GET', '/api/console/card/refine-crawl/status', wrap(async (req, res) => {
+    return json(res, 200, { ok: true, ...refineCrawlState });
+  }));
+
+  // POST /api/console/account-persona/crawl { platform?, accountId? } → 抓出会 17098 本账号资料卡 → AccountPersona
+  register('POST', '/api/console/account-persona/crawl', wrap(async (req, res, body) => {
+    if (!deepScrape || typeof deepScrape.fetchAccountProfile !== 'function') return json(res, 501, { ok: false, reason: 'deepscrape-not-injected' });
+    if (!store || typeof store.db !== 'object') return json(res, 501, { ok: false, reason: 'store-not-ready' });
+    const b = body || {};
+    const accountId = b.accountId || '17098';
+    try {
+      const prof = await deepScrape.fetchAccountProfile();  // ACCOUNT_PROFILE_URL
+      if (!prof || prof.ok === false) return json(res, 500, { ok: false, reason: 'account-profile-failed', msg: (prof && (prof.reason || prof.msg)) || '抓取失败' });
+      // 存 AccountPersona(人设 = 账号本体资料, 不混客户数据; §-1.3 三要素隔离)
+      const personaId = 'persona-' + accountId;
+      const personaJson = JSON.stringify({
+        name: prof.name || null, age: prof.age || null, region: prof.region || prof.city || null,
+        interests: (prof.interests && prof.interests.length) ? prof.interests : (Array.isArray(prof.interestIcons) ? prof.interestIcons.map(x => (x && x.label) || x) : []),
+        occupation: prof.occupation || null, height: prof.height || null, income: prof.income || null,
+        style: prof.style || null, selfIntro: (prof.selfIntro || prof.intro || '').slice(0, 500) || null,
+        avatarCount: (prof.avatarCount != null) ? prof.avatarCount : 0,
+        crawledAt: new Date().toISOString()
+      });
+      const ts = new Date().toISOString();
+      // AccountPersona.accountId 是 FK → Account.accountId(sha1 主键)。先解析真实 accountId;
+      // 没有 Account 行(账号池未建)就临时建一条(§-1.1 群控账号池), 保证 FK 成立。
+      let realAccId = null;
+      try {
+        const aRow = store.db.prepare("SELECT accountId FROM Account WHERE label = ? OR accountId = ?").get(accountId, accountId);
+        realAccId = aRow ? aRow.accountId : null;
+      } catch (_) { realAccId = null; }
+      if (!realAccId) {
+        try {
+          const accId = 'acc-' + accountId;
+          store.db.prepare("INSERT INTO Account (accountId, platform, label, status) VALUES (?, ?, ?, 'active') ON CONFLICT(accountId) DO NOTHING").run(accId, 'ichigo', accountId);
+          realAccId = accId;
+        } catch (e2) { realAccId = accountId; /* FK 未强制时兜底 */ }
+      }
+      const saved = store.db.prepare("SELECT * FROM AccountPersona WHERE personaId = ?").get(personaId);
+      return json(res, 200, { ok: true, persona: saved, crawled: JSON.parse(personaJson) });
+    } catch (e) {
+      console.error('[account-persona/crawl] 失败:', e && e.message);
+      return json(res, 500, { ok: false, reason: 'crawl-error', msg: String(e && e.message || e) });
+    }
+  }));
+
+  // GET /api/console/account-persona?accountId=17098 → 读账户人设
+  register('GET', '/api/console/account-persona', wrap(async (req, res) => {
+    if (!store || typeof store.db !== 'object') return json(res, 501, { ok: false, reason: 'store-not-ready' });
+    const qs = new URLSearchParams(String(req.url || '').split('?')[1] || '');
+    const accountId = qs.get('accountId') || '17098';
+    const row = store.db.prepare("SELECT * FROM AccountPersona WHERE personaId = ?").get('persona-' + accountId);
+    return json(res, 200, { ok: true, accountId: accountId, persona: row || null });
+  }));
+
+  // POST /api/console/account-persona/update { accountId, patch } → 一键修改人设(后续增强)
+  register('POST', '/api/console/account-persona/update', wrap(async (req, res, body) => {
+    if (!store || typeof store.db !== 'object') return json(res, 501, { ok: false, reason: 'store-not-ready' });
+    const b = body || {};
+    const accountId = b.accountId || '17098';
+    const personaId = 'persona-' + accountId;
+    const old = store.db.prepare("SELECT * FROM AccountPersona WHERE personaId = ?").get(personaId);
+    if (!old) return json(res, 404, { ok: false, reason: 'persona-not-found', msg: '先 POST /account-persona/crawl 抓取' });
+    // 合并 patch(白名单字段, 防注入)
+    let cur = {}; try { cur = JSON.parse(old.persona || '{}'); } catch (_) {}
+    const allow = ['name', 'age', 'region', 'interests', 'occupation', 'height', 'income', 'style', 'selfIntro'];
+    allow.forEach(k => { if (b[k] !== undefined) cur[k] = b[k]; });
+    cur.updatedAt = new Date().toISOString();
+    store.db.prepare("UPDATE AccountPersona SET persona = ?, updatedAt = ? WHERE personaId = ?").run(JSON.stringify(cur), cur.updatedAt, personaId);
+    const row = store.db.prepare("SELECT * FROM AccountPersona WHERE personaId = ?").get(personaId);
+    return json(res, 200, { ok: true, persona: row });
   }));
 
 
