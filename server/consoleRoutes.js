@@ -139,6 +139,7 @@ function mountConsoleRoutes(app, deps = {}) {
   function register(method, pathname, handler) {
     if (app && typeof app.get === 'function' && typeof app.post === 'function') {
       if (method === 'GET') app.get(pathname, handler);
+      else if (method === 'DELETE' && typeof app.delete === 'function') app.delete(pathname, handler);
       else app.post(pathname, handler);
     } else if (app && app.listeners) {
       // 原生 http.Server：把 console 路由挂到一个内部 server 上由调用方转发。
@@ -1551,7 +1552,7 @@ if (action === 'blacklist' && deepScrape && typeof deepScrape.blockContact === '
     return json(res, 200, { ok, done: ok });
   }));
   // ---- 模板库 ----
-  register('GET', '/api/console/phrases', wrap(async (req, res) => {
+  register('GET', '/api/console/phrase-library', wrap(async (req, res) => {
     if (!store || typeof store.listPhrases !== 'function') return json(res, 501, { ok: false, reason: 'store-not-ready' });
     const qs = queryOf(req);
     const rows = store.listPhrases({
@@ -1562,14 +1563,14 @@ if (action === 'blacklist' && deepScrape && typeof deepScrape.blockContact === '
     });
     return json(res, 200, { ok: true, count: rows.length, phrases: rows });
   }));
-  register('POST', '/api/console/phrases', wrap(async (req, res, body) => {
+  register('POST', '/api/console/phrase-library', wrap(async (req, res, body) => {
     if (!store || typeof store.upsertPhrase !== 'function') return json(res, 501, { ok: false, reason: 'store-not-ready' });
     const b = body || {};
     if (!b.content) return json(res, 400, { ok: false, reason: 'missing-content' });
     const row = store.upsertPhrase(b);
     return json(res, 200, { ok: true, phrase: row });
   }));
-  register('POST', '/api/console/phrases/:id/use', wrap(async (req, res, body) => {
+  register('POST', '/api/console/phrase-library/:id/use', wrap(async (req, res, body) => {
     if (!store || typeof store.bumpPhraseUsage !== 'function') return json(res, 501, { ok: false, reason: 'store-not-ready' });
     const params = req.params || {};
     store.bumpPhraseUsage(params.id ? String(params.id) : '');

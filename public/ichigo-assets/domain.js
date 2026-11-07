@@ -381,16 +381,16 @@ export async function loadToolbox() {
     }).join('');
     box.innerHTML = '<div class="section-title" style="font-size:12px">🗓 待办日历（' + (d.count || 0) + '）</div>' + (rows || '<div class="empty">暂无待办</div>');
   }).catch(function() {});
-  // 模板库
-  fetch('/api/console/phrases').then(function(r) { return r.json(); }).then(function(d) {
+  // 模板库（PhraseLibrary：场景标签 + 多语言 + 人设过滤，走 /phrase-library）
+  fetch('/api/console/phrase-library').then(function(r) { return r.json(); }).then(function(d) {
     var box = document.getElementById('toolboxPhr');
     if (!d.ok) { box.innerHTML = '<div class="empty">模板库不可用</div>'; return; }
     var rows = (d.phrases || []).slice(0, 12).map(function(ph) {
       return '<div style="font-size:12px;padding:4px 0;border-bottom:1px solid var(--border,#333)">' +
-        '<span style="color:var(--accent,#e64340);font-size:10px">[' + ph.scene + '·' + ph.lang + '] ' + (ph.usageCount || 0) + '用</span> ' +
+        '<span style="color:var(--accent,#e64340);font-size:10px">[' + (ph.scene || '-') + '·' + (ph.lang || '-') + '] ' + (ph.usageCount || 0) + '用</span> ' +
         String(ph.content || '').slice(0, 60) + '…</div>';
     }).join('');
-    box.innerHTML = '<div class="section-title" style="font-size:12px">🗂 模板库（' + (d.count || 0) + '）</div>' + (rows || '<div class="empty">暂无（POST /api/console/phrases 添加）</div>');
+    box.innerHTML = '<div class="section-title" style="font-size:12px">🗂 模板库（' + (d.count || 0) + '）</div>' + (rows || '<div class="empty">暂无（POST /api/console/phrase-library 添加）</div>');
   }).catch(function() {});
 }
 

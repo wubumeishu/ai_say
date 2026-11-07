@@ -232,6 +232,7 @@ const { createUnreadPoller } = require('./adapter/unreadPoller');
 // --- T3 任务编排：呼吸引擎（breathEngine，AGENTS.md §二/§六待办 T3）---
 // 默认不自动 start（引擎只调度节拍，副作用由 SOP 执行器驱动；启动入口走 /tasks/breath 路由，避免无人确认时跑）。
 const { createBreathEngine } = require('./acquisition/breathEngine');
+const { createSopExecutor } = require('./acquisition/sopExecutor');
 // breathEngine 实例（注入 store；默认不 start，由 /tasks/breath/start 路由控制启停）
 let breathEngine = null;
 try {
@@ -318,6 +319,7 @@ const consoleRoutes = []; // { method, pathname, handler }
 const consoleApp = {
   get: (p, h) => { consoleRoutes.push({ method: 'GET', pathname: p, handler: h }); },
   post: (p, h) => { consoleRoutes.push({ method: 'POST', pathname: p, handler: h }); },
+  delete: (p, h) => { consoleRoutes.push({ method: 'DELETE', pathname: p, handler: h }); },
 };
 // M5 核心改造②：17098 深度抓取器（收件箱 2 页 18 客户 + 资料页 12 字段 + 兴趣 icon 反查）
 let deepScrape = null;
@@ -450,14 +452,18 @@ try {
         req.__body = undefined;
         return route.handler(req, res);
       }
-      // 参数段匹配：/api/console/customers/:id、/api/console/accounts/:id、/profile
-      const pm = pathname.match(/^\/api\/console\/(customers|accounts)\/([^\/?]+)(\/profile)?$/);
-      if (pm) {
-        const kind = pm[1];
-        const id   = pm[2];
-        const tail2 = pm[3] || '';
-        if (route.pathname === '/api/console/' + kind + '/:id' + tail2) {
-          req.params = { id };
+      // 参数段匹配（通用 :param）：注册路径里的 :xxx 转成正则段，捕获任意子路径（:id/delete、:id/done、:id/finish…）
+      if (route.pathname.indexOf('/:') !== -1) {
+        const segs = route.pathname.split('/');
+        const paramNames = [];
+        const rx = segs.map(function (s) {
+          if (s.charAt(0) === ':') { paramNames.push(s.slice(1)); return '([^/]+)'; }
+          return s.replace(/[/+^$.*?{}|()[\\]]/g, function (ch) { return '\\' + ch; });
+        });
+        const mm = pathname.match(new RegExp('^' + rx.join('/') + '$'));
+        if (mm) {
+          req.params = {};
+          for (let pi = 0; pi < paramNames.length; pi++) req.params[paramNames[pi]] = mm[pi + 1];
           req.__body = undefined;
           return route.handler(req, res);
         }
