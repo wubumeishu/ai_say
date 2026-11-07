@@ -1,0 +1,13 @@
+node_modules/
+data/
+backups/
+platform/
+logs/
+undefined/
+package-lock.json
+.git/
+*.log
+console.log
+*.db
+*.sqlite
+docs/survey-happymail-20261025/

@@ -193,6 +193,9 @@ try {
       windowId: (settingsForLive.platformGroups && settingsForLive.platformGroups[0] && settingsForLive.platformGroups[0].windows && settingsForLive.platformGroups[0].windows[0]) || settingsForLive.windowId,
     },
     adapterPlatform: 'ichigo194964',
+    // 2026-11-02 用户决策：窗口手动控制模式 — 点 17098/收件箱轮询 不再自动 /browser/open 启动窗口；
+    // 窗口只能由「控制台右侧 开/关 按钮（POST /api/console/window/open）」或 后续任务编排 启动。
+    autoOpenWindow: settingsForLive.autoOpenWindow === true, // 默认 false（手动控制）；settings.json 可显式开 true 恢复旧行为
   });
 } catch (e) {
   // liveScanner 构建失败不阻断服务启动；/api/console/live 返回 501
@@ -213,6 +216,8 @@ try {
   happyScanner = createHappyScanner({
     settings: { apiBase: settingsForLive.apiBase },
     windowId: (kairakuGroup && kairakuGroup.windows && kairakuGroup.windows[0]) || '1ccd4351a6fe4482bc8378a78c53398e',
+    // 2026-11-02 手动窗口控制：点 18595 / 快乐抓取 不再自动 /browser/open 启动窗口
+    autoOpenWindow: settingsForLive.autoOpenWindow === true,
   });
 } catch (e) {
   // happyScanner 构建失败不阻断服务启动；/api/console/happy/* 返回 501 降级
@@ -224,6 +229,63 @@ try {
 // --- 挂载 console 路由（一次性） ---
 // --- v5.3 · 批2：未读轮询器（非秒回，30s 一轮，发现新未读 → 待跟进，不自动发消息 §0.1） ---
 const { createUnreadPoller } = require('./adapter/unreadPoller');
+// --- T3 任务编排：呼吸引擎（breathEngine，AGENTS.md §二/§六待办 T3）---
+// 默认不自动 start（引擎只调度节拍，副作用由 SOP 执行器驱动；启动入口走 /tasks/breath 路由，避免无人确认时跑）。
+const { createBreathEngine } = require('./acquisition/breathEngine');
+// breathEngine 实例（注入 store；默认不 start，由 /tasks/breath/start 路由控制启停）
+let breathEngine = null;
+try {
+  // onTask SOP 执行器：引擎到点唤醒 → 开窗 + 场景动作（只读自动跑，强副作用只出待确认）
+  const sopExecutor = createSopExecutor(store, {
+    deepScrape: (typeof deepScrape !== 'undefined' ? deepScrape : null),
+    happyScanner: (typeof happyScanner !== 'undefined' ? happyScanner : null),
+    // 开窗 / 回收件箱 deps（出会 liveScanner 开窗 / deepScrape.navigateInbox；快乐 happyScanner）
+    openCdp: async function (accountId) {
+      // 出会窗口：liveScanner 探测（未开降级，不自动 /browser/open——窗口手动控制模式）
+      if (typeof liveScanner !== 'undefined' && liveScanner && liveScanner.probeCdp) {
+        const p = await liveScanner.probeCdp(accountId).catch(function (e) { return { ok: false, reason: e && e.reason || e.message }; });
+        return p || { ok: false, reason: 'probe-unavailable' };
+      }
+      return { ok: false, reason: 'no-opener' };
+    },
+    happyOpenCdp: async function (accountId) {
+      if (typeof happyScanner !== 'undefined' && happyScanner && happyScanner.openLiveCdpSafe) {
+        return happyScanner.openLiveCdpSafe(accountId).catch(function (e) { return { ok: false, reason: e && e.reason || e.message }; });
+      }
+      return { ok: false, reason: 'no-happy-opener' };
+    },
+    navigateInbox: async function (accountId) {
+      if (typeof deepScrape !== 'undefined' && deepScrape && deepScrape.navigateInbox) {
+        return deepScrape.navigateInbox(accountId).catch(function () { return { ok: true }; });
+      }
+      return { ok: true };
+    },
+    log: function (m) { console.log(m); },
+    logWarn: function (m) { console.warn(m); }
+  });
+  breathEngine = createBreathEngine(store, {
+    tickMs: 500, MAX_DISPATCH_PER_TICK: 4,
+    // 把 SOP 执行器作为引擎的业务副作用钩子（引擎本身仍只调度节拍）
+    onTask: sopExecutor.onTask
+  });
+  // 供路由组查询待确认动作 / 人工确认
+  global.__sopExecutor = sopExecutor;
+  // D4：每日 00:05 JST 晋升守护（warmup→veteran；setInterval 模拟，跨日自动滚）
+  (function scheduleD4() {
+    const target = new Date();
+    target.setHours(0, 5, 0, 0); // 当天 00:05（本地时区，生产可改 JST）
+    if (target.getTime() < Date.now()) target.setDate(target.getDate() + 1);
+    const t = setTimeout(function() {
+      try { breathEngine.promoteDueAccounts(); console.log('[breathEngine] D4 每日 00:05 晋升守护跑完'); }
+      catch (e) { console.error('[breathEngine] D4 晋升异常:', e && e.message); }
+      scheduleD4();
+    }, target.getTime() - Date.now());
+    t.unref && t.unref();
+  })();
+} catch (e) {
+  console.error('[breathEngine] 实例化失败:', e && e.message);
+  breathEngine = null;
+}
 const unreadPoller = createUnreadPoller({
   intervalMs: Number(process.env.POLL_INTERVAL_MS) || 30000,
   platforms: [
@@ -372,7 +434,7 @@ try {
   // settingsForLive：进程内 settings（模型切换时同步）— 已在文件头部声明
 
   // Mount console read-only routes on the main app (task-19 起挂 /api/console/*)
-  mountConsoleRoutes(consoleApp, { store, talkEngine, dedup, adapters, recommender, liveScanner, happyScanner, happyCache, deepScrape, ichigoCache, modelStore, translationCache, consolePrefs, accountInfo, proxyPool, assistant, unreadPoller, settings: settingsForLive, settingsForLive: settingsForLive });
+  mountConsoleRoutes(consoleApp, { breathEngine, store, talkEngine, dedup, adapters, recommender, liveScanner, happyScanner, happyCache, deepScrape, ichigoCache, modelStore, translationCache, consolePrefs, accountInfo, proxyPool, assistant, unreadPoller, settings: settingsForLive, settingsForLive: settingsForLive });
 
 
   function matchConsoleRoute(req, res) {

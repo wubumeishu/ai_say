@@ -33,6 +33,7 @@ const EXPR_PROFILE_DETAIL = loadExpr('happyProfileDetailExpr.js');
 const EXPR_PROFILE_SEARCH = loadExpr('happyProfileSearchExpr.js');
 const EXPR_TYPE = loadExpr('happyTypeExpr.js');
 const EXPR_BILLBOARD = loadExpr('happyBillboardExpr.js');
+const EXPR_ASHIATO = loadExpr('happyAshiatoExpr.js');
 const EXPR_LOAD_MORE = loadExpr('happyLoadMoreExpr.js');
 // v5.2 新增：客户招募帖（只读情报维度：帖子列表 + 单帖正文/标签，均 .php 服务端渲染页）
 const EXPR_BILLBOARD_LIST = loadExpr('happyBillboardListExpr.js');
@@ -56,6 +57,32 @@ const HAPPY_MATCH = 'happymail.co.jp';
 function createHappyScanner(deps = {}) {
   let closed = false;
   let lastClient = null;
+
+  // 2026-11-02 手动窗口控制：autoOpenWindow=false 时 openLiveCdp 前先只读探测；未开 → 不自动启动（上层 catch 降级）
+  const autoOpenWindow = deps.autoOpenWindow !== undefined ? deps.autoOpenWindow : true;
+  async function openLiveCdpSafe() {
+    if (autoOpenWindow === false) {
+      // 只读探测：/browser/list 翻页找窗口 status（BitBrowserClient.call 已解包 .data，取 resp.list；
+      // 服务端每页上限 100，18595 实测第 3 页 → 单页 100 条找不到，必须翻页）
+      var found = null;
+      try {
+        for (var pg = 0; pg < 10; pg++) {
+          const r2 = await bit.listBrowsers({ page: pg, pageSize: 100 });
+          const list2 = Array.isArray(r2.list) ? r2.list : (r2 && r2.data && Array.isArray(r2.data.list) ? r2.data.list : []);
+          const total2 = Number((r2.totalNum !== undefined ? r2.totalNum : (r2.data && r2.data.totalNum))) || 0;
+          found = list2.find(function(w) { return w && String(w.id || w.uuid || w.seq) === String(windowId); });
+          if (found) break;
+          if (list2.length < 100 || (total2 && (pg + 1) * 100 >= total2)) break;
+        }
+      } catch (_) { found = null; }
+      if (!found || Number(found.status) !== 1) {
+        const e = new Error('window-closed (auto-open disabled)');
+        e.reason = 'window-closed'; e.autoOpenDisabled = true;
+        throw e;
+      }
+    }
+    return bit.openLiveCdp(windowId, { queue: true });
+  }
 
   const windowId = deps.windowId || null;
   const apiBase = (deps.settings && deps.settings.apiBase) || 'http://127.0.0.1:54346';
@@ -100,9 +127,23 @@ function createHappyScanner(deps = {}) {
     try {
       const code = "(function(){ location.href = " + JSON.stringify(urlPath) + "; return { ok:true, url:" + JSON.stringify(urlPath) + " }; })()";
       await client.evaluatePage(code, targetId, pageWsUrl);
-      // 等待页面渲染（.php 服务端，给 2.5s 缓冲；不自动翻页）
-      await new Promise((r) => setTimeout(r, 2500));
-      return { ok: true };
+      // 快乐客源页数据是 JS 动态填的（API+渲染需 ~6-10s）：CDP 侧同步轮询等待数据就绪（最多 20s）。
+      // 判据：页面出现目标客源卡片特征 class（.type_list_outer/.profile_list_big_item/.ds_billboard_item/.ashi_list_item 等）。
+      const probeExpr = "!!(document.body && document.body.querySelector('.type_list_outer, .profile_list_big_item, .ds_billboard_item, .ds_ashiato_item, .ashi_list_item, .ds_like_list_item'))";
+      let dataReady = false;
+      const t0 = Date.now();
+      while (Date.now() - t0 < 20000) {
+        try {
+          const pr = await client.evaluatePage(probeExpr, targetId, pageWsUrl);
+          let pv = pr && pr.value !== undefined ? pr.value : pr;
+          if (pv === true || pv === 'true') { dataReady = true; break; }
+        } catch (pe) {
+          // 导航中 evaluate 常报 "navigated or closed / context destroyed"——属正常，继续轮询
+        }
+        await new Promise((r) => setTimeout(r, 800));
+      }
+      if (!dataReady) await new Promise((r) => setTimeout(r, 1500)); // 仍未就绪也补 1.5s，避免刚跳页就读
+      return { ok: true, dataReady: dataReady };
     } catch (err) {
       return { ok: false, reason: 'navigate-failed', msg: String(err && err.message || err) };
     }
@@ -113,22 +154,39 @@ function createHappyScanner(deps = {}) {
    * 供 unreadPoller（autoOpenWindow=false）用：探测不可达 → 跳过该轮，不主动 /browser/open 开窗。
    * @returns {Promise<{ok:boolean, reason?:string, window?:object}>} ok=true 表示窗口 running。
    */
-  async function probeCdp() {
+  var _probeCache = {}; // { windowId: { at, result } }
+var _PROBE_TTL = 60 * 1000;
+async function _probeCdpRaw() {
     if (closed) return { ok: false, reason: 'scanner-closed' };
     if (!windowId) return { ok: false, reason: 'no-happy-window-configured' };
     try {
-      // /browser/list 是只读列表查询，绝不启动窗口（API 文档：opened 参数=已打开的窗口）
-      const resp = await bit.listBrowsers({ page: 0, pageSize: 100 });
-      // BitBrowser /browser/list 返回 { success, data: { list: [...] } }
-      const items = (resp && resp.data && Array.isArray(resp.data.list)) ? resp.data.list : [];
-      const win = items.find(function(w) { return w && String(w.id) === String(windowId); });
-      if (win) {
-        return { ok: true, window: { id: windowId, opened: true } };
+      // /browser/list 是只读列表查询，绝不启动窗口
+      // BitBrowserClient.call 已解包 .data：resp 本身即 {page,pageSize,totalNum,list}（resp.data.list 恒 undefined）
+      // 18595 窗口实测在第 3 页 → 按需翻页扫描（最多 10 页）
+      var found = null;
+      for (var pg = 0; pg < 10; pg++) {
+        const r2 = pg === 0 ? await bit.listBrowsers({ page: 0, pageSize: 100 }) : await bit.listBrowsers({ page: pg, pageSize: 100 });
+        const list2 = Array.isArray(r2.list) ? r2.list : (r2 && r2.data && Array.isArray(r2.data.list) ? r2.data.list : []);
+        const total2 = Number((r2.totalNum !== undefined ? r2.totalNum : (r2.data && r2.data.totalNum))) || 0;
+        found = list2.find(function(w) { return w && String(w.id || w.uuid || w.seq) === String(windowId); });
+        if (found) break;
+        if (list2.length < 100 || (total2 && (pg + 1) * 100 >= total2)) break;
+      }
+      if (found) {
+        return { ok: true, window: { id: windowId, opened: true, status: found.status } };
       }
       return { ok: false, reason: 'window-closed', window: { id: windowId, opened: false } };
     } catch (e) {
       return { ok: false, reason: 'probe-failed', msg: String((e && e.message) || e) };
     }
+  }
+
+  async function probeCdp() {
+    var cached = _probeCache[windowId];
+    if (cached && Date.now() - cached.at < _PROBE_TTL) return cached.result;
+    var result = await _probeCdpRaw();
+    _probeCache[windowId] = { at: Date.now(), result: result };
+    return result;
   }
 
   /**
@@ -141,7 +199,7 @@ function createHappyScanner(deps = {}) {
     if (!windowId) return { ok: false, reason: 'no-happy-window-configured' };
     let live;
     try {
-      live = await bit.openLiveCdp(windowId);
+      live = await bit.openLiveCdpSafe();
     } catch (err) {
       return { ok: false, reason: 'window-not-open', msg: String(err && err.message || err), windowId };
     }
@@ -230,7 +288,7 @@ function createHappyScanner(deps = {}) {
     if (!windowId) return { ok: false, reason: 'no-happy-window-configured' };
     if (!memberID) return { ok: false, reason: 'missing-memberID' };
     let live;
-    try { live = await bit.openLiveCdp(windowId); }
+    try { live = await bit.openLiveCdpSafe(); }
     catch (err) { return { ok: false, reason: 'window-not-open', msg: String(err && err.message || err), windowId }; }
     const client = live.client;
     lastClient = client;
@@ -287,13 +345,13 @@ function createHappyScanner(deps = {}) {
   async function scanSource(kind) {
     if (closed) return { ok: false, reason: 'scanner-closed' };
     if (!windowId) return { ok: false, reason: 'no-happy-window-configured' };
-    const routes = { type: '/sp/app/html/type_list.php', profile: '/sp/app/html/profile_list.php', billboard: '/sp/app/html/keijiban.php' };
-    const exprs = { type: EXPR_TYPE, profile: EXPR_PROFILE_SEARCH, billboard: EXPR_BILLBOARD };
+    const routes = { type: '/sp/app/html/type_list.php', profile: '/sp/app/html/profile_list.php', billboard: '/sp/app/html/keijiban.php', ashiato: '/sp/app/html/ashiato.php' };
+    const exprs = { type: EXPR_TYPE, profile: EXPR_PROFILE_SEARCH, billboard: EXPR_BILLBOARD, ashiato: EXPR_ASHIATO };
     const url = routes[kind]; const expr = exprs[kind];
     if (!url || !expr) return { ok: false, reason: 'unknown-source-kind', kind: String(kind || '') };
     let live;
-    try { live = await bit.openLiveCdp(windowId); }
-    catch (err) { return { ok: false, reason: 'window-not-open', msg: String(err && err.message || err) }; }
+    try { live = await openLiveCdpSafe(); }
+    catch (err) { return { ok: false, reason: err && err.reason || 'window-not-open', msg: String(err && err.message || err) }; }
     const client = live.client;
     lastClient = client;
     const result = { ok: true, source: kind, windowId, fetchedAt: new Date().toISOString() };
@@ -326,4 +384,4 @@ function createHappyScanner(deps = {}) {
   return { scanInbox, scanCustomer, scanSource, probeCdp, close, get windowId() { return windowId; } };
 }
 
-module.exports = { createHappyScanner, EXPR_INBOX, EXPR_HISTORY, EXPR_PROFILE_DETAIL, EXPR_PROFILE_SEARCH, EXPR_TYPE, EXPR_BILLBOARD, HAPPY_MATCH };
+module.exports = { createHappyScanner, EXPR_INBOX, EXPR_HISTORY, EXPR_PROFILE_DETAIL, EXPR_PROFILE_SEARCH, EXPR_TYPE, EXPR_BILLBOARD, EXPR_ASHIATO, HAPPY_MATCH };

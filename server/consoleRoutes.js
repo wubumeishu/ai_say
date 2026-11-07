@@ -23,7 +23,8 @@
 // =============================================================================
 'use strict';
 
-const http = require('http');
+const http = require('http')
+const path = require('path');;
 const net = require('net'); // task-2：/api/console/health 轻量端点探 CDP 54346 TCP 可达（不调平台 network/health、不做风控归因，GUARDIAN ⑤ 防重启风暴）
 
 /**
@@ -53,6 +54,7 @@ function mountConsoleRoutes(app, deps = {}) {
   const happyScanner = deps.happyScanner || null; // H4 · 快乐平台只读抓取
   const happyCache = deps.happyCache || null; // H4 缺陷6 · A 持久化（data/happy-cache.json）
   const unreadPoller = deps.unreadPoller || null; // v5.3 · 批2 未读轮询器（非秒回）
+  const breathEngine = deps.breathEngine || null; // T3 · 任务编排：呼吸引擎（节拍调度，不直接发）
   const deepScrape = deps.deepScrape || null;
   const settingsForLive = deps.settingsForLive || deps.settings || null;
   const proxyPool = deps.proxyPool || null;
@@ -1329,6 +1331,102 @@ if (action === 'blacklist' && deepScrape && typeof deepScrape.blockContact === '
     const rows = store.listTasks({ status: qs.status || undefined, accountId: qs.accountId || undefined });
     rows.forEach((r) => { try { if (r.payload) r.payload = JSON.parse(r.payload); } catch (_) { /* */ } });
     return json(res, 200, { ok: true, count: rows.length, tasks: rows });
+  }));
+
+  // ------------------------------------------------------------------
+  // T3 任务编排：呼吸引擎路由组（/tasks/breath/*）
+  // 引擎只调度节拍（何时唤醒 + 抢单 + 异常熔断），不直接发消息/发链接（铁律 0.1）。
+  // 真实业务副作用由 SOP 执行器接管（onTask 钩子）；本组负责 启停/状态/入队/规则/看板。
+  // ------------------------------------------------------------------
+  register('GET', '/api/console/tasks/breath/status', wrap(async (req, res) => {
+    if (!breathEngine) return json(res, 501, { ok: false, reason: 'breathEngine-not-injected' });
+    return json(res, 200, { ok: true, engine: breathEngine.status() });
+  }));
+  register('POST', '/api/console/tasks/breath/start', wrap(async (req, res) => {
+    if (!breathEngine) return json(res, 501, { ok: false, reason: 'breathEngine-not-injected' });
+    const r = breathEngine.start();
+    return json(res, 200, { ok: true, ...r, note: '引擎已启动（节拍调度；副作用由 SOP 执行器驱动）' });
+  }));
+  register('POST', '/api/console/tasks/breath/stop', wrap(async (req, res) => {
+    if (!breathEngine) return json(res, 501, { ok: false, reason: 'breathEngine-not-injected' });
+    const r = breathEngine.stop();
+    return json(res, 200, { ok: true, ...r });
+  }));
+  // 入队呼吸任务（按场景 + 账号 + 节拍 + nextWakeAt；幂等键）
+  register('POST', '/api/console/tasks/breath/enqueue', wrap(async (req, res, body) => {
+    if (!store || typeof store.enqueueTask !== 'function') return json(res, 501, { ok: false, reason: 'store-not-ready' });
+    const type = String(body.type || 'like');
+    const accountId = body.accountId ? String(body.accountId) : null;
+    const platform = String(body.platform || 'ichigo');
+    const nextWakeAt = Number(body.nextWakeAt) || (Date.now() + Number(body.delayMs) + 0);
+    const payload = body.payload || {};
+    const row = store.enqueueTask({
+      platform, accountId, type, payload, priority: Number(body.priority) || 0,
+      taskId: body.taskId || null
+    });
+    // 写 004 呼吸列（nextWakeAt/breathRuleId/claimedAt/claimToken）
+    if (row) {
+      try {
+        const db = store.db;
+        const breathRuleId = body.breathRuleId || ('default:' + (body.pool || 'warmup'));
+        db.prepare(
+          "UPDATE TaskQueue SET nextWakeAt = ?, breathRuleId = ?, claimedAt = 0, claimToken = NULL WHERE taskId = ?"
+        ).run(nextWakeAt, breathRuleId, row.taskId);
+      } catch (e) {
+        return json(res, 200, { ok: true, enqueued: row.taskId, note: '入队成功，但呼吸列写入失败: ' + e.message });
+      }
+    }
+    return json(res, 200, { ok: true, taskId: row ? row.taskId : null, nextWakeAt, type, accountId });
+  }));
+  // 呼吸规则种子（GovernanceRule scene 维度，缺则插默认；幂等）
+  register('POST', '/api/console/tasks/breath/rules/seed', wrap(async (req, res, body) => {
+    if (!store || !store.db) return json(res, 501, { ok: false, reason: 'store-not-ready' });
+    const db = store.db;
+    const scenes = (body.scenes && Array.isArray(body.scenes)) ? body.scenes : ['like', 'footprint', 'first_msg', 'recruit_post', 'delete_post', 'exception'];
+    const pool = String(body.pool || 'warmup');
+    const defaults = {
+      'like': { preFixedWaitMs: 3000, preRandomMinMs: 2000, preRandomMaxMs: 8000, postFixedWaitMs: 5000, postRandomMinMs: 3000, postRandomMaxMs: 10000 },
+      'footprint': { preFixedWaitMs: 5000, preRandomMinMs: 4000, preRandomMaxMs: 15000, postFixedWaitMs: 8000, postRandomMinMs: 5000, postRandomMaxMs: 18000 },
+      'first_msg': { preFixedWaitMs: 6000, preRandomMinMs: 5000, preRandomMaxMs: 20000, postFixedWaitMs: 10000, postRandomMinMs: 8000, postRandomMaxMs: 25000 },
+      'recruit_post': { preFixedWaitMs: 3600000, preRandomMinMs: 3600000, preRandomMaxMs: 5400000, postFixedWaitMs: 60000, postRandomMinMs: 30000, postRandomMaxMs: 90000 },
+      'delete_post': { preFixedWaitMs: 3000, preRandomMinMs: 2000, preRandomMaxMs: 6000, postFixedWaitMs: 4000, postRandomMinMs: 2000, postRandomMaxMs: 8000 },
+      'exception': { preFixedWaitMs: 60000, preRandomMinMs: 30000, preRandomMaxMs: 120000, postFixedWaitMs: 60000, postRandomMinMs: 30000, postRandomMaxMs: 180000 }
+    };
+    let inserted = 0;
+    for (const sc of scenes) {
+      const spec = defaults[sc] || defaults['like'];
+      try {
+        // 幂等：已有 (scene,accountGroup) 活跃行则跳过
+        const exists = db.prepare(
+          "SELECT 1 FROM GovernanceRule WHERE scene = ? AND accountGroup = ? AND status = 'active' LIMIT 1"
+        ).get(sc, pool);
+        if (exists) continue;
+        const now = new Date().toISOString();
+        const rid = 'breath_' + sc + '_' + pool;
+        db.prepare(
+          "INSERT INTO GovernanceRule (ruleId, ruleType, scope, scopeKey, rule, priority, status, effectiveFrom, createdAt, updatedAt, scene, accountGroup, preFixedWaitMs, preRandomMinMs, preRandomMaxMs, postFixedWaitMs, postRandomMinMs, postRandomMaxMs) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)"
+        ).run(
+          rid, 'breath', 'scene', sc, JSON.stringify(spec), 50, 'active', now, now, now,
+          sc, pool,
+          spec.preFixedWaitMs, spec.preRandomMinMs, spec.preRandomMaxMs, spec.postFixedWaitMs, spec.postRandomMinMs, spec.postRandomMaxMs
+        );
+        inserted++;
+      } catch (e) { /* duplicate → 跳过 */ }
+    }
+    return json(res, 200, { ok: true, inserted, scenes });
+  }));
+  // 看板数据（来源分布 / 完成情况 / 人工介入提醒 high_intent）
+  register('GET', '/api/console/tasks/breath/board', wrap(async (req, res) => {
+    if (!store || !store.db) return json(res, 501, { ok: false, reason: 'store-not-ready' });
+    const db = store.db;
+    const byType = db.prepare("SELECT type, status, COUNT(*) n FROM TaskQueue GROUP BY type, status").all();
+    const highIntent = db.prepare("SELECT taskId, accountId, payload, createdAt FROM TaskQueue WHERE type='exception' AND status='pending' ORDER BY priority DESC, createdAt ASC").all();
+    const recent = db.prepare("SELECT taskId, accountId, type, status, finishedAt, error FROM TaskQueue ORDER BY updatedAt DESC LIMIT 30").all();
+    let results = [];
+    try { results = db.prepare("SELECT idempotencyKey, taskId, accountId, httpStatus, executedByNode, executedAt FROM TaskResult ORDER BY executedAt DESC LIMIT 30").all(); } catch (_) {}
+    let engine = null;
+    if (breathEngine) engine = breathEngine.status();
+    return json(res, 200, { ok: true, byType, highIntent, recent, results, engine });
   }));
   register('POST', '/api/console/tasks', wrap(async (req, res, body) => {
     if (!store || typeof store.enqueueTask !== 'function') return json(res, 501, { ok: false, reason: 'store-not-ready' });
@@ -2813,92 +2911,103 @@ if (action === 'blacklist' && deepScrape && typeof deepScrape.blockContact === '
   // + P1~P6 在线档排序（domainRank），输出 cards[] 供 /card-deck 前端消费。
   // 全部只读：不发消息、不写库、不改 DOM；仅调只读 CDP 表达式。
   register('GET', '/api/console/card-leads', wrap(async (req, res) => {
-    if (!deepScrape) return json(res, 501, { ok: false, reason: 'deepScrape-not-injected' });
     const qs = new URLSearchParams(String(req.url || '').split('?')[1] || '');
-    const maxLikes = parseInt(qs.get('maxLikes') || '30', 10);
-    const maxChats = parseInt(qs.get('maxChats') || '30', 10);
     const cards = [];
-    const errors = {};
-    // P2 互赞（最高价值，先抓）
+    // 基底：Lead 线索池（已灌库，不依赖 CDP 窗口是否开）
+    let leadCount = 0, leadErr = null;
+    try {
+      const leads = (store && typeof store.listLeads === 'function') ? store.listLeads({ platform: 'ichigo' }, { limit: parseInt(qs.get('maxLeads') || '100', 10) }) : [];
+      leadCount = Array.isArray(leads) ? leads.length : 0;
+      (Array.isArray(leads) ? leads : []).forEach(function(ld, i) {
+        cards.push({
+          id: 'LD-' + String(ld.leadId || i).slice(-8),
+          cat: (ld.sourceDim === 'like' ? 'like' : 'browse'),
+          source: ld.sourceDim === 'bbs' ? 'BBS帖子' : (ld.sourceDim === 'ashiato' ? '足迹' : (ld.sourceDim === 'search' ? '检索' : (ld.sourceDim === 'like' ? '点赞' : '线索池'))),
+          name: ld.name || '',
+          age: ld.age != null ? String(ld.age) : '',
+          city: ld.region || '',
+          onlineIcon: ld.online || null,
+          onlineLabel: '',
+          memberId: ld.extras && ld.extras.memberId ? String(ld.extras.memberId) : null,
+          sourceHref: ld.profileUrl || null,
+          lastMsg: '',
+          lastMsgZh: '',
+          lastTime: ld.lastSeen || '',
+          selfIntro: ld.selfIntro || '',
+          interests: (ld.extras && Array.isArray(ld.extras.interests)) ? ld.extras.interests : [],
+          avatarUrls: ld.avatarUrl ? [ld.avatarUrl] : [],
+          ai: null,
+          state: 'PENDING',
+          selectedTalk: null,
+          tags: [],
+          opLog: [],
+          platform: 'ichigo',
+          noRevoke: true,
+          fromLead: true,
+        });
+      });
+    } catch (e) { leadErr = String((e && e.message) || e); }
+    // CDP 实时 P2 互赞（窗口开了才抓；抓到则补 seenKeys 去重，避免与 Lead 重复）
+    const seenKeys = new Set();
+    cards.forEach(function(c) {
+      seenKeys.add(c.memberId ? ('m/' + c.memberId) : ('n/' + c.name + '/' + c.age + '/' + c.city + '/' + c.cat));
+    });
     if (typeof deepScrape.fetchTypedLikes === 'function') {
       try {
-        const likeR = await deepScrape.fetchTypedLikes({ tab: 'mutual', maxItems: maxLikes });
+        const likeR = await deepScrape.fetchTypedLikes({ tab: 'mutual', maxItems: parseInt(qs.get('maxLikes') || '30', 10) });
         if (likeR && likeR.ok && Array.isArray(likeR.likes)) {
           likeR.likes.forEach(function(lk, idx) {
+            const k = lk.memberId ? ('m/' + lk.memberId) : ('n/' + (lk.name||'') + '/' + (lk.age||'') + '/' + (lk.city||'') + '/like');
+            if (seenKeys.has(k)) return;
+            seenKeys.add(k);
             cards.push({
-              id: 'L2-mutual-' + idx,
-              cat: 'like',
-              source: '互赞',
-              name: lk.name || '',
-              age: lk.age || '',
-              city: lk.city || '',
-              onlineIcon: lk.onlineIcon || null,
-              onlineLabel: lk.time ? ('互赞 ' + lk.time) : '',
-              memberId: lk.memberId || null,
-              sourceHref: lk.sourceHref || null,
-              lastMsg: '',
-              lastMsgZh: '',
-              lastTime: lk.time || '',
-              selfIntro: '',
-              interests: [],
-              avatarUrls: [],
-              ai: null,
-              state: 'PENDING',
-              selectedTalk: null,
-              tags: [],
-              opLog: [],
-              platform: 'ichigo',
-              noRevoke: true,
+              id: 'L2-mutual-' + idx, cat: 'like', source: lk.tab === 'mutual' ? '互赞' : '点赞',
+              name: lk.name || '', age: lk.age || '', city: lk.city || '',
+              onlineIcon: lk.onlineIcon || null, onlineLabel: lk.time ? ('互赞 ' + lk.time) : '',
+              memberId: lk.memberId || null, sourceHref: lk.profileUrl || lk.sourceHref || null,
+              lastMsg: '', lastMsgZh: '', lastTime: lk.time || '',
+              selfIntro: lk.selfIntro || '', interests: Array.isArray(lk.interests) ? lk.interests : [],
+              avatarUrls: Array.isArray(lk.avatars) ? lk.avatars : (lk.avatar ? [lk.avatar] : []),
+              ai: null, state: 'PENDING', selectedTalk: null, tags: [], opLog: [],
+              platform: 'ichigo', noRevoke: true,
             });
           });
         }
-      } catch (e) { errors.like = String((e && e.message) || e); }
+      } catch (e) { /* CDP 窗口未开 → 降级，不阻断 */ }
     }
-    // P1 正在聊（未读收件箱）
+    // CDP 实时 P1 正在聊
     if (typeof deepScrape.fetchChatInbox === 'function') {
       try {
-        const chatR = await deepScrape.fetchChatInbox({ maxItems: maxChats });
+        const chatR = await deepScrape.fetchChatInbox({ maxItems: parseInt(qs.get('maxChats') || '30', 10) });
         if (chatR && chatR.ok && Array.isArray(chatR.chats)) {
           chatR.chats.forEach(function(c, idx) {
+            const k = 'n/' + (c.name||'') + '/' + (c.age||'') + '/' + (c.city||'') + '/chat';
+            if (c.name && seenKeys.has(k)) return;
+            if (c.name) seenKeys.add(k);
             cards.push({
-              id: 'L1-chat-' + idx,
-              cat: 'chat',
-              source: '正在聊',
-              name: c.name || '',
-              age: c.age || '',
-              city: c.city || '',
-              onlineIcon: c.onlineIcon || null,
-              onlineLabel: '',
-              memberId: null,
-              sourceHref: c.link || null,
-              lastMsg: c.lastMsg || '',
-              lastMsgZh: '',
-              lastTime: c.lastTime || '',
-              selfIntro: '',
-              interests: [],
-              avatarUrls: [],
-              ai: null,
-              state: 'PENDING',
-              selectedTalk: null,
-              tags: [],
-              opLog: [],
-              platform: 'ichigo',
-              noRevoke: true,
+              id: 'L1-chat-' + idx, cat: 'chat', source: '正在聊',
+              name: c.name || '', age: c.age || '', city: c.city || '',
+              onlineIcon: c.onlineIcon || null, onlineLabel: '', memberId: null,
+              sourceHref: c.link || null, lastMsg: c.lastMsg || '', lastMsgZh: '', lastTime: c.lastTime || '',
+              selfIntro: '', interests: [], avatarUrls: [],
+              ai: null, state: 'PENDING', selectedTalk: null, tags: [], opLog: [],
+              platform: 'ichigo', noRevoke: true,
             });
           });
         }
-      } catch (e) { errors.chat = String((e && e.message) || e); }
+      } catch (e) { /* CDP 窗口未开 → 降级 */ }
     }
-    // domainRank 排序（P1 chat 优先于 P2 like）
+    // domainRank 排序（P1 chat > P2 like > P6 browse）
     try {
       cards = domainRank.rankCandidates(cards);
-    } catch (e) { /* 排序失败不阻断，保持原序 */ }
+    } catch (e) { /* 排序失败保持原序 */ }
     return json(res, 200, {
       ok: true,
       total: cards.length,
+      leadCount: leadCount,
+      leadErr: leadErr,
       cards: cards,
-      errors: Object.keys(errors).length ? errors : undefined,
-      note: '纯只读聚合：P1 正在聊 + P2 互赞，按 P1~P6 + 在线档排序。lastMsgZh/ai 留待前端按需补 AI。',
+      note: '基底=Lead 线索池（已灌库）+ CDP 实时 P1/P2 补全；domainRank 排序（P1>P2>P6）。CDP 窗口未开时退化为纯 Lead 池。',
     });
   }));
 
@@ -2922,6 +3031,560 @@ if (action === 'blacklist' && deepScrape && typeof deepScrape.blockContact === '
     } catch (e) {
       return json(res, 500, { ok: false, reason: 'like-debug-exception', msg: String((e && e.message) || e) });
     }
+  }));
+
+  // ============================================================================
+  // 线索池 Lead（005 批次）：引流第一阶段"侦测"统一落点
+  // GET /api/console/leads?platform=&sourceDim=&ageFrom=&ageTo=&online=&limit=
+  //   - 读 Lead 表（通用字段 + extras JSON 平台特色），支持按平台/来源/年龄/在线筛
+  //   - 返回 { ok, count, leads:[...] }，每条含 extras 解析后的 JSON
+  // ============================================================================
+  register('GET', '/api/console/leads', wrap(async (req, res) => {
+    if (!store || typeof store.listLeads !== 'function') return json(res, 501, { ok: false, reason: 'store-not-ready', msg: 'store.listLeads 未注入' });
+    const qs = queryOf(req);
+    const filter = {};
+    if (qs.platform) filter.platform = qs.platform;
+    if (qs.sourceDim) filter.sourceDim = qs.sourceDim;
+    if (qs.accountId) filter.accountId = qs.accountId;
+    if (qs.online) filter.online = qs.online;
+    if (qs.ageFrom) filter.ageFrom = qs.ageFrom;
+    if (qs.ageTo) filter.ageTo = qs.ageTo;
+    const limit = Math.min(parseInt(qs.limit || '200', 10), 1000);
+    let rows;
+    try {
+      rows = store.listLeads(filter, { limit: limit });
+    } catch (e) {
+      return json(res, 500, { ok: false, reason: 'query-failed', msg: String(e && e.message || e) });
+    }
+    // 解析 extras JSON（容错）
+    const leads = (rows || []).map(function (r) {
+      var extras = null;
+      try { extras = JSON.parse(r.extras || '{}'); } catch (e2) { extras = {}; }
+      var o = Object.assign({}, r);
+      delete o.extras;
+      o.extras = extras;
+      return o;
+    });
+    // 聚合：按 sourceDim 统计（任务汇报用）
+    let agg = [];
+    if (typeof store.leadBySourceDim === 'function') {
+      try { agg = store.leadBySourceDim(filter); } catch (e) { agg = []; }
+    }
+    return json(res, 200, {
+      ok: true,
+      count: leads.length,
+      leads: leads,
+      bySourceDim: agg,
+      filters: {
+        platform: qs.platform || null,
+        sourceDim: qs.sourceDim || null,
+        ageFrom: qs.ageFrom || null,
+        ageTo: qs.ageTo || null,
+        online: qs.online || null,
+      },
+    });
+  }));
+
+  // POST /api/console/leads —— 灌入线索（二期 T1 会用，先占位；body = { leads: [...] }）
+  register('POST', '/api/console/leads', wrap(async (req, res, body) => {
+    if (!store || typeof store.upsertLead !== 'function') return json(res, 501, { ok: false, reason: 'store-not-ready' });
+    const arr = body && Array.isArray(body.leads) ? body.leads : [];
+    if (arr.length === 0) return json(res, 200, { ok: true, upserted: 0, msg: 'empty' });
+    let upserted = 0;
+    for (const L of arr) {
+      // 透传 memberId（平台唯一身份），让 upsertLead 按稳定键去重累积
+      const r = store.upsertLead(L);
+      if (r && r.leadId) upserted++;
+    }
+    return json(res, 200, { ok: true, upserted: upserted, total: arr.length });
+  }));
+
+
+  // ============================================================================
+  // 窗口手动控制（用户 2026-11-02 需求：不自动启停，控制台手动开/关 + 状态图标）
+  // GET  /api/console/window/status  → { open, windowId, cdp }
+  // POST /api/console/window/open     → 手动启动窗口（/browser/open）
+  // POST /api/console/window/close    → 手动关闭窗口（/browser/close）
+  // ============================================================================
+  function getBit() {
+    if (settingsForLive && settingsForLive.bitBrowserApiPort) {
+      const { BitBrowserClient } = require(path.join(__dirname, 'bitbrowser.js'));
+      return new BitBrowserClient('http://127.0.0.1:' + settingsForLive.bitBrowserApiPort);
+    }
+    return null;
+  }
+  function getWindowId() {
+    return settingsForLive && settingsForLive.windowId ? String(settingsForLive.windowId) : '';
+  }
+  // 窗口状态查询（分页扫描 /browser/list，服务端每页上限 100，需翻页找目标 windowId）
+  async function findWindowStatus(bit, win) {
+    var pageSize = 100;
+    for (var page = 0; page < 30; page++) { // 最多扫 3000 个窗口
+      const resp = await bit.listBrowsers({ page: page, pageSize: pageSize });
+      // BitBrowserClient.call 已解包 .data，resp 本身即 {page,pageSize,totalNum,list}
+      const list = Array.isArray(resp.list) ? resp.list : (resp && resp.data && Array.isArray(resp.data.list) ? resp.data.list : []);
+      const total = Number((resp.totalNum !== undefined ? resp.totalNum : (resp.data && resp.data.totalNum))) || 0;
+      const w = list.find(function(x) { return x && String(x.id || x.uuid || x.seq) === String(win); });
+      if (w) {
+        return { status: w.status, seq: w.seq, name: w.name, open: (Number(w.status) === 1 || w.isStart === true || w.startup === true || w.started === true) };
+      }
+      if (list.length < pageSize || (total && (page + 1) * pageSize >= total)) break; // 到最后一页
+    }
+    return null;
+  }
+  // 窗口状态缓存（TTL 90s）：前端 20s 轮询不再每次打 /browser/list（BitBrowser 有 API 频率限制，打爆会强制退出登录）
+  var windowStatusCache = {}; // { [windowId]: { at, found } }
+  var WS_CACHE_TTL = 90 * 1000;
+  register('GET', '/api/console/window/status', wrap(async (req, res) => {
+    var qs0s = new URLSearchParams(String(req.url || '').split('?')[1] || '');
+    const win = qs0s.get('windowId') ? String(qs0s.get('windowId')) : getWindowId();
+    if (!win) return json(res, 200, { ok: true, open: false, windowId: null, msg: '未配置 windowId' });
+    // 命中缓存直接返回（不碰 BitBrowser API）；?force=1 跳过缓存（开/关按钮点击后立即查真实状态）
+    const force = qs0s.get('force') === '1';
+    const cached = windowStatusCache[win];
+    if (!force && cached && Date.now() - cached.at < WS_CACHE_TTL) {
+      const found = cached.found;
+      if (found) return json(res, 200, { ok: true, open: found.open, windowId: win, window: { status: found.status, seq: found.seq, name: found.name }, cached: true });
+      return json(res, 200, { ok: true, open: false, windowId: win, window: null, note: '未在窗口列表找到（可能已删除）', cached: true });
+    }
+    const bit = getBit();
+    if (!bit) return json(res, 501, { ok: false, open: false, windowId: win, msg: 'bitBrowserApiPort 未配置' });
+    try {
+      const found = await findWindowStatus(bit, win);
+      windowStatusCache[win] = { at: Date.now(), found: found };
+      if (found) return json(res, 200, { ok: true, open: found.open, windowId: win, window: { status: found.status, seq: found.seq, name: found.name } });
+      return json(res, 200, { ok: true, open: false, windowId: win, window: null, note: '未在窗口列表找到（可能已删除）' });
+    } catch (e) {
+      return json(res, 200, { ok: false, open: false, windowId: win, msg: e && e.message || String(e) });
+    }
+  }));
+  // 开/关 后清掉该窗口缓存（立刻反映新状态）
+  register('POST', '/api/console/window/open', wrap(async (req, res, body) => {
+    const win = (body && body.windowId) ? String(body.windowId) : getWindowId();
+    if (!win) return json(res, 400, { ok: false, msg: 'windowId 缺失' });
+    const bit = getBit();
+    if (!bit) return json(res, 501, { ok: false, msg: 'bitBrowserApiPort 未配置' });
+    try {
+      const data = await bit.openBrowser({ id: win, queue: true });
+      delete windowStatusCache[win];
+      return json(res, 200, { ok: true, opened: true, windowId: win, data: data });
+    } catch (e) {
+      return json(res, 500, { ok: false, opened: false, windowId: win, msg: e && e.message || String(e) });
+    }
+  }));
+  register('POST', '/api/console/window/close', wrap(async (req, res, body) => {
+    const win = (body && body.windowId) ? String(body.windowId) : getWindowId();
+    if (!win) return json(res, 400, { ok: false, msg: 'windowId 缺失' });
+    const bit = getBit();
+    if (!bit) return json(res, 501, { ok: false, msg: 'bitBrowserApiPort 未配置' });
+    try {
+      await bit.closeBrowser(win);
+      delete windowStatusCache[win];
+      return json(res, 200, { ok: true, closed: true, windowId: win });
+    } catch (e) {
+      return json(res, 500, { ok: false, closed: false, windowId: win, msg: e && e.message || String(e) });
+    }
+  }));
+
+
+  // ============================================================================
+  // 线索池 · 侦测探测（2026-11-03 用户：把 17098 主动侦测做成前端可复用）
+  // POST /api/console/leads/explore
+  //   body: { dims?: ['like'|'bbs'|'ashiato'|'search']（默认 all）, maxPages?: number（默认 3）, windowLabel?: string }
+  //   → 对出会 17098 窗口跑 CDP 侦测 → upsertLead 灌 Lead → navigateInbox → 返回统计
+  //   search 维度 = 当前找对象页（用户已设好条件），读页面条件标签 + fetchFaces
+  // ============================================================================
+  register('POST', '/api/console/leads/explore', wrap(async (req, res, body) => {
+    if (!deepScrape || typeof deepScrape.fetchTypedLikes !== 'function') {
+      return json(res, 501, { ok: false, reason: 'deepScrape-not-ready', msg: '出会侦测器未注入' });
+    }
+    const dims = (body && Array.isArray(body.dims) && body.dims.length) ? body.dims : ['like', 'bbs', 'ashiato', 'search'];
+    const maxPages = (body && Number(body.maxPages) > 0) ? Number(body.maxPages) : 3;
+    const winLabel = (body && String(body.windowLabel || '').trim()) || '17098';
+    const platform = 'ichigo';
+    const now = new Date().toISOString();
+    const collected = []; // { sourceDim, L }
+
+    // 灌库 helper
+    const crypto = require('crypto');
+    function leadIdFor(sourceDim, L, memberId) {
+      const key = memberId != null && memberId !== ''
+        ? String(platform) + '/m/' + memberId + '/' + sourceDim
+        : String(platform) + '/n/' + (L.name || '') + '/' + L.age + '/' + (L.region || '') + '/' + sourceDim;
+      return platform.toUpperCase() + '_' + crypto.createHash('sha1').update(key).digest('hex').slice(0, 16);
+    }
+
+    const results = { like: 0, bbs: 0, ashiato: 0, search: 0, errors: [] };
+
+    // ---- like 维度（3 Tab）----
+    if (dims.indexOf('like') !== -1) {
+      for (const tab of ['received', 'sent', 'mutual']) {
+        try {
+          const r = await deepScrape.fetchTypedLikes({ tab: tab, maxPages: maxPages, maxItems: 200 });
+          if (r.ok && Array.isArray(r.likes)) {
+            for (const l of r.likes) {
+              collected.push({
+                sourceDim: 'like',
+                leadId: leadIdFor('like', l, l.memberId),
+                L: {
+                  name: l.name || '', age: l.age != null ? String(l.age) : null,
+                  region: l.city || null, online: l.onlineIcon || null,
+                  avatarUrl: l.avatarUrl || null, profileUrl: l.profileUrl || null,
+                  selfIntro: l.selfIntro || null,
+                  extras: { like_tab: tab, memberId: l.memberId || null, like_time: l.time || '', like_isNew: l.isNew ? 1 : 0 },
+                },
+              });
+            }
+            results.like += (r.likes || []).length;
+          } else {
+            results.errors.push('like-' + tab + ': ' + (r.reason || r.msg || 'no-data'));
+          }
+        } catch (e) { results.errors.push('like-' + tab + ': ' + (e.message || e)); }
+      }
+    }
+
+    // ---- bbs 维度（翻页）----
+    if (dims.indexOf('bbs') !== -1) {
+      for (let p = 1; p <= Math.min(maxPages, 3); p++) {
+        try {
+          const r = await deepScrape.queryBbsPosts({ genre: 5, page: p, count: 20 });
+          if (r.ok && Array.isArray(r.posts)) {
+            for (const post of r.posts) {
+              collected.push({
+                sourceDim: 'bbs',
+                leadId: leadIdFor('bbs', post, null),
+                L: {
+                  name: post.name || '', age: post.age != null ? String(post.age) : null,
+                  region: post.home || null, online: null,
+                  avatarUrl: null, profileUrl: post.profileHref || null,
+                  selfIntro: post.title || null,
+                  extras: { bbs_views: post.views || 0, bbs_date: post.date || '', bbs_cat: post.cat || '', bbs_page: p },
+                },
+              });
+            }
+            results.bbs += (r.posts || []).length;
+          } else {
+            results.errors.push('bbs-p' + p + ': ' + (r.reason || r.msg || 'no-data'));
+          }
+        } catch (e) { results.errors.push('bbs-p' + p + ': ' + (e.message || e)); }
+      }
+    }
+
+    // ---- ashiato 维度（2 方向）----
+    if (dims.indexOf('ashiato') !== -1) {
+      for (const dir of ['received', 'mine']) {
+        try {
+          const r = await deepScrape.fetchAshiato({ direction: dir, maxPages: maxPages, maxItems: 200 });
+          if (r.ok && Array.isArray(r.footmarks)) {
+            for (const f of r.footmarks) {
+              collected.push({
+                sourceDim: 'ashiato',
+                leadId: leadIdFor('ashiato', f, f.memberId || f.footmarkId),
+                L: {
+                  name: f.name || '', age: f.age != null ? String(f.age) : null,
+                  region: f.city || null, online: f.onlineIcon ? ('online-icon' + f.onlineIcon) : null,
+                  avatarUrl: null, profileUrl: f.profileHref || null, selfIntro: null,
+                  extras: { ashiato_direction: dir, memberId: f.memberId || f.footmarkId || null, foot_time: f.time || '' },
+                },
+              });
+            }
+            results.ashiato += (r.footmarks || []).length;
+          } else {
+            results.errors.push('ashiato-' + dir + ': ' + (r.reason || r.msg || 'no-data'));
+          }
+        } catch (e) { results.errors.push('ashiato-' + dir + ': ' + (e.message || e)); }
+      }
+    }
+
+    // ---- search 维度（当前找对象页，用户已设条件）----
+    if (dims.indexOf('search') !== -1) {
+      try {
+        const faces = await deepScrape.fetchFaces({ maxItems: 50 });
+        // 读当前检索条件标签
+        let conditionLabel = '';
+        try {
+          const targets = await deepScrape.getTargets ? null : null; // getTargets 在 deepScrape 内
+          // 用 liveScanner 的 http 端口；这里简化：从 faces 返回的 via / 用 CDP 读页面文本
+          // 直接通过 deepScrape 无公开 readPageText，改用 settings 的 liveScanner
+          if (liveScanner && typeof liveScanner.openCdpSession === 'function') {
+            const session = await liveScanner.openCdpSession();
+            try {
+              const cond = await session.client.send('Runtime.evaluate', {
+                expression: '(function(){var t=document.body?document.body.textContent:"";var m=t.match(/([^\s]+を表示中)/);return m?m[1]:"";})()',
+                returnByValue: true,
+              });
+              conditionLabel = String((cond && cond.result && cond.result.value) || '');
+            } catch (e) { conditionLabel = ''; }
+            session.close();
+          }
+        } catch (e) { conditionLabel = ''; }
+
+        if (faces.ok && Array.isArray(faces.members)) {
+          for (const m of faces.members) {
+            const prefCity = (m.pref && m.city && m.pref !== m.city) ? (m.pref + '-' + m.city) : (m.city || m.pref || '');
+            collected.push({
+              sourceDim: 'search',
+              leadId: leadIdFor('search', m, m.memberId),
+              L: {
+                name: m.name || '', age: m.age ? String(m.age).replace(/歳/, '') : null,
+                region: prefCity || null, online: m.iconClass || null,
+                avatarUrl: m.thumb ? ('https:' + String(m.thumb).replace(/^\//, '')) : null,
+                profileUrl: null, selfIntro: null,
+                extras: { searchCondition: conditionLabel || null, memberId: m.memberId, certify: m.certify, type: m.type },
+              },
+            });
+          }
+          results.search = faces.members.length;
+        } else {
+          results.errors.push('search: ' + (faces.reason || faces.msg || 'not-on-faces-page'));
+        }
+      } catch (e) { results.errors.push('search: ' + (e.message || e)); }
+    }
+
+    // ---- 灌库（upsertLead 累积留痕）----
+    if (!store || typeof store.upsertLead !== 'function') {
+      return json(res, 501, { ok: false, reason: 'store-not-ready' });
+    }
+    const rawDb = store && store.db;
+    if (!rawDb) return json(res, 501, { ok: false, reason: 'db-not-injected' });
+    rawDb.exec('BEGIN');
+    let upserted = 0;
+    try {
+      for (const item of collected) {
+        const L = item.L;
+        // upsertLead 需要 memberId 透传（稳定身份键）
+        const memberId = L.extras && (L.extras.memberId || (L.extras.like_tab ? null : null));
+        const input = {
+          leadId: item.leadId,
+          platform: platform,
+          accountId: winLabel,
+          name: L.name, age: L.age, region: L.region, online: L.online,
+          avatarUrl: L.avatarUrl, profileUrl: L.profileUrl, selfIntro: L.selfIntro,
+          sourceDim: item.sourceDim,
+          memberId: memberId != null ? String(memberId) : null,
+          extras: L.extras,
+        };
+        const r = store.upsertLead(input);
+        if (r && r.leadId) upserted++;
+      }
+      rawDb.exec('COMMIT');
+    } catch (e) {
+      try { rawDb.exec('ROLLBACK'); } catch (_) {}
+      return json(res, 500, { ok: false, reason: 'db-failed', msg: e.message || e });
+    }
+
+    // ---- 返回收件箱（铁律 §1.9）----
+    let backInbox = false;
+    try { await deepScrape.navigateInbox(); backInbox = true; } catch (e) { results.errors.push('navigateInbox: ' + (e.message || e)); }
+
+    let totalForWin = 0;
+    try { totalForWin = rawDb.prepare('SELECT COUNT(*) n FROM Lead WHERE accountId=? AND platform=?').get(winLabel, platform).n; } catch (e) { totalForWin = -1; }
+
+    return json(res, 200, {
+      ok: true,
+      windowLabel: winLabel,
+      collected: collected.length,
+      upserted: upserted,
+      byDim: { like: results.like, bbs: results.bbs, ashiato: results.ashiato, search: results.search },
+      errors: results.errors,
+      backInbox: backInbox,
+      totalForWindow: totalForWin,
+      at: now,
+    });
+  }));
+
+
+  // ============================================================================
+  // 快乐平台 · 线索池侦测灌库（18595 窗口 · 客源 4 路 DOM 抓取）
+  // POST /api/console/leads/explore-happy
+  //   body: { dims?: ['like'|'search'|'bbs'|'ashiato']（默认 all）}
+  //   → happyScanner.scanSource 导航 4 客源页读已渲染 DOM → upsertLead 灌 Lead
+  //   走 CDP 只读，不碰 /browser/list（不触发 BitBrowser 限频）；DOM 是页面自带会话态渲染，无需手取 token
+  // ============================================================================
+  var HAPPY_DIM_KIND = { like: 'type', search: 'profile', bbs: 'billboard', ashiato: 'ashiato' };
+  var HAPPY_DIM_LABEL = { like: '点赞', search: '检索', bbs: '帖子', ashiato: '足迹' };
+  register('POST', '/api/console/leads/explore-happy', wrap(async (req, res, body) => {
+    const winLabel = '18595';
+    const platform = 'happymail';
+    var dimsAll = ['like', 'search', 'bbs', 'ashiato'];
+    const dims = (body && Array.isArray(body.dims) && body.dims.length) ? body.dims.filter(function(d) { return dimsAll.indexOf(d) !== -1; }) : dimsAll;
+    const now = new Date().toISOString();
+
+    if (!happyScanner || typeof happyScanner.scanSource !== 'function') {
+      return json(res, 501, { ok: false, reason: 'happyScanner-not-ready', msg: '快乐平台扫描器未注入（服务需重启加载 happyScanner）' });
+    }
+    if (!store || typeof store.upsertLead !== 'function') {
+      return json(res, 501, { ok: false, reason: 'store-not-ready' });
+    }
+    const rawDb = store.db;
+    if (!rawDb) return json(res, 501, { ok: false, reason: 'db-not-injected' });
+
+    const crypto = require('crypto');
+    function leadIdFor(sourceDim, memberId, name, age, region) {
+      const key = memberId
+        ? platform + '/m/' + memberId + '/' + sourceDim
+        : platform + '/n/' + (name || '') + '/' + (age || '') + '/' + (region || '') + '/' + sourceDim;
+      return platform.toUpperCase() + '_' + crypto.createHash('sha1').update(key).digest('hex').slice(0, 16);
+    }
+
+    // 逐维度跑 scanSource（导航 + 读 DOM）
+    const collected = [];
+    const byDim = { like: 0, search: 0, bbs: 0, ashiato: 0 };
+    const errors = [];
+
+    for (const dim of dims) {
+      const kind = HAPPY_DIM_KIND[dim];
+      let scan;
+      try { scan = await happyScanner.scanSource(kind); }
+      catch (e) { errors.push(dim + ': ' + (e.message || e)); continue; }
+      if (!scan || scan.ok === false) {
+        errors.push(dim + ': ' + (scan && (scan.reason || scan.msg) || 'no-data'));
+        continue;
+      }
+      const data = scan.data || {};
+
+      if (dim === 'like') {
+        // EXPR_TYPE v2（实机 DOM）：tabs[] 三路，items[{name,age,region(市),avatarUrl,likeTime,detail,raw}]
+        const tabs = Array.isArray(data.tabs) ? data.tabs : [];
+        for (const tb of tabs) {
+          const tabLabel = tb.label || tb.id || '';
+          const isMutual = /マッチング|互赞|reciprocal/i.test(tabLabel);
+          const isFromMe = /自分|我点赞|myself/i.test(tabLabel);
+          const items = Array.isArray(tb.items) ? tb.items : [];
+          for (const it of items) {
+            const name = String(it.name || '').trim();
+            if (!name || /すべてを選択/.test(String(it.raw || ''))) continue; // 空壳/全选行不灌
+            const age = it.age || null;
+            const region = it.region || null;
+            const lastLogin = it.lastLogin || '';
+            // 在线档 = 平台真实在线点颜色(green/yellow/gray)，缺失时回退按最后登录 24h/7d 估算
+            var onlineLevel = it.onlineDot ? ('happy-' + it.onlineDot) : null;
+            if (!onlineLevel) {
+              var nowD = new Date();
+              var lm = String(lastLogin).match(/^(\d{1,2})\/(\d{1,2})(?:\s+(\d{1,2}):(\d{2}))?$/);
+              if (lm) {
+                var ld = new Date(nowD.getFullYear(), Number(lm[1]) - 1, Number(lm[2]));
+                if (ld.getTime() - nowD.getTime() > 2 * 86400000) ld = new Date(nowD.getFullYear() - 1, Number(lm[1]) - 1, Number(lm[2]));
+                if (lm[3]) ld.setHours(Number(lm[3]), Number(lm[4] || 0));
+                var dayDiff = (nowD.getTime() - ld.getTime()) / 86400000;
+                onlineLevel = dayDiff <= 1 ? 'happy-green' : (dayDiff <= 7 ? 'happy-yellow' : 'happy-gray');
+              }
+            }
+            collected.push({
+              sourceDim: 'like',
+              leadId: leadIdFor('like', null, name, age, region),
+              L: {
+                name: name, age: age, region: region,
+                online: onlineLevel,
+                avatarUrl: it.avatarUrl && !it.avatarIsDefault ? it.avatarUrl : null,
+                profileUrl: null,
+                selfIntro: it.detail || null,
+                extras: { like_tab: isMutual ? 'mutual' : (isFromMe ? 'sent' : 'received'), like_label: tabLabel, like_time: it.likeTime || '', last_login: lastLogin || null, online_level: onlineLevel, memberId: it.memberId || null, raw: (it.raw || '').slice(0, 150) },
+              },
+            });
+          }
+        }
+      } else if (dim === 'search') {
+        // EXPR_PROFILE_SEARCH：读检索页 .profile_list_big_item（年龄/地区/自我介绍）
+        const items = Array.isArray(data.items) ? data.items : (Array.isArray(data.members) ? data.members : []);
+        for (const it of items) {
+          const name = String(it.name || it.memberName || '').trim();
+          if (!name || /すべてを選択|検索条件/.test(String(it.raw || ''))) continue;
+          const age = it.age || it.memberAge || null;
+          const region = it.region || it.memberResidence || null;
+          collected.push({
+            sourceDim: 'search',
+            leadId: leadIdFor('search', it.memberId || null, name, age, region),
+            L: {
+              name: name, age: age, region: region,
+              online: it.onlineDot ? ('happy-' + it.onlineDot) : (it.online ? String(it.online) : null),
+              avatarUrl: it.avatarUrl && !it.avatarIsDefault ? it.avatarUrl : null,
+              profileUrl: it.profileUrl || null,
+              selfIntro: it.detail || it.selfIntro || it.intro || null,
+              extras: { sex: it.sex || null, online_dot: it.onlineDot || null, search_time: it.likeTime || '', memberId: it.memberId || null, raw: (it.raw || '').slice(0, 150) },
+            },
+          });
+        }
+      } else if (dim === 'bbs') {
+        // EXPR_BILLBOARD：keijiban.php 募集帖（.ds_billboard_item 等，字段 name/text/avatarUrl）
+        const items = Array.isArray(data.items) ? data.items : [];
+        for (const it of items) {
+          const name = it.name || '';
+          const region = it.region || null;
+          const age = it.age || null;
+          collected.push({
+            sourceDim: 'bbs',
+            leadId: leadIdFor('bbs', it.memberId || null, name, age, region),
+            L: {
+              name: name, age: age, region: region,
+              online: it.onlineDot ? ('happy-' + it.onlineDot) : null,
+              avatarUrl: it.avatarUrl && !it.avatarIsDefault ? it.avatarUrl : null,
+              profileUrl: null,
+              selfIntro: it.subject ? ('[募集帖] ' + it.subject).slice(0, 300) : (it.text || null),
+              extras: { bbs_subject: it.subject || null, bbs_date: it.writeDate || it.footTime || null, bbs_reads: it.reads || it.footRef || null, online_dot: it.onlineDot || null, memberId: it.memberId || null, raw: (it.raw || '').slice(0, 150) },
+            },
+          });
+        }
+      } else if (dim === 'ashiato') {
+        // EXPR_ASHIATO：足迹页（主动看我的人），字段 name/age/region/footTime/footRef
+        const items = Array.isArray(data.items) ? data.items : [];
+        for (const it of items) {
+          const name = it.name || '';
+          const age = it.age || null;
+          const region = it.region || null;
+          collected.push({
+            sourceDim: 'ashiato',
+            leadId: leadIdFor('ashiato', it.memberId || null, name, age, region),
+            L: {
+              name: name, age: age, region: region,
+              online: null,
+              avatarUrl: it.avatarUrl && !it.avatarIsDefault ? it.avatarUrl : null,
+              profileUrl: null, selfIntro: null,
+              extras: { foot_time: it.footTime || '', foot_ref: it.footRef || '', memberId: it.memberId || null, raw: (it.raw || '').slice(0, 150) },
+            },
+          });
+        }
+      }
+      byDim[dim] = collected.filter(function(c) { return c.sourceDim === dim; }).length;
+    }
+
+    // 灌库（upsertLead 累积留痕）
+    let upserted = 0;
+    rawDb.exec('BEGIN');
+    try {
+      for (const item of collected) {
+        const L = item.L;
+        const input = {
+          leadId: item.leadId, platform: platform, accountId: winLabel,
+          name: L.name, age: L.age, region: L.region, online: L.online,
+          avatarUrl: L.avatarUrl, profileUrl: L.profileUrl || null, selfIntro: L.selfIntro,
+          sourceDim: item.sourceDim,
+          memberId: L.extras && L.extras.memberId ? String(L.extras.memberId) : null,
+          extras: L.extras,
+        };
+        const r = store.upsertLead(input);
+        if (r && r.leadId) upserted++;
+      }
+      rawDb.exec('COMMIT');
+    } catch (e) {
+      rawDb.exec('ROLLBACK');
+      return json(res, 500, { ok: false, reason: 'db-failed', msg: String(e.message || e), windowLabel: winLabel, dims: dims });
+    }
+
+    let totalForWin = -1;
+    try { totalForWin = rawDb.prepare('SELECT COUNT(*) n FROM Lead WHERE accountId=? AND platform=?').get(winLabel, platform).n; }
+    catch (e) { totalForWin = -1; }
+
+    var emptyNote = '';
+    if (errors.length === 0 && collected.length === 0) {
+      emptyNote = '本次没有灌入新线索（可能已有记录未变化，或当前平台侧暂无新数据）。可稍后再试。';
+    }
+    return json(res, 200, {
+      ok: errors.length === 0 ? true : (upserted > 0 ? true : false),
+      platform: platform, windowLabel: winLabel,
+      collected: collected.length, upserted: upserted, byDim: byDim,
+      errors: errors, totalForWindow: totalForWin, at: now, emptyNote: emptyNote,
+    });
   }));
 
   return app;

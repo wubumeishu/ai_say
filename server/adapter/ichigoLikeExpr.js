@@ -1,11 +1,19 @@
 'use strict';
-// 出会 タイプ（P2 点赞待回）候选抓取表达式 v4（ichigoLikeExpr.js）· 外部翻页
+// 出会 タイプ（P2 点赞待回）候选抓取表达式 v5（ichigoLikeExpr.js）· 外部翻页
 // 抓 3 个独立 Tab 页当前页数据；翻页由 deepScrape 外部循环驱动（每页重新 navigate 平台生成 token URL，token 永不自拼）：
 //   /sns/snstype/show_typed_list.html   タイプされた（别人给我点赞，P2 待回）
 //   /sns/snstype/show_type_list.html   タイプした（我给别人的，回赞判断）
 //   /sns/snstype/show_mutual_list.html 両想い（互相点赞，最高价值）
-// 设计：
-//   * 只读抓当前页 .type--list 卡片（targetSnsMemberId[] + 在线图标 + 昵称/年龄/城市/时间）
+// 设计（v5 · 2026-11-01 按实机 DOM 重写）：
+//   * 只读抓当前页 .type--list 卡片（不点资料卡、零副作用）
+//   * 卡片 DOM 真实结构（实机坐实）：
+//       .type-list-check input[name="targetSnsMemberId[]"]  → memberId
+//       .type-list-footstep .type-list-date                 → 点赞时间
+//       .type-list-img .type-list-thumb img                 → 头像 src
+//       .type-list-txt .type-list-name                      → 名字（+ new 标识 icon_new_2.png）
+//       .type-list-txt .type-list-age span                  → 在线图标 + 「19歳/桑名市」
+//       .type-list-txt .type-list-desc .desc-txt            → 自我介绍（部分卡片有）
+//       a.type-list-link                                      → 资料卡链接（?q= token）
 //   * 返回 nextQuery = .nextBtn a 的 href（相对 ?q= token，平台生成）→ deepScrape 拼全 URL navigate
 //   * 返回 prevQuery = .prevBtn a 的 href（供回退/确认非首页）
 // 传参：第 1 参 = null；第 2 参 = opts { tab }
@@ -29,23 +37,79 @@
   var cards = Array.prototype.slice.call(doc.querySelectorAll('.type--list'));
   var likes = [];
   cards.forEach(function(el) {
-    var f = { tab: tab, memberId: null, name: '', age: '', city: '', source: tab === 'mutual' ? '両想い' : (tab === 'received' ? 'タイプされた' : 'タイプした'), time: '', onlineIcon: null };
+    var f = {
+      tab: tab,
+      memberId: null,
+      name: '',
+      age: '',
+      city: '',
+      onlineIcon: null,
+      avatarUrl: null,
+      profileUrl: null,
+      selfIntro: null,
+      isNew: false,
+      time: '',
+      source: tab === 'mutual' ? '両想い' : (tab === 'received' ? 'タイプされた' : 'タイプした')
+    };
+
+    // 1) memberId
     var cb = el.querySelector('input[name="targetSnsMemberId[]"]');
     if (cb) f.memberId = cb.value || null;
-    var step = el.querySelector('.type-list-footstep');
-    if (step) f.time = (step.textContent || '').trim().replace(/\s+/g, ' ');
-    var on = el.querySelector('[class*=online-icon]');
-    if (on) {
-      var m = String(on.className || '').match(/online-icon(\d)/);
-      f.onlineIcon = m ? 'online-icon' + m[1] : 'online-icon';
+
+    // 2) 头像 src（.type-list-thumb img）
+    var thumbImg = el.querySelector('.type-list-thumb img');
+    if (thumbImg) {
+      var src = thumbImg.getAttribute('src') || '';
+      f.avatarUrl = src ? ('https:' + src.replace(/^https?:\/\//, '')) : null;
     }
-    var txt = (el.textContent || '').trim().replace(/\s+/g, ' ');
-    var nameM = txt.match(/\d{1,2}\/\d{1,2}\s*\d{1,2}:\d{2}\s*([^\d/\u5c4a]+?)\s*(\d+)\u5c4a/);
-    if (nameM) { f.name = nameM[1].trim(); f.age = nameM[2]; }
-    var cityM = txt.match(/\d+\u5c4a\/([\u4e00-\u9fff\u3042-\u309c\u30a2-\u30f6]+)/);
-    if (cityM) f.city = cityM[1];
-    var timeM = txt.match(/(\d{1,2}\/\d{1,2}\s*\d{1,2}:\d{2})/);
-    if (timeM) f.time = timeM[1];
+
+    // 3) 名字（.type-list-name 文本，去掉 new 图标）+ isNew 标识
+    var nameEl = el.querySelector('.type-list-name');
+    if (nameEl) {
+      // 名字文本 = 去掉 img 后的文本
+      var txt = (nameEl.textContent || '').replace(/\s+/g, ' ').trim();
+      f.name = txt || '';
+      var newIcon = nameEl.querySelector('img[src*="icon_new"], img[src*="new"]');
+      f.isNew = !!newIcon;
+    }
+
+    // 4) 年龄/地区 + 在线图标（.type-list-age）
+    var ageBlock = el.querySelector('.type-list-age');
+    if (ageBlock) {
+      var onSpan = ageBlock.querySelector('.online-icon');
+      if (onSpan) {
+        var m = String(onSpan.className || '').match(/online-icon(\d)/);
+        f.onlineIcon = m ? 'online-icon' + m[1] : 'online-icon';
+      }
+      // 「19歳/桑名市」或「54歳/愛知」
+      var ageTxt = (ageBlock.textContent || '').replace(/\s+/g, ' ').trim();
+      var am = ageTxt.match(/(\d+)歳\s*\/?\s*([^\s]+)?/);
+      if (am) {
+        f.age = am[1];
+        f.city = am[2] || '';
+      }
+    }
+
+    // 5) 自我介绍（.type-list-desc .desc-txt，部分卡片有）
+    var descEl = el.querySelector('.type-list-desc .desc-txt, .type-list-desc span');
+    if (descEl) {
+      var dtxt = (descEl.textContent || '').trim();
+      if (dtxt) f.selfIntro = dtxt;
+    }
+
+    // 6) 资料卡链接（a.type-list-link href → 全 URL）
+    var linkEl = el.querySelector('a.type-list-link');
+    if (linkEl) {
+      var href = linkEl.getAttribute('href') || '';
+      if (href) f.profileUrl = (href.indexOf('http') === 0 ? href : ('https://sp.194964.com' + href));
+    }
+
+    // 7) 点赞时间（.type-list-footstep .type-list-date）
+    var dateEl = el.querySelector('.type-list-footstep .type-list-date, .type-list-footstep');
+    if (dateEl) {
+      f.time = (dateEl.textContent || '').trim().replace(/\s+/g, ' ');
+    }
+
     likes.push(f);
   });
 

@@ -43,6 +43,8 @@ function createLiveScanner(deps = {}) {
   let lastClient = null;
 
   const settings = deps.settings || {};
+  // 手动窗口控制模式：false = openCdpSession 不自动 /browser/open（先探测，未开则抛 window-closed 让上层降级）
+  const autoOpenWindow = deps.autoOpenWindow !== undefined ? deps.autoOpenWindow : (settings.autoOpenWindow !== undefined ? settings.autoOpenWindow : true);
   const windowId = deps.windowId || settings.windowId || null;
   const apiBase = settings.apiBase || 'http://127.0.0.1:54346';
 
@@ -156,6 +158,17 @@ function createLiveScanner(deps = {}) {
   async function openCdpSession() {
     if (closed) throw new Error('scanner-closed');
     if (!windowId) throw new Error('no-window-configured');
+    // 手动控制模式（autoOpenWindow=false）：先只读探测窗口是否已开；未开 → 不自动启动，抛 window-closed
+    // （由上层 mailbox 路由降级到缓存；只有 手动 POST /window/open 或 任务编排 才能启动窗口）
+    if (autoOpenWindow === false) {
+      const probe = await probeCdp();
+      if (probe && probe.ok === false && probe.reason === 'window-closed') {
+        const e = new Error('window-closed (auto-open disabled)');
+        e.reason = 'window-closed';
+        e.autoOpenDisabled = true;
+        throw e;
+      }
+    }
     let live;
     try {
       live = await bit.openLiveCdp(windowId);
@@ -181,18 +194,37 @@ function createLiveScanner(deps = {}) {
    * 只读窗口状态探测：/browser/list（opened=true，只读不启动窗口）。
    * 供 unreadPoller（autoOpenWindow=false）用：窗口没开 → 跳过该轮，不 /browser/open。
    */
-  async function probeCdp() {
+  var _probeCache = {}; // { windowId: { at, result } }
+var _PROBE_TTL = 60 * 1000;
+async function _probeCdpRaw() {
     if (closed) return { ok: false, reason: 'scanner-closed' };
     if (!windowId) return { ok: false, reason: 'no-window-configured' };
     try {
       const resp = await bit.listBrowsers({ page: 0, pageSize: 100 });
-      const items = (resp && resp.data && Array.isArray(resp.data.list)) ? resp.data.list : [];
-      const win = items.find(function(w) { return w && String(w.id || w.uuid || w.seq) === String(windowId); });
-      if (win) return { ok: true, window: { id: windowId, opened: true } };
+      // BitBrowserClient.call 已解包 .data：resp 本身即 {page,pageSize,totalNum,list}（resp.data.list 恒 undefined）
+      // 目标窗口（17098/18595）实测排在第 3 页，单页 100 条找不到 → 按需翻页扫描（最多 10 页）
+      var found = null;
+      for (var pg = 0; pg < 10; pg++) {
+        const r2 = pg === 0 ? resp : await bit.listBrowsers({ page: pg, pageSize: 100 });
+        const list2 = Array.isArray(r2.list) ? r2.list : (r2 && r2.data && Array.isArray(r2.data.list) ? r2.data.list : []);
+        const total2 = Number((r2.totalNum !== undefined ? r2.totalNum : (r2.data && r2.data.totalNum))) || 0;
+        found = list2.find(function(w) { return w && String(w.id || w.uuid || w.seq) === String(windowId); });
+        if (found) break;
+        if (list2.length < 100 || (total2 && (pg + 1) * 100 >= total2)) break; // 最后一页
+      }
+      if (found) return { ok: true, window: { id: windowId, opened: true, status: found.status } };
       return { ok: false, reason: 'window-closed', window: { id: windowId, opened: false } };
     } catch (e) {
       return { ok: false, reason: 'probe-failed', msg: String((e && e.message) || e) };
     }
+  }
+
+  async function probeCdp() {
+    var cached = _probeCache[windowId];
+    if (cached && Date.now() - cached.at < _PROBE_TTL) return cached.result;
+    var result = await _probeCdpRaw();
+    _probeCache[windowId] = { at: Date.now(), result: result };
+    return result;
   }
 
   return { scanLive, openCdpSession, probeCdp, close, get windowId() { return windowId; } };

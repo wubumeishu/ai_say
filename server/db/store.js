@@ -977,7 +977,102 @@ function createStore({ dbPath = path.join(__dirname, '..', '..', 'data', 'aisay.
     try { db.close(); } catch (e) { console.warn('[store.close] 关库失败（可能已关）:', e && e.message); }
   }
 
-  return {
+  
+  // ---- 005 · 线索池 Lead（引流一期"侦测"统一落点；平台-窗口累积留痕，同客户以最新为准）----
+  function listLeads(filter = {}, opts = {}) {
+    const where = [];
+    const params = [];
+    if (filter.platform) { where.push('platform = ?'); params.push(String(filter.platform)); }
+    if (filter.sourceDim) { where.push('sourceDim = ?'); params.push(String(filter.sourceDim)); }
+    if (filter.accountId) { where.push('accountId = ?'); params.push(String(filter.accountId)); }
+    if (filter.online) { where.push('online = ?'); params.push(String(filter.online)); }
+    if (filter.ageFrom != null) { where.push('age >= ?'); params.push(String(filter.ageFrom)); }
+    if (filter.ageTo != null) { where.push('age <= ?'); params.push(String(filter.ageTo)); }
+    const limit = Math.max(1, Math.min(Number(opts.limit) || 200, 1000));
+    const whereSql = where.length ? (' WHERE ' + where.join(' AND ')) : '';
+    try {
+      return db.prepare('SELECT * FROM Lead' + whereSql + ' ORDER BY firstSeen DESC LIMIT ?').all(...params, limit);
+    } catch (e) {
+      console.error('[store.listLeads] 查询失败:', e && e.message);
+      return [];
+    }
+  }
+
+  function leadBySourceDim(filter = {}) {
+    const where = [];
+    const params = [];
+    if (filter.platform) { where.push('platform = ?'); params.push(String(filter.platform)); }
+    if (filter.accountId) { where.push('accountId = ?'); params.push(String(filter.accountId)); }
+    const whereSql = where.length ? (' WHERE ' + where.join(' AND ')) : '';
+    try {
+      return db.prepare('SELECT sourceDim, COUNT(*) n FROM Lead' + whereSql + ' GROUP BY sourceDim').all(...params);
+    } catch (e) {
+      console.error('[store.leadBySourceDim] 查询失败:', e && e.message);
+      return [];
+    }
+  }
+
+  function upsertLead(input = {}) {
+    const ts = now();
+    const memberId = input.memberId || (input.extras && input.extras.memberId) || null;
+    const identityKey = memberId
+      ? String(input.platform || 'ichigo') + '/m/' + memberId
+      : String(input.platform || 'ichigo') + '/n/' + (input.name || '') + '/' + (input.age != null ? input.age : '') + '/' + (input.region || '') + '/' + (input.sourceDim || '');
+    const leadId = input.leadId || ('L' + sha1(identityKey));
+    const old = db.prepare('SELECT * FROM Lead WHERE leadId = ?').get(leadId);
+    const firstSeen = old ? old.firstSeen : (input.firstSeen || ts);
+    let newExtras = {};
+    try { newExtras = JSON.parse(JSON.stringify(input.extras || {})); } catch (e) { newExtras = input.extras || {}; }
+    if (old) {
+      let oldExtras = {};
+      try { oldExtras = JSON.parse(old.extras || '{}'); } catch (e) { oldExtras = {}; }
+      const history = Array.isArray(oldExtras._history) ? oldExtras._history.slice(-4) : [];
+      history.push({ at: ts, online: old.online, age: old.age, region: old.region, intro: String(old.selfIntro || '').slice(0, 40) });
+      newExtras._history = history.slice(-5);
+      db.prepare(
+        'UPDATE Lead SET online=?, avatarUrl=?, profileUrl=?, selfIntro=?, sourceDim=?, lastSeen=?, extras=?, updatedAt=? WHERE leadId=?'
+      ).run(
+        input.online || null,
+        input.avatarUrl || null,
+        input.profileUrl || null,
+        input.selfIntro || null,
+        String(input.sourceDim || 'unknown'),
+        input.lastSeen || ts,
+        JSON.stringify(newExtras),
+        ts,
+        leadId
+      );
+    } else {
+      db.prepare(
+        'INSERT INTO Lead (leadId, platform, accountId, name, gender, age, region, online, avatarUrl, profileUrl, selfIntro, sourceDim, firstSeen, lastSeen, warmupDay, contactedAt, extras, createdAt, updatedAt) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+      ).run(
+        leadId,
+        String(input.platform || 'ichigo'),
+        input.accountId || null,
+        String(input.name || ''),
+        input.gender || null,
+        input.age != null ? String(input.age) : null,
+        input.region || null,
+        input.online || null,
+        input.avatarUrl || null,
+        input.profileUrl || null,
+        input.selfIntro || null,
+        String(input.sourceDim || 'unknown'),
+        firstSeen,
+        input.lastSeen || ts,
+        Number(input.warmupDay) || 0,
+        input.contactedAt || null,
+        JSON.stringify(newExtras),
+        ts,
+        ts
+      );
+    }
+    return db.prepare('SELECT * FROM Lead WHERE leadId = ?').get(leadId);
+  }
+
+  const insertLead = upsertLead;
+
+return {
     upsertAccountProfile,
     listAccountProfiles,
     upsertContact,
@@ -991,6 +1086,11 @@ function createStore({ dbPath = path.join(__dirname, '..', '..', 'data', 'aisay.
     getEffectiveRules,
     db,
     close,
+    // 005 · 线索池 Lead
+    listLeads,
+    leadBySourceDim,
+    upsertLead,
+    insertLead,
     // task-3 · 频控账本 LedgerHandle 导出（选法 a：数组=快照读，句柄=写入口）
     loadRateLedger,
     pushLedger,

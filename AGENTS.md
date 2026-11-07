@@ -498,3 +498,194 @@ adapter/ichigo*Expr.js，零导航抓取/发送）→ RPA 式接管 → 智能�
 - 生成话术后：给出话术 + 「填入输入框」卡片；涉及发送的额外给「发送」卡片，
   且必须标注「发送需你确认」。
 ```
+
+
+---
+
+## 附录 · 架构决策备忘（呼吸引擎 + 二期集群化，2026-10-30 外脑对齐）
+
+> 本附录归档外部架构顾问（外脑）针对 Ai SAY「群控引流」四阶段蓝图的设计裁定，共 3 轮对齐。
+> **这是设计契约，不是已落地代码。** 落地以本备忘 + §四「勘误与修正」为准。
+
+### 一、四阶段蓝图总纲
+1. **基建防风控**：双层代理（Kookeey 动态住宅 IP 做高优补充 + IPDeep 粘性做常态基座），按任务风险级别路由，单次登录生命周期内绝不切 IP（启动取一个动态住宅 IP，该任务 2-4h 内保持粘性，任务结束休眠，下次唤醒再取新 IP）。
+2. **低成本引流**：足迹自动化（单账号日上限 150、分 3 时段错峰、CDP 无痕）+ 揭示板矩阵占位（严格守 1h 冷却铁律：检测沉底 → 立即删帖 → 进 1h 休眠队列 → 冷却期满唤醒发新帖）。
+3. **AI 聊单 + 熔断**：每会话一个无状态 Agent（Serverless 用完即走）；双轨熔断（正则硬熔断 LINE/ID/QR + LLM 语义软熔断）；硬熔断标记 high_intent 推 TaskQueue 人工兜底队列，前端置顶 + 视觉/声音提醒，人工黄金 3 分钟介入。
+4. **LINE 私域 + 变现**：中间跳转页承接（公域不发带参 LINE 链接）；8-10 个人号 + 2 OA；一期 CPA 联盟/低客单电商，二期高客单（玄学/情感）必须先过日本本地法务（特商法 + 灵感商法监管）。
+
+### 二、一期核心：呼吸感调度器（breathEngine）
+- 落点 `server/acquisition/breathEngine.js`（新建，与 `followupSop.js` 同域；宏观 SOP vs 微观节拍通过 TaskQueue 表解耦，不互相 import）。
+- 双段节拍：pre_fixed → pre_random → 执行 → post_fixed → post_random；每拍独立采样（Irwin-Hall 三角分布近似：两次独立 crypto.randomInt 取均值，O(1) 向中位聚拢）。
+- 调度公平：GROUP BY accountId + MIN(nextWakeAt) 折叠每账号最早到期，内存 Round-Robin（每 500ms tick 每账号最多派 1 单，MAX_DISPATCH_PER_TICK=4 环形游标），单账号串行互斥锁 inFlightAccounts。
+- 4 条契约锁死：
+  - D1：仅调度 accountId IS NOT NULL 的已绑定任务；无主任务入队 → 分配器绑定账号，归上游独立模块，不进 004。
+  - D2：401/403/429/503 连续异常计数复用 TaskResult 按 accountId 倒序聚合最近 3 条（限定 executedAt >= AccountProfile.updatedAt），不落内存 Map。
+  - D3：inFlightAccounts 进程级互斥，重启即归零由 clusterCoordinator 基于 claimedAt 租约回滚接管；单步套 120s Promise.race 超时守卫。
+  - D4：AccountProfile.pool 每日 00:05 JST 守护任务自动晋升（注册满 7 天 + 近 72h 无硬熔断 + manualPoolLock=0 时 warmup → veteran），支持人工锁覆写。
+
+### 三、二期集群化定案
+- B1 NodeRegistry 自注册 + 惰性摘除（30s 心跳 / 90s 失联 / adminStatus 只管运维上下线）。
+- B2 幂等键 ${accountId}:${taskType}:${batchId}:${seq}（UUID 批次号），CAS 抢单 changes===1；claimed_at + claim_token 租约（120s）+ 孤儿回滚（15s 巡检，重派延迟 5s）。
+- B3 CDP 长连接常驻 + withTarget 断线重连，仅账号进跨小时批次休眠时主动销毁。
+- B4 LineAsset 加 warmup_stage + manual_stage_lock（每日 00:05 JST 评估：new/fresh/active/veteran 7/30/90 天自动晋升，配额 3/8/15/25）。
+- B5 CPA 归因 S2S Postback 实时主通道 + 每日对账兜底；LeadCapture 加 attribution_sub_id UNIQUE + 三币种字段（cpaAmountJpy / fxRateToCny 默认 0.048 / cpaAmountCny）。
+- B6 二期玄学/情感咨询先过日本本地行政书士/法务 review + 特商法明示，包装「传统文化心理倾听」。
+
+### 四、勘误与修正（我核实真实 schema 后，外脑 DDL 的 4 处必须改）
+> 外脑给的 004 脚本与 5 大伪代码基于「理想 snake_case schema」，与 Ai SAY 真实 schema（camelCase）冲突，以下 4 处落地时必须修正：
+1. **TaskQueue.type 列不能加 CHECK( business/high_intent/system_exception )**：真实 TaskQueue.type 注释是 scan/followup/post/recruit/line-push（任务动作类型），现有 store.enqueueTask 默认 type=scan，加此 CHECK 会崩全部现有入队。改为新开 taskClass 列（CHECK business/high_intent/system_exception）与 type（动作）正交。
+2. **TaskQueue 主键 taskId 是 TEXT（现有 enqueueTask 用 sha1(task/type/...) 生成）**，外脑伪代码 INSERT INTO TaskQueue(accountId,type, ...) 漏了 taskId + createdAt/updatedAt（TEXT，ISO 字符串，现有 now()=new Date().toISOString()），直接插会报错。修正：INSERT 必须补 taskId + createdAt/updatedAt（ISO）。
+3. **GovernanceRule 存量行回填**：外脑的 GROUP BY scene,accountGroup + MIN(rowid) 写法在「所有存量行 scene/accountGroup 同为默认值」时只有一组，会把所有非首行存量旧规则（compliance/rateLimit/...）全改成 legacy_<ruleId>，污染语义。修正：存量行统一 scene=legacy，呼吸规则新插时 scene 用真实值（like/footprint/first_msg/recruit_post/delete_post/exception），唯一索引改为部分索引 CREATE UNIQUE INDEX idxGovSceneGroup ON GovernanceRule(scene, accountGroup) WHERE scene NOT IN (legacy, default)，存量行不进唯一索引、永不冲突。
+4. **AccountProfile vs Account 关系**：真实已有 Account 表（accountId/platform/label/status/legacyKey），store.js 已有 upsertAccountProfile 写 Account + WindowInstance。外脑新建 AccountProfile（pool/bitWindowId/currentPersonaId/proxyChannel/ipBindingJson/registeredAt）是账号物理主档案，与 Account（身份归一）互补不替代；accountId 主键语义对齐 Account.accountId。
+
+### 五、MVM 验收口径（C 档定案）
+- C1 封禁率 <10%：硬封 + 软封合并计数（日本平台极少删号，Shadowban/静默吞私信/强制弹年龄认证/高频验证码 都算损耗分子），数据源 = TaskResult 连续 401/403 + 人工每日巡检各窗口登录态。
+- C2 内存不泄漏：4h~7h 连续 3h RSS 均值作 Baseline + 6h 滚动 OLS 斜率（每 5min 采样，72 点窗口）；Node 30MB/h 或末值 >1.5×Baseline、Python 20MB/h 或末值 >1.4×Baseline 任一超阈值报警。
+- C3 CDP 重连金丝雀：cdp_reconnect_rate >=95% + cdp_reconnect_avg_ms <=5000ms，进 /api/console/funnel 扩展字段，标黄预警。
+
+### 六、线索池（Lead）一期落地决策（2026-11-02 用户裁定）
+> 一期「侦测→线索池」全链路已落地：出会 17098 五维度探测（点赞 like 65 / 帖子 bbs 37 已灌库；
+> 足迹 ashiato 当前 0；检索 search 待用户定条件；特征 faces 用户裁定搁置并清库）。
+> 实机坐实 + 修复清单：
+1. **点赞表达式按实机 DOM 重写（ichigoLikeExpr.js v5）**：卡片真实结构 =
+   .type-list-name（名）/ .type-list-age span（在线图标 + 「N岁/市」）/ .type-list-desc .desc-txt（简介）/
+   .type-list-thumb img（头像）/ a.type-list-link（资料卡链接）/ .type-list-footstep .type-list-date（时间）。
+   旧版正则从整卡文本抠名字全空，已废。
+2. **窗口手动控制模式（2026-11-02 用户裁定：禁用自动开窗）**：
+   - 路由 POST /api/console/window/open、/close、GET /window/status?windowId=（BitBrowserClient.call 已解包 .data，
+     取 resp.list 不是 resp.data.list；窗口列表服务端每页上限 100，目标窗口可能排在第 N 页，需分页扫描，实测 17098/18595 在第 3 页）；
+   - liveScanner.openCdpSession + happyScanner（openLiveCdpSafe）加 autoOpenWindow 开关（index.js 默认 false），
+     窗口未开 → 抛 window-closed（isRetryable 直抛不重试）→ mailbox/happy 路由降级缓存；
+   - 窗口只能由「控制台 开/关 按钮」或 二期任务编排 启动；点 17098/收件箱轮询 不再自动 /browser/open。
+   - settings.json 可 autoOpenWindow:true 恢复旧行为。
+3. **全域运营 CSS 修复**：domainPage 被 100vh .layout 压在视口外 + body overflow:hidden → 恒空白。
+   改 .domain-page{position:fixed;top:48px;left:160px;z-index:100}（盖 5 列、留 160px 菜单可点）。
+   切非全域视图必须显式 domainPage.style.display='none'（view.js 5 分支已补）。
+4. **重复菜单项清理**：全域运营 children 里 账号池/工具箱 各出现 2 次，删 1。
+
+### 线索池一期定案（后续会话勿再劝改）
+- **定位**：线索池 = 平台-窗口 分类的**累积留痕**存储（线索客户 + 资料卡链接），不做细筛；
+  年龄/在线/来源维度筛选放**二期任务编排**（漏斗入口）。
+- **累积语义**：同客户（memberId 优先，否则 name+age+region+sourceDim 稳定键）重复出现 → 以最新记录为准
+  （store.upsertLead：保留最早 firstSeen，刷新 lastSeen，extras._history 记最近 5 条变化轨迹，「已更新」角标）。
+- 005 Lead 表：通用字段 + extras JSON（ichigo_feature/happy_feature 平台特色字段）。
+- BBS 帖子线索无头像/在线（卡片本身不带），用户接受该不完整度。
+- **待办（一期尾巴 + 二期）**：
+  1. T1 尾巴：出会检索 search 维度真提交（用户定 年龄/地区/排序 条件 + 页数），灌 Lead「检索」来源；
+  2. 任务编排挂窗口启动：breathEngine 唤醒任务时 POST /window/open（替代手动开关的第二入口）；
+  3. T3 breathEngine.js 落地（004 DDL 已就位：TaskQueue 呼吸列 + GovernanceRule 场景/养号组 + AccountProfile 池）；
+  4. 任务汇报（日报看板：来源分布/完成情况/人工介入提醒）；
+  5. 快乐 18595 维度探测（二期，同 Lead 表平台=happymail）。
+
+
+### 七、线索池地区字段语义（2026-11-03 用户裁定）
+- **region = 客户自己填写/平台卡片显示的位置**（如 三重-津市），**不代表检索条件**。
+- 检索条件（如「津市を表示中」）只是筛选入口，客户是否真在津市以卡片实际显示的 city/pref 为准。
+- 未填位置的线索 region 保持空，不得用检索条件反推填充。
+- 存储格式：pref-city 组合（如 三重-津市）；pref 缺失时只用 city。
+- 前端线索池展示：region 列加 tooltip「客户自己填写的地区（检索条件不代表客户位置）」，
+  分组头部固定说明「地区 = 客户自己填写的位置（按实际显示为准，非检索条件）」。
+
+
+### 八、快乐平台（happymail/18595）线索池二期（2026-11-03 落地）
+- **POST /api/console/leads/explore-happy**：18595 窗口 4 路客源（点赞 type / 检索 profile / 募集 bbs / 足迹 ashiato），
+  走 **happyScanner.scanSource 导航各客源页读已渲染 DOM**（不是直连 API）→ upsertLead 灌 Lead
+  （platform=happymail, accountId=18595）。走 CDP 只读，不碰 /browser/list（不触发 BitBrowser 限频）。
+  - 维度映射：like→type_list.php、search→profile_list.php、bbs→keijiban.php、ashiato→ashiato.php。
+  - 改走 DOM 的原因：CDP 直连 4 客源 API 全报 errNo=101 (E:04)（缺会话 UID token；window.uid 取值为空、
+    cookie 无现成 UID）；DOM 是页面自带会话态渲染好的，绕开 token 问题，更稳。测绘图 §10.1 的 4 API
+    直读仅真发/撤回/帖子域才需动态取 token（读数据域走 DOM 更省事）。
+- **API 响应字段坐实**（2026-10-25 测绘存档 docs/survey-happymail-20261025/json/，备查）：
+  - typelist：type_sita/type_sareta/type_ryoomoi 三路
+  - list_profile_gallery：profile_list[]（all_count 1002）
+  - list_billboard：billboard_search_result[]
+  - list_profile_ashi：profile_list[]（all_count 100）
+- **happyScanner 修复（2 处）**：
+  1. scanSource 旧调 bit.openLiveCdpSafe()（BitBrowserClient 无此方法，只有 openLiveCdp）被 catch
+     吞成 window-not-open 假象 → 改调模块内 openLiveCdpSafe（含翻页探测 + bit.openLiveCdp(windowId,{queue:true})）。
+  2. openLiveCdpSafe / probeCdp 翻页扫描（18595 在第 3 页，旧版单页 1000 条找不到 → 误报 window-closed）。
+- **happyAshiatoExpr.js（新）**：足迹 ashiato.php DOM 抓取原语（name/age/region/footTime/footRef/memberId）。
+  扫描器 routes/exprs 加 ashiato kind，module.exports 加 EXPR_ASHIATO。
+- **4 路客源当前全空（实测 2026-11-03）**：18595 账号点赞/检索/募集/足迹均 0 条——平台侧无新数据，
+  非功能故障。链路全通（4 页均 ok:true），有数据进来即自动灌库。10-25 探测时 gallery 1002 / 募集 300 /
+  足迹 100，现已清空。前端点快乐侦测灌库会显示 emptyNote「4 路客源当前全空——平台侧无新数据，非功能故障」。
+- **前端「🔭 侦测灌库」加平台切换**：线索池页加「侦测目标：出会 17098 / 快乐 18595」下拉，按平台调
+  /explore（出会）或 /explore-happy（快乐）。
+
+### 九、BitBrowser 限频修复（2026-11-03 用户反馈"被强制退出登录"）
+- **根因**：前端 20s 轮询 /window/status × 2 窗口 + 每次分页 30 页 /browser/list = 每分钟上百次调用 → 触发 BitBrowser API 限频 → 强制登出。
+- **修复**：
+  1. /window/status 加 90s 服务端内存缓存（?force=1 跳缓存查真值，开/关按钮点击后 2.5s 强刷一次）
+  2. 前端窗口轮询 20s → 90s
+  3. liveScanner.probeCdp 修 resp.list 取值 bug + 翻页 + 60s 缓存（旧版 resp.data.list 恒 undefined → 恒误判窗口关闭）
+  4. happyScanner.probeCdp / openLiveCdpSafe 同修
+  5. 修后 /browser/list 调用量：每分钟 ≤ 2 次（90s 缓存 + 探测 60s 缓存），不再触发限频
+- **教训**：BitBrowserClient.call 已解包 .data，所有 listBrowsers 调用取 resp.list 不是 resp.data.list；窗口列表服务端每页上限 100 条（441 窗口），目标窗口（17098/18595）在第 3 页。
+
+
+### 十、快乐 type_list 选择器按实机 DOM 重写（2026-11-03）
+- 旧 happyTypeExpr 选择器（.ds_type_list_item/.ds_type_name/.ds_type_year/.ds_type_pref）全部未命中 →
+  11 条卡片抓成空壳（name/age/region 全空）→ upsertLead 合并成 1 条空 lead。
+- 实机 DOM 坐实（type_list.php · li.type_list_outer）：
+  - 名字 = .ds_like_list_name（.container_right 下）
+  - 年龄+市 = .ds_like_list_age（如「50代半ば 札幌市」，需 regex 拆 age/city）
+  - 时间 = .ds_like_list_date_last_login_list（点赞时间，extras.like_time）
+  - 详情行 = .ds_like_list_item / .ds_common_profile_detail_list_text（职业/身高/风格/收入）
+  - 头像 = .ds_thum_contain（bg 或 img；svgz_icon = 默认头像需过滤）
+- happyTypeExpr.js 已按上表重写；explore-happy like 分支同步升级（selfIntro=detail, extras.like_time）。
+- 灌库实测（18595）：我点赞 7 条（にんじん/ある/ボリ/ミッコリ/つぶ/えいと/ケンタ，札幌/江别/富良野/釧路等），
+  对方给我 0、互赞 0（真实状态，非 bug）。18595 快乐线索池 = 7 条。
+
+
+### 十一、快乐 type 维度「灌入 0 条」根因与修复（2026-11-03）
+- 现象：按钮点「快乐 18595 侦测灌库」提示「灌入 0 条（共 7 条）」+「4 路客源全空」。
+- 根因 1（服务未重启）：服务进程仍加载旧 happyTypeExpr（loadExpr 启动时读盘进内存），
+  旧选择器全未命中 → 11 卡片抓成空壳 → 灌 0 有效条。重启后加载 v2 即恢复。
+- 根因 2（navigate 等待不足）：happyScanner.navigate 旧版只等 2.5s，快乐客源页数据是 JS 动态填的
+  （需 ~6-10s）→ 卡片未渲染就读 → 0 条。已升级为 CDP 侧同步轮询：每 800ms 探一次目标 class
+  （.type_list_outer/.profile_list_big_item/.ds_billboard_item/.ashi_list_item/.ds_like_list_item），
+  最多 20s；单次 evaluatePage 报 "navigated or closed" 属正常，不再跳出循环。
+- 防脏：explore-happy like 分支加「空名字/全选行不过滤」保护（name 空或 raw 含「すべてを選択」跳过）。
+- emptyNote 文案更正：「本次没有灌入新线索（可能已有记录未变化，或平台侧暂无新数据）」——
+  区分「真没数据」与「去重未变化」。
+- 库内 18595 现有 7 条真实 like 线索（にんじん/ある/ボリ/ミッコリ/つぶ/えいと/ケンタ，独立进程已验证）。
+
+
+### 十二、快乐在线状态(平台真实点颜色,2026-11-03 用户纠正)
+- 快乐 type_list.php 卡片年龄前有一个**平台真实在线点**:${'}  <span class="last_login_icon_detail_small_list" style="background-color: #2AB788"></span>${'} 等。
+  在线档读它的 **background-color**,不是按「最后登录 24h/7d」估算(用户纠正:平台点色才是真信号):
+  - #2AB788 绿 = 在线(happy-green)
+  - #F3B117 黄 = 不常在线(happy-yellow)
+  - #D3D3D3 灰 = 离线(happy-gray)
+  - 兜底:点色读不到时回退按最后登录 24h/7d 估算(同为 happy-green/yellow/gray 命名)。
+- 落地:happyTypeExpr 读 .last_login_icon_detail_* 的 background-color 映射 green/yellow/gray;
+  explore-happy like 分支写 Lead.online=happy-green/yellow/gray + extras.online_dot/last_login;
+  前端 loadLeads 按 happy-* 渲染 🟢/🟡/⚪ + tooltip。
+- 实测(18595,7 条 like):にんじん/ケンタ=绿(在线),ある/ボリ/ミッコリ/つぶ/えいと=黄(不常在线)。
+- 会出 17098 的 online 列保持原语义(online-icon1/2/3 实时档),两平台 online 列并存、前端各自匹配。
+
+
+### 十三、T3 任务编排：呼吸引擎 breathEngine 落地（2026-11-03）
+- **server/acquisition/breathEngine.js（新，345 行）**：宏观调度器，把 TaskQueue「有主 + 已绑账号」的
+  呼吸任务按拟人节拍唤醒。
+  - 双段节拍 pre_fixed→pre_random→执行→post_fixed→post_random，Irwin-Hall 三角分布近似
+    （两次独立 crypto.randomInt 取均值，O(1) 向中位聚拢，§二）。
+  - 调度公平：GROUP BY accountId + MIN(nextWakeAt) 折叠每账号最早到期 + 内存 Round-Robin
+    （每 500ms tick，MAX_DISPATCH_PER_TICK=4 环形游标），单账号串行互斥锁 inFlightAccounts（D3）。
+  - D2：连续异常计数 = 按 accountId 倒序聚合最近 3 条 TaskResult（401/403/429/503），≥3 次硬熔断
+    → 推 high_intent（TaskQueue type=exception，前端置顶）。
+  - D4：每日 00:05 JST 晋升守护（用户 2026-11-04 裁定去掉「注册满 7d」门槛：warmup→veteran 仅看 近 72h 无硬熔断 + manualPoolLock=0；registeredAt 不参与判定）。
+  - 抢单 CAS：claimed_at + claim_token 租约 120s + 幂等键（B2）。
+  - **铁律边界**：引擎只调度节拍（何时唤醒 + 抢单 + 异常熔断），**不直接发消息/发链接**——
+    真实业务副作用由 SOP 执行器（onTask 钩子）驱动，符合铁律 0.1（AI 永不直接发）。
+- **接线**：index.js require + 实例化（注入 store）+ 默认不 start（启停走路由）+ D4 每日守护
+  setInterval；mountConsoleRoutes 注入 breathEngine。
+- **路由组 /api/console/tasks/breath/***（consoleRoutes.js）：
+  - GET /status · POST /start · POST /stop · POST /enqueue（入队 + 写 004 呼吸列 nextWakeAt/breathRuleId）
+  - POST /rules/seed（GovernanceRule 6 场景 breath 规则播种，幂等）· GET /board（看板数据）
+- **前端**（domain.js 线索池页）：「📋 任务编排（呼吸引擎）」看板块 = 播种呼吸规则 / 入队示例任务(30s) /
+  启动引擎 / 停止引擎 / 刷新看板 5 按钮 + 状态行（引擎运行态 + 队列 pending/done/failed + 来源分布 +
+  high_intent 人工介入提醒，悬停看明细）。
+- **测试** tests/breath-engine.test.js 5 用例（os.tmpdir 不碰现网）：irwinHall 区间 + 均值中位聚拢 +
+  tickOnce 抢单 CAS 翻 done + D2 连续 429 熔断 + D4 晋升（含 manualPoolLock 不晋升边界）全绿。
+- 全量测试 245/0。

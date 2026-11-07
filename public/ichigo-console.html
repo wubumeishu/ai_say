@@ -502,6 +502,10 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 </head>
 
 <body>
+<style>
+.domain-page{position:fixed;top:48px;left:160px;right:0;bottom:0;background:var(--bg,#1a1a2e);z-index:100;overflow-y:auto}
+</style>
+
 <div class="topbar">
   <div class="brand">Ai SAY</div>
   <button class="theme-toggle" id="themeToggle" title="切换白天 / 黑夜主题">
@@ -521,13 +525,13 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
         <div class="nav-group" data-open="true">
           <div class="nav-item has-children" data-view="ichigo">出会<span class="chev">▾</span></div>
           <div class="nav-children">
-            <div class="nav-item" data-view="17098">17098<span class="badge" id="navBadge">0</span></div>
+            <div class="nav-item" data-view="17098">17098<span id="winDot17098" class="win-dot" title="窗口状态未知" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#888;margin:0 5px;vertical-align:middle"></span><span id="winToggle17098" class="win-toggle" title="点击启动/关闭窗口" style="cursor:pointer;font-size:10px;padding:1px 6px;margin-left:6px;border:1px solid #555;border-radius:3px;background:rgba(255,255,255,.08);color:#ccc;opacity:.9">开</span><span class="badge" id="navBadge">0</span></div>
           </div>
         </div>
         <div class="nav-group" data-open="true">
           <div class="nav-item has-children" data-view="kairaku">快乐<span class="chev">▾</span></div>
           <div class="nav-children">
-            <div class="nav-item" data-view="18595">18595<span class="badge" id="navBadgeKairaku">0</span></div>
+            <div class="nav-item" data-view="18595">18595<span id="winDot18595" class="win-dot" title="窗口状态未知" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#888;margin:0 5px;vertical-align:middle"></span><span id="winToggle18595" class="win-toggle" title="点击启动/关闭窗口" style="cursor:pointer;font-size:10px;padding:1px 6px;margin-left:6px;border:1px solid #555;border-radius:3px;background:rgba(255,255,255,.08);color:#ccc;opacity:.9">开</span><span class="badge" id="navBadgeKairaku">0</span></div>
           </div>
         </div>
       </div>
@@ -545,10 +549,10 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
         <div class="nav-item" data-view="domain-calendar">日历</div>
         <div class="nav-item" data-view="domain-diary">日记</div>
         <div class="nav-item" data-view="domain-unified">📋 统一待办</div>
+          <div class="nav-item" data-view="domain-leads">🎯 线索池</div>
           <div class="nav-item" data-view="domain-toolbox">🧰 工具箱（备忘/日历/模板）</div>
           <div class="nav-item" data-view="domain-pool">🖥 账号池/窗口池</div>
-          <div class="nav-item" data-view="domain-pool">🖥 账号池/窗口池</div>
-          <div class="nav-item" data-view="domain-toolbox">🧰 运营工具箱</div>
+
       </div>
     </div>
   </div>
@@ -840,5 +844,71 @@ document.addEventListener('DOMContentLoaded', function() { initMain(); });
     <div id="domainContent"><div style="color:var(--muted,#888);font-size:12px">加载中...</div></div>
   </div>
 
+
+  
+
+<script type="module">
+// 窗口手动控制（2026-11-02：⏻ 图标无响应 → 换成 开/关 文本按钮 + 状态点）
+(function initWindowControls() {
+  var KEY_TO_ID = { '17098': '2315e879dd6642559bdc11a07bb1fc43', '18595': '1ccd4351a6fe4482bc8378a78c53398e' };
+
+  function setDot(winKey, open, busy) {
+    var dot = document.getElementById('winDot' + winKey);
+    var tog = document.getElementById('winToggle' + winKey);
+    if (dot) {
+      dot.style.background = busy ? '#f39c12' : (open ? '#2ecc71' : '#888');
+      dot.style.boxShadow = (open && !busy) ? '0 0 5px #2ecc71' : 'none';
+      dot.title = busy ? '操作中…' : (open ? '窗口运行中' : '窗口未启动');
+    }
+    if (tog) {
+      tog.textContent = busy ? '…' : (open ? '关' : '开');
+      tog.style.borderColor = busy ? '#f39c12' : (open ? '#e74c3c' : '#2ecc71');
+      tog.style.color = busy ? '#f39c12' : (open ? '#e74c3c' : '#2ecc71');
+      tog.title = busy ? '操作中…' : (open ? '点击关闭窗口 ' + winKey : '点击启动窗口 ' + winKey);
+      tog.style.opacity = busy ? '.5' : '1';
+    }
+  }
+  function isDotOpen(winKey) {
+    var dot = document.getElementById('winDot' + winKey);
+    return !!(dot && dot.style.background === 'rgb(46, 204, 113)');
+  }
+  async function refresh(winKey, force) {
+    try {
+      var url = '/api/console/window/status?windowId=' + encodeURIComponent(KEY_TO_ID[winKey] || winKey);
+      if (force) url += '&force=1';
+      var r = await fetch(url);
+      var j = await r.json();
+      setDot(winKey, !!(j && j.open), false);
+    } catch (e) { setDot(winKey, false, false); }
+  }
+  async function toggle(winKey) {
+    var open = isDotOpen(winKey);
+    setDot(winKey, open, true);
+    try {
+      var r = await fetch('/api/console/window/' + (open ? 'close' : 'open'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ windowId: KEY_TO_ID[winKey] || winKey })
+      });
+      var j = await r.json();
+      if (!j || !j.ok) console.warn('[window] 操作失败:', j && j.msg);
+    } catch (e) {
+      console.error('[window] toggle error:', e);
+      setDot(winKey, false, false);
+      return;
+    }
+    setTimeout(function() { refresh(winKey, true); }, 2500);
+  }
+  function bind() {
+    document.getElementById('winToggle17098').addEventListener('click', function(e) { e.stopPropagation(); toggle('17098'); });
+    document.getElementById('winToggle18595').addEventListener('click', function(e) { e.stopPropagation(); toggle('18595'); });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function() { bind(); refresh('17098'); refresh('18595'); setInterval(function(){ refresh('17098'); refresh('18595'); }, 90000); });
+  } else {
+    bind(); refresh('17098'); refresh('18595'); setInterval(function(){ refresh('17098'); refresh('18595'); }, 20000);
+  }
+})();
+</script>
 </body>
 </html>

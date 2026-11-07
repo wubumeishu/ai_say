@@ -2,108 +2,100 @@
 'use strict';
 
 // ============ Mock 数据（模拟出会平台真实候选） ============
-var MOCK_LEADS = [
-  {
-    id: 'L1', platform: 'ichigo', platformName: '出会', noRevoke: true,
-    customer: { name: 'カメ吉', age: 53, city: '神奈川県', avatar: 1, interests: ['温泉', '映画', '読書'], selfIntro: '音楽を聞きながら海山ドライブが趣味です。' },
-    accountSelf: { name: 'ともね', age: 38, city: '三重・津市', traits: '美人系・巨乳・B型' },
-    chatHistory: [
-      { at: '10/26 23:58', dir: 'recv', textJp: 'プロフ見てもらってありがとう。', textZh: '谢谢你看了我的资料。' },
-      { at: '10/27 00:07', dir: 'recv', textJp: '音楽を聞きながらドライブがスキです。', textZh: '我喜欢一边听音乐一边开车兜风。' },
-    ],
-    ai: {
-      analysis: '对方主动点赞但没发言→试探期，兴趣重合：温泉/电影/读书（3项）→从兴趣切入最稳。',
-      strategy: '先破冰拉兴趣重合点→推进线下（温泉/电影）→观察回复节奏。',
-      talks: [
-        { key: 'A', intent: '破冰·兴趣切入', textJp: '映画好きなら今月面白い作品ありましたね、一緒にどうですか？', textZh: '你喜欢电影的话，这个月有部很好的片子，要一起看吗？', conf: 0.82 },
-        { key: 'B', intent: '推进·线下', textJp: '温泉、一緒に行ってみませんか？三重の温泉いいんですよ。', textZh: '要不要一起去泡个温泉？三重的温泉很不错哦。', conf: 0.71 },
-        { key: 'C', intent: '轻唤回', textJp: '先日も見た映画、感想どうでしたか？', textZh: '前几天看到的那部电影，你感觉怎么样？', conf: 0.65 },
-        { key: 'D', intent: '婉转拉扯', textJp: 'お疲れ様でした。ゆっくり休んでくださいね。', textZh: '辛苦了。好好休息哦。', conf: 0.58 },
-      ],
-    },
-    state: 'PENDING', selectedTalk: null, tags: [], opLog: [],
-  },
-  {
-    id: 'L2', platform: 'ichigo', platformName: '出会', noRevoke: true,
-    customer: { name: 'カシオ', age: 27, city: '桑名市', avatar: 2, interests: ['車', '筋トレ', '音楽'], selfIntro: '桑名在住です！趣味は車と筋トレになります！' },
-    accountSelf: { name: 'ともね', age: 38, city: '三重・津市', traits: '美人系・巨乳・B型' },
-    chatHistory: [
-      { at: '10/27 02:01', dir: 'recv', textJp: '桑名在住です！車と筋トレが趣味です。', textZh: '我住在桑名！喜欢开车和健身。' },
-    ],
-    ai: {
-      analysis: '年轻男性，兴趣偏车/健身→直接聊兴趣容易尬住；年龄差11岁→需弱化年龄感，从"轻松日常"切入。',
-      strategy: '避开年龄/兴趣硬碰硬→用"天气/周末"软话题破冰→观察是否主动延伸。',
-      talks: [
-        { key: 'A', intent: '软话题破冰', textJp: 'この前の休日、何しましたか？', textZh: '上个周末你做了什么？', conf: 0.78 },
-        { key: 'B', intent: '轻松日常', textJp: '最近いい天気ですね、ドライブにはもってこいです。', textZh: '最近天气真好，很适合开车兜风。', conf: 0.69 },
-        { key: 'C', intent: '试探延伸', textJp: 'ドライブの趣味、どこによく行きますか？', textZh: '你开车兜风一般去哪里？', conf: 0.61 },
-        { key: 'D', intent: '轻唤回', textJp: 'お疲れ様です。今日は何しましたか？', textZh: '辛苦了。今天做了什么？', conf: 0.55 },
-      ],
-    },
-    state: 'PENDING', selectedTalk: null, tags: [], opLog: [],
-  },
-  {
-    id: 'L3', platform: 'ichigo', platformName: '出会', noRevoke: true,
-    customer: { name: 'ゴジラ', age: 44, city: '鈴鹿市', avatar: 3, interests: ['お酒', '食べ歩き', '映画鑑賞', 'ギャンブル'], selfIntro: '誰似:藤井フミヤ。車:ある。タバコ:電子タバコ。' },
-    accountSelf: { name: 'ともね', age: 38, city: '三重・津市', traits: '美人系・巨乳・B型' },
-    chatHistory: [
-      { at: '10/27 02:37', dir: 'recv', textJp: 'お酒が大好きです、食べ歩きも好き。', textZh: '我超爱喝酒，也喜欢逛吃。' },
-    ],
-    ai: {
-      analysis: '兴趣丰富（酒/逛吃/电影/赌博）→高兴趣密度，适合"找共同点"策略；44岁偏成熟→语气需稳重不甜腻。',
-      strategy: '从"喝酒/逛吃"切入（最易共鸣）→试探对方是否单身/社交活跃→推进线下小酌。',
-      talks: [
-        { key: 'A', intent: '找共鸣', textJp: '食べ歩き、よくどこに行きますか？おすすめのお店ありますか？', textZh: '你逛吃一般去哪里？有什么推荐的地方吗？', conf: 0.84 },
-        { key: 'B', intent: '推进小酌', textJp: 'お酒飲むなら、一緒に飲みませんか？三重でいい場所知ってます。', textZh: '要喝酒的话，要一起喝吗？我知道三重有个不错的地方。', conf: 0.76 },
-        { key: 'C', intent: '轻唤回', textJp: '昨日の飲み、楽しかったですね。', textZh: '昨天喝酒挺开心的。', conf: 0.62 },
-        { key: 'D', intent: '婉转', textJp: 'お疲れ様でした。ゆっくり休んでください。', textZh: '辛苦了。好好休息。', conf: 0.50 },
-      ],
-    },
-    state: 'PENDING', selectedTalk: null, tags: [], opLog: [],
-  },
-  {
-    id: 'L4', platform: 'ichigo', platformName: '出会', noRevoke: true,
-    customer: { name: 'ラル', age: 37, city: '愛知', avatar: 1, interests: ['サウナ', 'ゲーム'], selfIntro: '遊んでくれる方を募集してます！' },
-    accountSelf: { name: 'ともね', age: 38, city: '三重・津市', traits: '美人系・巨乳・B型' },
-    chatHistory: [
-      { at: '10/26 04:39', dir: 'recv', textJp: 'サウナに興味あります。一緒にどうですか？', textZh: '我对桑拿感兴趣，要一起吗？' },
-    ],
-    ai: {
-      analysis: '对方已主动提"一起"→高意向；兴趣偏游戏/桑拿→"宅+户外"混合型；37岁→可直接推进。',
-      strategy: '接住对方"一起"的球→确认桑拿时间→顺势约线下（周末）。',
-      talks: [
-        { key: 'A', intent: '接球推进', textJp: 'サウナいいですね、今度一緒にいきましょう！', textZh: '桑拿不错，下次一起去吧！', conf: 0.88 },
-        { key: 'B', intent: '确认时间', textJp: 'サウナ、いつが良さそうですか？', textZh: '桑拿什么时候去比较好？', conf: 0.74 },
-        { key: 'C', intent: '轻唤回', textJp: 'サウナの話、覚えてましたよ。', textZh: '我还记得我们聊过桑拿呢。', conf: 0.58 },
-        { key: 'D', intent: '婉转', textJp: 'お疲れ様でした。', textZh: '辛苦了。', conf: 0.45 },
-      ],
-    },
-    state: 'PENDING', selectedTalk: null, tags: [], opLog: [],
-  },
-  {
-    id: 'L5', platform: 'ichigo', platformName: '出会', noRevoke: true,
-    customer: { name: '☆バル☆', age: 47, city: '四日市市', avatar: 2, interests: ['映画', '音楽'], selfIntro: 'きょうの出会いはぜったいアタリです。' },
-    accountSelf: { name: 'ともね', age: 38, city: '三重・津市', traits: '美人系・巨乳・B型' },
-    chatHistory: [
-      { at: '10/19 15:34', dir: 'recv', textJp: 'きょうの出会いはぜったいアタリです。100%返事します。', textZh: '今天的邂逅一定是天意。我100%会回复的。' },
-    ],
-    ai: {
-      analysis: '对方主动承诺"100%回复"→高意向但已过8天没跟进→需唤醒记忆；语气需热情不冷淡。',
-      strategy: '直接唤醒对方"100%回复"的承诺→推进到具体行动（见面/LINE）。',
-      talks: [
-        { key: 'A', intent: '唤醒承诺', textJp: '「100%返事します」って言ってましたね、本気だったんですか？', textZh: '你说过"我100%会回复的"，是认真的吗？', conf: 0.85 },
-        { key: 'B', intent: '推进LINE', textJp: 'LINEで連絡しませんか？', textZh: '我们加个LINE联系吧？', conf: 0.72 },
-        { key: 'C', intent: '轻唤回', textJp: '最近どうですか？', textZh: '最近怎么样？', conf: 0.55 },
-        { key: 'D', intent: '婉转', textJp: 'お疲れ様です。', textZh: '辛苦了。', conf: 0.40 },
-      ],
-    },
-    state: 'PENDING', selectedTalk: null, tags: [], opLog: [],
-  },
-];
+// ============ 真实数据加载（/api/console/card-leads）============
+// 基底 = Lead 线索池（已灌库，CDP 窗口关着也有数据）+ CDP 实时 P1/P2 补全
+var MOCK_LEADS = [];   // 兜底：拉不到时显示"无数据"
+// 按候选数据拼 4 条占位话术（真实 LLM 生成待接 assistant.js B v1.1；当前仅为模拟数据流跑通界面）
+function buildPlaceholderAi(c) {
+  var it = (c.interests && c.interests.length) ? c.interests : [];
+  var first = it[0] || '';
+  var talks = [
+    { key: 'A', intent: '破冰·兴趣切入', textJp: first ? ('最近' + first + 'はよくやりますか？一緒にどうですか？') : 'この前の休日、何しましたか？', textZh: first ? ('最近常玩「' + first + '」吗？要一起吗？') : '上个休息日做了什么？', conf: 0.78 },
+    { key: 'B', intent: '推进·线下', textJp: '今週末、少し会えますか？三重でいい場所知ってます。', textZh: '这周末见个面？我知道三重不错的地方。', conf: 0.62 },
+    { key: 'C', intent: '轻唤回', textJp: first ? ('先日話した' + first + '、覚えてますか？') : '先日も話した事、覚えてますか？', textZh: first ? ('前几天聊的「' + first + '」还记得吗？') : '前几天聊的事还记得吗？', conf: 0.55 },
+    { key: 'D', intent: '婉转', textJp: 'お疲れ様でした。ゆっくり休んでください。', textZh: '辛苦了，好好休息。', conf: 0.40 },
+  ];
+  var best = talks.reduce(function(b, t) { return t.conf > b.conf ? t : b; }, talks[0]);
+  return {
+    recommendedKey: best.key,
+    analysis: c.lastMsg ? ('对方最后说：「' + c.lastMsg + '」→ ' + (it.length ? ('兴趣重合：' + it.slice(0, 3).join('/') + '，从兴趣切入最稳') : '暂无兴趣数据，建议软话题破冰')) : '（暂无聊天记录）',
+    strategy: it.length ? ('从「' + it[0] + '」切入 → 推进线下 → 观察回复节奏') : '先软话题破冰，观察对方回复节奏再推进。',
+    talks: talks,
+  };
+}
+// 调试示例卡（?mock=1 用）
+function MOCK_DEMO_CARD() {
+  return { id:'DEMO-1', platform:'ichigo', platformName:'出会', noRevoke:true, cat:'like', source:'点赞',
+    customer:{ name:'流石（示例）', age:'49', city:'伊勢市', interests:['温泉','読書'], selfIntro:'仕事の関係で伊勢に住む事になりました。' },
+    accountSelf:{ name:'ともね', age:38, city:'三重・津市', traits:'美人系·巨乳·B型' },
+    chatHistory:[], lastMsg:'こんばんは、口下手で…', lastTime:'10/27 19:39', sourceHref:null,
+    ai:null, state:'PENDING', selectedTalk:null, tags:[], opLog:[] };
+}
+function MOCK_DEMO_CARD2() {
+  return { id:'DEMO-2', platform:'ichigo', platformName:'出会', noRevoke:true, cat:'browse', source:'BBS帖子',
+    customer:{ name:'つよし＿（示例）', age:'46', city:'伊勢市', interests:[], selfIntro:'今日〜火曜日に伊勢市周辺で' },
+    accountSelf:{ name:'ともね', age:38, city:'三重・津市', traits:'美人系·巨乳·B型' },
+    chatHistory:[], lastMsg:'', lastTime:'10/27', sourceHref:null,
+    ai:null, state:'PENDING', selectedTalk:null, tags:[], opLog:[] };
+}
+
+async function loadLeads() {
+  // 调试：/card-deck?mock=1 直接返回本地示例数据（不请求后端，排查前端渲染用）
+  if (String(location.search || '').indexOf('mock=1') !== -1) {
+    return [MOCK_DEMO_CARD(), MOCK_DEMO_CARD2()];
+  }
+  try {
+    var r = await fetch('/api/console/card-leads?maxLeads=60&maxLikes=20&maxChats=10');
+    var d = await r.json();
+    if (d.ok && Array.isArray(d.cards) && d.cards.length) {
+      // 把后端 cards[] 映射成卡片对象（补 customer/accountSelf/ai 结构）
+      return d.cards.map(function(c, i) {
+        return {
+          id: c.id || ('L' + i),
+          platform: c.platform || 'ichigo',
+          platformName: c.source || '出会',
+          noRevoke: c.noRevoke !== false,
+          cat: c.cat || '',
+          source: c.source || '',
+          memberId: c.memberId || null,
+          customer: {
+            name: c.name || '（未名）',
+            age: c.age || '',
+            city: c.city || '',
+            avatar: (c.avatarUrls && c.avatarUrls.length) ? c.avatarUrls.length : 0,
+            avatarUrls: c.avatarUrls || [],
+            interests: c.interests || [],
+            selfIntro: c.selfIntro || ''
+          },
+          accountSelf: { name: 'ともね', age: 38, city: '三重・津市', traits: '美人系·巨乳·B型' },
+          chatHistory: [],
+          lastMsg: c.lastMsg || '',
+          lastTime: c.lastTime || '',
+          sourceHref: c.sourceHref || null,
+          ai: (c.ai && Array.isArray(c.ai.talks) && c.ai.talks.length) ? c.ai : buildPlaceholderAi(c),
+          state: 'PENDING',
+          selectedTalk: null,
+          tags: c.tags || [],
+          opLog: c.opLog || [],
+        };
+      });
+    }
+  } catch (e) { /* 网络失败 → 用 mock 兜底 */ }
+  // 兜底 mock（拉不到真实数据时，至少界面能跑）
+  return [
+    { id:'L1', platform:'ichigo', platformName:'出会', noRevoke:true, cat:'like', source:'点赞', memberId:null,
+      customer:{ name:'（拉取失败·示例）', age:'', city:'', avatar:0, avatarUrls:[], interests:[], selfIntro:'CDP 窗口未开，未能抓到真实线索。请开 17098 出会窗口后刷新。' },
+      accountSelf:{ name:'ともね', age:38, city:'三重・津市', traits:'美人系·巨乳·B型' },
+      chatHistory:[], lastMsg:'', lastTime:'', sourceHref:null, ai: buildPlaceholderAi({ name:'（拉取失败·示例）', interests:[], lastMsg:'', selfIntro:'CDP 窗口未开，未能抓到真实线索。' }), state:'PENDING', selectedTalk:null, tags:[], opLog:[] }
+  ];
+}
+
+// ============ 状态管理 ============
 
 // ============ 状态管理 ============
 var currentIdx = 0;
-var leads = JSON.parse(JSON.stringify(MOCK_LEADS));
+var leads = [];          // 由 loadLeads() 异步填充
+var leadsLoaded = false;
 var queueItems = [];
 var pendingBlock = null;
 
@@ -131,13 +123,24 @@ function renderProgress() {
 function renderActiveCard() {
   var deck = document.getElementById('cardDeck');
   if (!deck) return;
+  if (!leadsLoaded) {
+    deck.innerHTML = '<div style="text-align:center;padding:60px;color:var(--muted)">加载中…（拉取 /card-leads 真实候选）</div>';
+    return;
+  }
   var l = leads[currentIdx];
-  if (!l) {
-    deck.innerHTML = '<div style="text-align:center;padding:60px;color:var(--muted)">全部卡片处理完毕 ✓（← 可回看）</div>';
+  if (!l || leads.length === 0) {
+    deck.innerHTML = '<div style="text-align:center;padding:60px;color:var(--muted)">（无候选卡片——CDP 窗口未开或线索池为空）<br><br><span style="color:var(--accent);font-size:13px">刷新本页面重新拉取</span> · 或开 17098 出会窗口后刷新</div>';
     return;
   }
   var stateMap = { PENDING: 'pending', DRAFTED: 'drafted', QUEUED: 'queued', SENT: 'sent', SKIPPED: 'skipped', BLOCKED: 'blocked' };
   var stateTextMap = { PENDING: '待处理', DRAFTED: '待发送', QUEUED: '排队中', SENT: '已发送', SKIPPED: '已跳过', BLOCKED: '已拉黑' };
+  // 防御：ai / customer 缺失时用占位对象，避免 null 引用崩渲染
+  if (!l.ai || !Array.isArray(l.ai.talks) || !l.ai.talks.length) l.ai = buildPlaceholderAi(l);
+  if (!l.customer) l.customer = { name: l.name || '（未名）', age: l.age || '', city: l.city || '', interests: l.interests || [], selfIntro: l.selfIntro || '' };
+  if (!l.accountSelf) l.accountSelf = { name: 'ともね', age: 38, city: '三重・津市', traits: '美人系·巨乳·B型' };
+  l.customer.interests = Array.isArray(l.customer.interests) ? l.customer.interests : [];
+  l.customer.selfIntro = l.customer.selfIntro || '';
+  l.customer.name = l.customer.name || '（未名）';
 
   var talkHtml = l.ai.talks.map(function(t) {
     return '<div class="talk ' + (l.selectedTalk === t.key ? 'selected' : '') + '">'
@@ -169,30 +172,54 @@ function renderActiveCard() {
     avatars += '<div class="avatar">写真' + a + '</div>';
   }
 
-  deck.innerHTML = '<div class="card" id="card-' + l.id + '">'
-    + '<div class="card-block">'
-    + '<div class="card-left">'
-    + '<div class="platform-badge ' + l.platform + '">' + l.platformName + '</div>'
-    + '<div class="avatar-row">' + avatars + '</div>'
-    + noRevokeHtml
+  var recKey2 = (l.ai && l.ai.recommendedKey) ? l.ai.recommendedKey : 'A';
+  var recTalk2 = (l.ai && l.ai.talks ? l.ai.talks.filter(function(t){ return t.key === recKey2; })[0] : null);
+  var lastMsgHtml = l.lastMsg
+    ? '<div class="last-msg"><div class="lm-jp">最后：「' + l.lastMsg + '」</div><div class="lm-time">' + (l.lastTime || '') + '</div></div>'
+    : '';
+  var srcBadge = l.source ? '<span class="src-badge">来源:' + l.source + '</span>' : '';
+  var onlineDot = l.onlineIcon
+    ? '<span class="online-dot ' + String(l.onlineIcon).replace('online-icon','tier') + '"></span>'
+    : '';
+
+  deck.innerHTML = '<div class="card single" id="card-' + l.id + '">'
+    + '<div class="rec-banner">'
+    +   '<span class="rb-label">⚡ AI 推荐</span>'
+    +   '<span class="rb-key">' + recKey2 + '</span>'
+    +   (recTalk2 ? '<span class="rb-text">「' + recTalk2.textJp + '」</span>' : '')
+    +   '<span class="rb-conf">conf ' + (recTalk2 ? recTalk2.conf : '-') + '</span>'
+    +   '<span class="rb-hint">按 ' + recKey2 + ' 一键入待发送</span>'
     + '</div>'
-    + '<div class="card-mid">'
-    + '<h4>' + l.customer.name + ' · ' + l.customer.age + '歳 · ' + l.customer.city
-    + ' <span class="status-badge ' + stateMap[l.state] + '">' + stateTextMap[l.state] + '</span>'
-    + tags
-    + '</h4>'
-    + '<div class="profile-grid">'
-    + '<div class="profile-cell"><h5>客户资料</h5><p>' + interests + '</p>'
-    + '<p style="color:var(--muted);margin-top:4px">自己紹介: ' + l.customer.selfIntro.slice(0, 50) + '…</p></div>'
-    + '<div class="profile-cell"><h5>我方账号（' + l.accountSelf.name + '）</h5>'
-    + '<p>' + l.accountSelf.age + '歳 · ' + l.accountSelf.city + '</p>'
-    + '<p style="color:var(--muted);margin-top:4px">' + l.accountSelf.traits + '</p></div>'
+    + '<div class="card-body">'
+    +   '<div class="card-col col-left">'
+    +     '<div class="ident">'
+    +       '<div class="platform-badge ' + l.platform + '">' + l.platformName + ' ' + srcBadge + '</div>'
+    +       '<div class="avatar-row">' + avatars + onlineDot + '</div>'
+    +       noRevokeHtml
+    +     '</div>'
+    +     '<div class="who">'
+    +       '<div class="who-name">' + l.customer.name + '</div>'
+    +       '<div class="who-meta">' + (l.customer.age ? l.customer.age + '歳' : '') + ' ' + (l.customer.city ? l.customer.city : '') + '</div>'
+    +       '<span class="status-badge ' + stateMap[l.state] + '">' + stateTextMap[l.state] + '</span>'
+    +       tags
+    +     '</div>'
+    +     lastMsgHtml
+    +   '</div>'
+    +   '<div class="card-col col-mid">'
+    +     '<div class="profile-cell"><h5>客户资料 / 兴趣</h5><p>' + (interests || '<span style="color:var(--muted)">（无兴趣数据）</span>') + '</p>'
+    +     '<p class="intro">自己紹介: ' + (l.customer.selfIntro ? l.customer.selfIntro.slice(0, 80) : '（无）') + '</p></div>'
+    +     '<div class="profile-cell me"><h5>我方账号（' + l.accountSelf.name + '）</h5>'
+    +     '<p>' + l.accountSelf.age + '歳 · ' + l.accountSelf.city + '</p>'
+    +     '<p class="traits">' + l.accountSelf.traits + '</p></div>'
+    +     '<div class="ai-section"><h5>🧠 心理分析</h5><p>' + l.ai.analysis + '</p></div>'
+    +     '<div class="ai-section"><h5>🎯 应对策略</h5><p>' + l.ai.strategy + '</p></div>'
+    +     (l.chatHistory.length ? '<div class="chat-history"><h5>💬 聊天记录（原文/译文）</h5>' + chatHtml + '</div>' : '')
+    +   '</div>'
+    +   '<div class="card-col col-right">'
+    +     '<div class="talks"><h5>💬 话术 A-D（原文+译文 · 按键入待发送）</h5>' + talkHtml + '</div>'
+    +   '</div>'
     + '</div>'
-    + '<div class="ai-section"><h5>🧠 心理分析</h5><p>' + l.ai.analysis + '</p></div>'
-    + '<div class="ai-section"><h5>🎯 应对策略</h5><p>' + l.ai.strategy + '</p></div>'
-    + (l.chatHistory.length ? '<div class="chat-history"><h5>💬 聊天记录（原文/译文）</h5>' + chatHtml + '</div>' : '')
-    + '<div class="talks"><h5>💬 话术选项（按 A-D 选择 → 入待发送，自动滑下一张）</h5>' + talkHtml + '</div>'
-    + '</div></div></div>';
+    + '</div>';
 }
 function renderCard(l, i) {
   var active = i === currentIdx ? ' active' : '';
@@ -447,4 +474,19 @@ Array.from(document.querySelectorAll('.nav-item')).forEach(function(n) {
   });
 });
 
-render();
+window.onerror = function(msg, src, line, col, err) {
+  try {
+    var el = document.getElementById('cardDeck');
+    if (el) el.innerHTML = '<div style="padding:20px;color:#ef4444;font-family:monospace;font-size:12px">JS 错误: ' + msg + ' @ ' + line + ':' + col + '<br>' + (err && err.stack ? err.stack.split('\n').slice(0,5).join('<br>') : '') + '</div>';
+  } catch (_) {}
+  console.error('[card-deck] onerror:', msg, src, line, col, err && err.stack);
+};
+loadLeads().then(function(list) {
+  leads = list;
+  leadsLoaded = true;
+  render();
+}).catch(function(e) {
+  leadsLoaded = true;
+  render();
+});
+

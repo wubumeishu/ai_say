@@ -11,6 +11,7 @@ export async function loadAshiato() {
   try {
     var r = await fetch('/api/console/domain/ashiato');
     var d = await r.json();
+    console.log('[leads] fetch result ok:', d.ok, 'count:', d.count || 0, 'reason:', d.reason || '');
     if (!d.ok) { renderError(el, d); return; }
     if (!d.footmarks || d.footmarks.length === 0) {
       el.innerHTML = '<div style="padding:24px;color:var(--muted,#888);font-size:12px">当前无足迹数据</div>';
@@ -341,6 +342,7 @@ export function renderDomainPage(view) {
     case 'domain-toolbox': loadToolbox(); break;
     case 'domain-diary': loadDiary(); break;
     case 'domain-unified': renderUnifiedList(); break;
+    case 'domain-leads': loadLeads(); break;
     case 'domain-toolbox': loadToolbox(); break;
     case 'domain-pool': loadAccountPool(); break;
     default: page.style.display = 'none'; return;
@@ -417,3 +419,338 @@ export async function loadAccountPool() {
       '</div>';
   }).catch(function(e) { el.innerHTML = '<div class="empty">巡检失败：' + e.message + '</div>'; });
 }
+
+
+// ---------- 引流 T2 · 线索池 + 筛选器（005 Lead 表）----------
+
+// 线索池 · 平台/窗口标识（从 /api/console/platforms + /api/console/account-pool 取）
+async function loadPlatformChip() {
+  var chip = document.getElementById('leadPlatChip');
+  if (!chip) return;
+  try {
+    var [pf, pool] = await Promise.all([
+      fetch('/api/console/platforms').then(function(r){ return r.json(); }),
+      fetch('/api/console/account-pool').then(function(r){ return r.json(); }),
+    ]);
+    // 平台 id -> 简称
+    var labels = {};
+    ((pf && pf.platforms) || []).forEach(function(p) {
+      labels[p.id] = p.label;
+    });
+    var active = pf && pf.active;
+    // 账号 label（窗口号，如 17098）
+    var accs = ((pool && pool.accounts) || []);
+    var names = accs.map(function(a) {
+      var pl = a.platform || (a.platformId ? labels[a.platformId] : '');
+      return (pl ? pl + '-' : '') + a.label;
+    }).filter(Boolean);
+    if (names.length) {
+      chip.textContent = names.join(' / ');
+      chip.title = '线索池当前覆盖的窗口';
+    } else {
+      chip.textContent = (active ? labels[active] : '未连接') + '（无窗口账号）';
+    }
+  } catch (e) {
+    chip.textContent = '平台信息不可用';
+  }
+}
+
+export async function loadLeads() {
+  var el = document.getElementById('domainContent');
+  var title = document.getElementById('domainTitle');
+  if (title) title.textContent = '🎯 线索池（平台-窗口 · 累积留痕）';
+  if (!el) { console.warn('[leads] domainContent not found'); return; }
+
+  // 简化筛选：只按平台分组
+  var filterHtml = [
+    '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;align-items:center">',
+    '  <span style="font-size:12px;color:var(--muted,#888)">平台分组：</span>',
+    '  <select id="leadFilterPlatform" style="font-size:12px;padding:3px 6px">',
+    '    <option value="">全部平台</option>',
+    '    <option value="ichigo">出会</option>',
+    '    <option value="happymail">快乐</option>',
+    '  </select>',
+    '  <button id="leadFilterApply" style="font-size:12px;padding:3px 10px;cursor:pointer">应用</button>',
+    '  <button id="leadFilterReset" style="font-size:12px;padding:3px 10px;cursor:pointer;color:var(--muted,#888)">重置</button>',
+    '  <span style="flex:1"></span>',
+    '  <span style="font-size:12px;color:var(--muted,#888)">侦测目标：</span>',
+    '  <select id="leadExplorePlatform" style="font-size:12px;padding:3px 6px">',
+    '    <option value="ichigo" selected>出会 17098</option>',
+    '    <option value="happymail">快乐 18595</option>',
+    '  </select>',
+    '  <select id="leadExploreDims" style="font-size:12px;padding:3px 6px">',
+    '    <option value="all">侦测全部维度</option>',
+    '    <option value="like">点赞</option>',
+    '    <option value="bbs">帖子</option>',
+    '    <option value="ashiato">足迹</option>',
+    '    <option value="search">检索</option>',
+    '  </select>',
+    '  <button id="leadExploreBtn" style="font-size:12px;padding:3px 10px;cursor:pointer;background:#1e5aa8;color:#fff;border:none;border-radius:3px">🔭 侦测灌库</button>',
+    '  <span id="leadExploreStatus" style="font-size:11px;color:var(--muted,#888)"></span>',
+    '</div>',
+    '<div id="leadAgg" style="font-size:11px;color:var(--muted,#888);margin-bottom:8px"></div>',
+    '<div id="leadList" style="max-height:600px;overflow-y:auto"></div>',
+    '<div id="leadTaskBoard" style="margin-top:12px;padding:10px;border:1px solid var(--border,#2a3550);border-radius:6px">',
+    '  <div style="font-size:13px;font-weight:600;margin-bottom:6px">📋 任务编排（呼吸引擎 · 节拍调度）',
+    '    <span style="font-weight:400;color:var(--muted,#888);font-size:11px;margin-left:8px">引擎只调度节拍，副作用由 SOP 执行器驱动（铁律：不自动发消息）</span>',
+    '  </div>',
+    '  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">',
+    '    <button id="leadBoardSeed" style="font-size:11px;padding:3px 8px;cursor:pointer;background:#3a4a6b;color:#fff;border:none;border-radius:3px">🌱 播种呼吸规则</button>',
+    '    <button id="leadBoardEnqueue" style="font-size:11px;padding:3px 8px;cursor:pointer;background:#1e5aa8;color:#fff;border:none;border-radius:3px">➕ 入队示例任务(30s)</button>',
+    '    <button id="leadBoardStart" style="font-size:11px;padding:3px 8px;cursor:pointer;background:#2ecc71;color:#fff;border:none;border-radius:3px">▶ 启动引擎</button>',
+    '    <button id="leadBoardStop" style="font-size:11px;padding:3px 8px;cursor:pointer;background:#888;color:#fff;border:none;border-radius:3px">⏸ 停止引擎</button>',
+    '    <button id="leadBoardRefresh" style="font-size:11px;padding:3px 8px;cursor:pointer;background:#3a4a6b;color:#fff;border:none;border-radius:3px">🔄 刷新看板</button>',
+    '  </div>',
+    '  <div id="leadTaskBoardStatus" style="font-size:12px;color:var(--muted,#888)" title=""></div>',
+    '</div>',
+    '<div style="margin-top:8px;font-size:11px;color:var(--muted,#888)" id="leadMeta"></div>',
+  ].join('');
+  el.innerHTML = filterHtml;
+
+  document.getElementById('leadFilterApply').addEventListener('click', function() { fetchAndRender(); });
+  document.getElementById('leadFilterReset').addEventListener('click', function() {
+    document.getElementById('leadFilterPlatform').value = '';
+    fetchAndRender();
+  });
+
+  // 侦测灌库按钮
+  var exploreBtn = document.getElementById('leadExploreBtn');
+  var exploreStatus = document.getElementById('leadExploreStatus');
+  exploreBtn.addEventListener('click', async function() {
+    var platSel = document.getElementById('leadExplorePlatform').value;
+    var dimSel = document.getElementById('leadExploreDims').value;
+    var dims = dimSel === 'all' ? ['like', 'bbs', 'ashiato', 'search'] : [dimSel];
+    exploreBtn.disabled = true;
+    exploreStatus.textContent = platSel === 'happymail' ? '快乐侦测中…' : '出会侦测中…（完成后自动回收件箱）';
+    exploreStatus.style.color = '#f39c12';
+    try {
+      var url = platSel === 'happymail' ? '/api/console/leads/explore-happy' : '/api/console/leads/explore';
+      var r = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dims: dims, maxPages: platSel === 'happymail' ? 2 : 3 })
+      });
+      var j = await r.json();
+      if (j.ok) {
+        var dimNames = { like: '点赞', bbs: '帖子', ashiato: '足迹', search: '检索' };
+        var dimStr = Object.keys(j.byDim || {}).filter(function(k) { return (j.byDim[k] || 0) > 0; })
+          .map(function(k) { return dimNames[k] + ' ' + j.byDim[k]; }).join(' / ');
+        exploreStatus.textContent = '完成：' + dimStr + '（灌入 ' + j.upserted + ' 条，共 ' + j.totalForWindow + ' 条）';
+        if (j.emptyNote) { exploreStatus.textContent += ' ' + j.emptyNote; }
+        exploreStatus.style.color = '#2ecc71';
+        if ((j.errors || []).length) exploreStatus.textContent += ' | ' + j.errors.slice(0, 2).join('；');
+        fetchAndRender();
+      } else {
+        exploreStatus.textContent = '失败：' + (j.reason || j.msg || '未知');
+        exploreStatus.style.color = '#c0392b';
+      }
+    } catch (e) {
+      exploreStatus.textContent = '请求失败：' + e.message;
+      exploreStatus.style.color = '#c0392b';
+    } finally {
+      exploreBtn.disabled = false;
+    }
+  });
+
+  // ------------------------------------------------------------------
+  // T3 任务编排：看板（来源分布 / 完成情况 / 人工介入 high_intent / 引擎启停 / 入队）
+  // 调 /api/console/tasks/breath/*；引擎只调度节拍，副作用由 SOP 执行器驱动。
+  // ------------------------------------------------------------------
+  var boardEl = document.getElementById('leadTaskBoard');
+  if (boardEl) {
+    var boardStatus = document.getElementById('leadTaskBoardStatus');
+    async function renderTaskBoard() {
+      try {
+        var r = await fetch('/api/console/tasks/breath/board');
+        var d = await r.json();
+        if (!d.ok) { boardStatus.textContent = '看板不可用: ' + (d.reason || ''); boardStatus.style.color = '#c0392b'; return; }
+        var eng = d.engine || {};
+        var q = eng.queue || {};
+        var highIntent = (d.highIntent || []);
+        var byType = (d.byType || []);
+        var rows = byType.map(function(x) { return x.type + '/' + x.status + ' ' + x.n; }).join(' · ');
+        var engineTxt = eng.running ? '🟢 引擎运行中（tick ' + eng.tickMs + 'ms）' : '⚪ 引擎已停';
+        var hiTxt = highIntent.length ? ('⚠️ ' + highIntent.length + ' 条人工介入（high_intent）: ' + highIntent.slice(0, 5).map(function(h) { return (h.accountId || '?') + '#' + (h.taskId || '').slice(0, 8); }).join(' ')) : '✅ 无人工介入待办';
+        boardStatus.textContent = engineTxt + ' | 队列: pending ' + (q.pending || 0) + ' / done ' + (q.done || 0) + ' / failed ' + (q.failed || 0) + ' | 来源分布: ' + (rows || '(空)');
+        boardStatus.style.color = eng.running ? '#2ecc71' : '#888';
+        boardStatus.dataset.highIntent = hiTxt;
+        // 详情挂到 title（悬停看 high_intent 明细）
+        boardStatus.title = hiTxt + '\n' + (d.recent || []).slice(0, 10).map(function(t) { return (t.taskId || '').slice(0, 8) + ' ' + t.type + ' ' + t.status + (t.error ? ' ⚠' + t.error : ''); }).join('\n');
+      } catch (e) {
+        boardStatus.textContent = '看板请求失败: ' + e.message;
+        boardStatus.style.color = '#c0392b';
+      }
+    }
+    document.getElementById('leadBoardRefresh').addEventListener('click', renderTaskBoard);
+    document.getElementById('leadBoardSeed').addEventListener('click', async function() {
+      var r = await fetch('/api/console/tasks/breath/rules/seed', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pool: 'warmup' }) });
+      var d = await r.json();
+      boardStatus.textContent = (d.ok ? '✅ 呼吸规则已播种 ' + d.inserted + ' 条' : '播种失败: ' + d.reason);
+      boardStatus.style.color = d.ok ? '#2ecc71' : '#c0392b';
+      setTimeout(renderTaskBoard, 600);
+    });
+    document.getElementById('leadBoardStart').addEventListener('click', async function() {
+      var r = await fetch('/api/console/tasks/breath/start', { method: 'POST' });
+      var d = await r.json();
+      boardStatus.textContent = d.ok ? '🟢 引擎已启动（节拍调度中）' : '启动失败: ' + d.reason;
+      boardStatus.style.color = d.ok ? '#2ecc71' : '#c0392b';
+      setTimeout(renderTaskBoard, 400);
+    });
+    document.getElementById('leadBoardStop').addEventListener('click', async function() {
+      var r = await fetch('/api/console/tasks/breath/stop', { method: 'POST' });
+      var d = await r.json();
+      boardStatus.textContent = d.ok ? '⚪ 引擎已停止' : '停止失败: ' + d.reason;
+      boardStatus.style.color = d.ok ? '#888' : '#c0392b';
+      setTimeout(renderTaskBoard, 400);
+    });
+    // 入队示例任务（点赞场景 + 当前平台窗口 + 30s 后唤醒）
+    document.getElementById('leadBoardEnqueue').addEventListener('click', async function() {
+      var plat = document.getElementById('leadFilterPlatform') ? document.getElementById('leadFilterPlatform').value : '';
+      var acc = plat === 'happymail' ? '18595' : '17098';
+      var r = await fetch('/api/console/tasks/breath/enqueue', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ platform: plat || 'ichigo', accountId: acc, type: 'like', nextWakeAt: Date.now() + 30000, delayMs: 30000 }) });
+      var d = await r.json();
+      boardStatus.textContent = (d.ok ? '✅ 已入队 ' + (d.taskId || '').slice(0, 10) + '…（30s 后唤醒，like 场景节拍）' : '入队失败: ' + d.reason);
+      boardStatus.style.color = d.ok ? '#2ecc71' : '#c0392b';
+      setTimeout(renderTaskBoard, 400);
+    });
+    // 首次进线索池渲染一次看板
+    renderTaskBoard();
+  }
+
+  async function fetchAndRender() {
+    var plat = document.getElementById('leadFilterPlatform').value;
+    var qs = new URLSearchParams();
+    if (plat) qs.set('platform', plat);
+    qs.set('limit', '1000');
+    var r = await fetch('/api/console/leads?' + qs.toString());
+    var d = await r.json();
+    var listEl = document.getElementById('leadList');
+    var aggEl = document.getElementById('leadAgg');
+    var metaEl = document.getElementById('leadMeta');
+    if (!d.ok) { listEl.innerHTML = '<div style="padding:24px;color:#c0392b;font-size:12px">加载失败：' + (d.reason || d.msg || '') + '</div>'; return; }
+
+    // 按平台+窗口(accountId)分组
+    var groups = {};
+    (d.leads || []).forEach(function(l) {
+      var key = (l.platform || 'unknown') + '-' + (l.accountId || '?');
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(l);
+    });
+
+    var platName = { ichigo: '出会', happymail: '快乐' };
+    aggEl.textContent = '共 ' + Object.keys(groups).length + ' 个窗口分组，' + (d.leads||[]).length + ' 条线索';
+
+    // 渲染每个分组
+    var rows = Object.keys(groups).map(function(key) {
+      var gLeads = groups[key];
+      var gKey = key.split('-');
+      var platLabel = platName[gKey[0]] || gKey[0];
+      var winLabel = gKey[1];
+      var gHtml = '<div style="padding:10px 0;border-bottom:2px solid var(--border,#444);margin-bottom:8px">' +
+        '<div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px">📍 ' +
+        escapeHtml(platLabel) + ' - ' + escapeHtml(winLabel) +
+        ' <span style="font-size:11px;color:var(--muted,#888);font-weight:400">' + gLeads.length + ' 条</span></div>' +
+        '<div style="font-size:10px;color:var(--muted,#888);margin-bottom:4px">地区 = 客户自己填写的位置（按实际显示为准，非检索条件）</div>' +
+        gLeads.map(function(l) {
+          // 按来源维度显示具体时间
+          var timeText = '';
+          var extras = l.extras || {};
+          if (l.sourceDim === 'like') {
+            timeText = '点赞 ' + (extras.like_time || '未知');
+          } else if (l.sourceDim === 'bbs') {
+            timeText = '发帖 ' + (extras.bbs_date || '未知');
+          } else if (l.sourceDim === 'ashiato') {
+            timeText = '访问 ' + (extras.foot_time || '未知');
+          } else if (l.sourceDim === 'faces') {
+            timeText = '上线 ' + String(l.lastSeen || '').slice(5, 16);
+          } else if (l.sourceDim === 'search') {
+            timeText = '检索 ' + String(l.firstSeen || '').slice(5, 16);
+          } else {
+            timeText = '发现 ' + String(l.firstSeen || '').slice(5, 16);
+          }
+          // 在线图标(会出=实时在线档 online-icon1/2/3;快乐=最后登录 24h 内活跃/7 天内近期/离线)
+          var on = String(l.online || '');
+          var onlineIcon = '⚪';
+          var onlineTip = '';
+          if (on.indexOf('happy-green') !== -1) { onlineIcon = '🟢'; onlineTip = '在线(平台绿点)'; }
+          else if (on.indexOf('happy-yellow') !== -1) { onlineIcon = '🟡'; onlineTip = '不常在线(平台黄点)'; }
+          else if (on.indexOf('happy-gray') !== -1) { onlineIcon = '⚪'; onlineTip = '离线(平台灰点)'; }
+          else if (on.indexOf('online-icon1') !== -1) { onlineIcon = '🟢'; onlineTip = '在线'; }
+          else if (on.indexOf('online-icon2') !== -1) { onlineIcon = '🟡'; onlineTip = '24h 内在线'; }
+          else if (on.indexOf('offline') !== -1) { onlineIcon = '⚪'; onlineTip = '离线(最后登录 ' + ((l.extras && l.extras.last_login) || '未知') + ')'; }
+          if ((l.extras && l.extras.last_login) && on.indexOf('happy-') !== 0) onlineTip = onlineTip ? onlineTip : '最后登录 ' + l.extras.last_login;
+          // 翻译简介
+          var introText = '';
+          if (l.selfIntro) {
+            var introEl = document.createElement('span');
+            introEl.textContent = l.selfIntro;
+            introText = l.selfIntro.slice(0, 60);
+            // 触发翻译（异步）
+            translateAndSet(l.selfIntro, function(zh) {
+              introText = zh;
+            });
+          }
+          return '<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;font-size:12px">' +
+            '<span style="min-width:18px" title="' + onlineTip + '">' + onlineIcon + '</span>' +
+            '<span style="min-width:60px;font-weight:600">' + escapeHtml(l.name || '?') + '</span>' +
+            '<span style="min-width:26px;color:var(--muted,#888)">' + (l.age || '') + '</span>' +
+            '<span style="min-width:44px;color:var(--muted,#888)" title="客户自己填写的地区（检索条件不代表客户位置）">' + escapeHtml(l.region || '') + '</span>' +
+            '<span style="font-size:10px;color:var(--muted,#888)">' + escapeHtml(l.sourceDim || '') + '</span>' +
+            '<span style="font-size:10px;color:#4aa3ff">' + escapeHtml(timeText) + '</span>' +
+            '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted,#888);font-size:11px" data-intro-id="' + l.leadId + '">' +
+              escapeHtml(introText || '') +
+            '</span>' +
+            '</div>';
+        }).join('') +
+        '</div>';
+      return gHtml;
+    }).join('');
+    listEl.innerHTML = rows;
+    metaEl.textContent = '共 ' + d.count + ' 条（累积留痕，同客户以最新记录为准）';
+
+    // 翻译所有简介（批量）
+    translateAllIntros(listEl, d.leads);
+  }
+
+  // 批量翻译简介
+  function translateAllIntros(listEl, leads) {
+    var toTranslate = leads.filter(l => l.selfIntro && l.selfIntro.length > 0);
+    if (toTranslate.length === 0) return;
+    // 去重
+    var uniqueIntros = [...new Set(toTranslate.map(l => l.selfIntro))];
+    var batch = uniqueIntros.map(t => ({ text: t, from: 'ja', to: 'zh-CN' }));
+    fetch('/api/console/translate/batch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items: batch })
+    }).then(r => r.json()).then(function(j) {
+      if (!j.ok || !j.results) return;
+      // 建立映射
+      var transMap = {};
+      j.results.forEach(function(item, i) {
+        transMap[batch[i].text] = item.text || batch[i].text;
+      });
+      // 更新 DOM
+      leads.forEach(function(l) {
+        if (l.selfIntro && transMap[l.selfIntro]) {
+          var el2 = listEl.querySelector('[data-intro-id="' + l.leadId + '"]');
+          if (el2) el2.textContent = transMap[l.selfIntro];
+        }
+      });
+    }).catch(function(e) { console.warn('[leads] 批量翻译失败:', e); });
+  }
+
+  function translateAndSet(text, cb) {
+    // 单条翻译（备用）
+    fetch('/api/console/translate?text=' + encodeURIComponent(text) + '&from=ja&to=zh-CN')
+      .then(r => r.json())
+      .then(j => { if (j.ok && j.text) cb(j.text); else cb(text); })
+      .catch(() => cb(text));
+  }
+
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  fetchAndRender().catch(function(e) { console.error('[leads] fetch error:', e); });
+}
+

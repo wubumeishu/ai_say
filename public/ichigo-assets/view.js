@@ -10,7 +10,7 @@ import { renderList, selectCustomer } from './ichigo.js';
 import { renderHappyCustomers, loadHappyCustomer, happyRenderedMemberIDs } from './kairaku.js';
 import { renderModelPage } from './models.js';
 import { renderAgentPkgPage } from './agent-pkg.js';
-import { renderDomainPage, loadAccountPool, loadToolbox } from './domain.js';
+import { renderDomainPage, loadAccountPool, loadToolbox, loadLeads } from './domain.js';
 
 // 竞态守卫（复制自 L1333）：非出会视图下出会 fetch resolve 不写出会 DOM
 export function isIchigoView() {
@@ -43,6 +43,7 @@ export function switchView(view) {
   }
   // 第 8 刀收口：直接 import 调用（无 window 桥）
   if (view === 'agentPkg') {
+    var _dp_agentPkg = document.getElementById('domainPage'); if (_dp_agentPkg) _dp_agentPkg.style.display = 'none';
     cols.customers.style.display = 'none';
     cols.messages.style.display = 'none';
     cols.analysis.style.display = 'none';
@@ -56,6 +57,7 @@ export function switchView(view) {
     return;
   }
   if (view === 'models') {
+    var _dp_models = document.getElementById('domainPage'); if (_dp_models) _dp_models.style.display = 'none';
     cols.customers.style.display = 'none';
     cols.messages.style.display = 'none';
     cols.analysis.style.display = 'none';
@@ -69,6 +71,7 @@ export function switchView(view) {
     return;
   }
   if (view === 'agents') {
+    var _dp_agents = document.getElementById('domainPage'); if (_dp_agents) _dp_agents.style.display = 'none';
     cols.customers.style.display = 'none';
     cols.messages.style.display = 'none';
     cols.analysis.style.display = 'none';
@@ -81,7 +84,7 @@ export function switchView(view) {
     renderAgentPage(); // nav-poll 同批次已迁移，直接 import 调用
     return;
   }
-  var domainViews = ['domain', 'domain-ashiato', 'domain-faces', 'domain-search', 'domain-ignore', 'domain-calendar', 'domain-toolbox', 'domain-pool', 'domain-pool', 'domain-toolbox', 'domain-diary', 'domain-unified'];
+  var domainViews = ['domain', 'domain-ashiato', 'domain-faces', 'domain-search', 'domain-ignore', 'domain-calendar', 'domain-toolbox', 'domain-pool', 'domain-pool', 'domain-toolbox', 'domain-diary', 'domain-unified', 'domain-leads'];
   if (domainViews.indexOf(view) !== -1) {
     cols.customers.style.display = 'none';
     cols.messages.style.display = 'none';
@@ -98,6 +101,7 @@ export function switchView(view) {
     return;
   }
   if (view === 'kanban') {
+    var _dp0 = document.getElementById('domainPage'); if (_dp0) _dp0.style.display = 'none';
     cols.messages.style.display = 'none';
     cols.analysis.style.display = 'none';
     if (cols.account) cols.account.style.display = 'none';
@@ -111,6 +115,7 @@ export function switchView(view) {
     return;
   }
   setCrossPages(null);
+  var _dp1 = document.getElementById('domainPage'); if (_dp1) _dp1.style.display = 'none';
   cols.analysis.style.display = '';
   if (cols.account) cols.account.style.display = '';
   cols.ai.style.display = '';

@@ -72,8 +72,10 @@ function connectTargetWs(wsUrl) {
   // task-36 CDP 重试：BitBrowser 每次 /browser/open 换 DevTools 端口，通道偶发断/卡。
   // 对可重试错误（timeout/ECONNREFUSED/socket closed 等）重连后重试，业务错误不重试。
   function isRetryable(err) {
+    // 窗口手动控制模式：window-closed（auto-open 被禁用）不是瞬态 CDP 错误，重试无用，直抛
+    if (err && (err.reason === 'window-closed' || err.autoOpenDisabled)) return false;
     var m = String((err && err.message) || err || '');
-    return /timeout|ECONNREFUSED|ECONNRESET|socket|closed|aborted|Invalid parameters|unresponsive|CDP/i.test(m);
+    return /timeout|ECONNREFUSED|ECONNRESET|socket|aborted|Invalid parameters|unresponsive|CDP/i.test(m);
   }
   async function retryCdp(opName, fn, tries) {
     tries = tries || 2;
@@ -137,6 +139,7 @@ function createIchigoDeepScrape(deps) {
   var ashiatoExprSrc    = readExpr(path.join(__dirname, 'ichigoAshiatoExpr.js'));
   var facesExprSrc      = readExpr(path.join(__dirname, 'ichigoFacesExpr.js'));
   var searchExprSrc     = readExpr(path.join(__dirname, 'ichigoSearchExpr.js'));
+  var searchResultsExprSrc = readExpr(path.join(__dirname, 'ichigoSearchResultsExpr.js'));
   var ignoreExprSrc     = readExpr(path.join(__dirname, 'ichigoIgnoreExpr.js'));
   var calendarExprSrc   = readExpr(path.join(__dirname, 'ichigoCalendarExpr.js'));
   var diaryExprSrc      = readExpr(path.join(__dirname, 'ichigoDiaryExpr.js'));
@@ -1110,7 +1113,83 @@ function buildBbsVerifyExpr() {
       return { ok: false, reason: 'cdp-unavailable', msg: String((e && e.message) || e) };
     });
   }
-  return {
+  
+  // ---------- 模块5 · 高级搜索结果抓取（无条件搜索 → 结果页卡片 → 灌线索池）----------
+  async function fetchSearchResults(opts) {
+    opts = opts || {};
+    var fields = opts.fields || {};
+    var maxPages = opts.maxPages || 3;
+    // Step 1: navigate to search page + fill + submit（提交会触发跳转，CDP target 可能 detach）
+    var submit;
+    try {
+      submit = await withTarget(function(client) {
+        return cdpEval(client, 'location.href').then(function(cur) {
+          var u = String(cur || '');
+          if (u.indexOf('show_profile_search') === -1) {
+            return client.send('Page.navigate', { url: 'https://sp.194964.com/profile/profilesearch/show_profile_search.html' })
+              .then(function() { return new Promise(function(r) { setTimeout(r, 3500); }); });
+          }
+          return null;
+        }).then(function() {
+          var expr = fillGenericOpts(searchExprSrc, Object.assign({ fields: fields, submit: true, confirmed: true }, opts), '__SEARCH_OPTS__');
+          return cdpEvalAsync(client, expr);
+        });
+      });
+    } catch (e) {
+      // "Inspected target navigated or closed" = 提交后页面跳转、旧 target 失效 → 当作成功（submit 已发出）
+      if (String(e.message || e).match(/navigated or closed/i)) {
+        submit = { ok: true, via: 'cdp-navigated' };
+      } else {
+        return { ok: false, reason: 'cdp-error', msg: String(e.message || e) };
+      }
+    }
+    if (!submit || !submit.ok) return { ok: false, reason: 'submit-failed', msg: submit && (submit.reason || submit.msg) };
+    // Step 2: 等结果页加载（全新 withTarget 块，避免复用已 detach 的 session）
+    await new Promise(function(r) { setTimeout(r, 4000); });
+    var allCards = [];
+    for (var p = 0; p < maxPages; p++) {
+      var pageRes;
+      try {
+        pageRes = await withTarget(function(client) {
+          return cdpEval(client, 'location.href').then(function(cur) {
+            var u = String(cur || '');
+            // 结果页特征：exec_routing_profile_search 或 show_profile_search 带结果
+            if (u.indexOf('profilesearch') === -1 && u.indexOf('search') === -1) {
+              return { ok: false, reason: 'not-on-results-page', href: u };
+            }
+            var expr = fillGenericOpts(searchResultsExprSrc, null, '__SEARCH_RESULTS_OPTS__');
+            return cdpEvalAsync(client, expr);
+          });
+        });
+      } catch (e) {
+        return { ok: false, reason: 'cdp-error', msg: String(e.message || e), partial: allCards };
+      }
+      if (!pageRes || !pageRes.ok) {
+        if (pageRes && pageRes.reason === 'not-on-results-page') {
+          // 没进结果页（可能平台拦截/无结果）
+          return { ok: false, reason: 'no-results', msg: '未进入结果页：' + pageRes.href, partial: allCards };
+        }
+        break;
+      }
+      allCards = allCards.concat(pageRes.cards || []);
+      if (!pageRes.nextQuery) break;
+      // 翻页（全新 withTarget，翻页也是导航）
+      try {
+        await withTarget(function(client) {
+          return new Promise(function(resolve) {
+            var href = String(pageRes.nextQuery);
+            if (href.indexOf('http') !== 0) href = 'https://sp.194964.com' + href;
+            client.send('Page.navigate', { url: href })
+              .then(function() { return new Promise(function(r) { setTimeout(r, 3000); }); })
+              .then(resolve, function() { resolve(); }); // navigate 可能因 detach reject，忽略
+          });
+        });
+      } catch (e) { /* navigation race tolerated */ }
+    }
+    return { ok: true, total: allCards.length, cards: allCards, via: 'search-results' };
+  }
+
+return {
     mailboxOnly: mailboxOnly,
     fetchHistory: fetchHistory,
     sendToContact: sendToContact,
@@ -1136,6 +1215,7 @@ function buildBbsVerifyExpr() {
     manageDiary: manageDiary,
     fetchChatInbox: fetchChatInbox,
     fetchTypedLikes: fetchTypedLikes,
+    fetchSearchResults: fetchSearchResults,
   };
 }
 
