@@ -2,136 +2,154 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
-<title>卡片交互原型 · 出会平台</title>
+<title>卡片流 · 出会 + 快乐 双平台</title>
 <style>
 :root{--bg:#0f1117;--panel:#1a1d27;--panel2:#22252f;--border:#2d3140;--text:#e8eaed;--muted:#8b8fa3;--accent:#4f8cff;--green:#34c38f;--red:#ef4444;--yellow:#fbbf24;--purple:#a78bfa;--orange:#fb923c}
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;overflow:hidden}
 body{background:var(--bg);color:var(--text);font-family:system-ui;font-size:13px}
-.app{display:flex;height:100vh;overflow:hidden}
-.sidebar{width:190px;background:var(--panel);border-right:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
-.sidebar h1{font-size:14px;padding:12px 14px;border-bottom:1px solid var(--border);color:var(--accent)}
-.sidebar .keys{padding:10px 14px;font-size:11px;line-height:1.9;color:var(--muted)}
-.sidebar kbd{background:var(--panel2);border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-family:monospace;font-size:10px;color:var(--accent)}
-.queue-panel{margin:6px 10px;background:var(--panel2);border-radius:8px;border:1px solid var(--border);flex:1;overflow-y:auto}
-.queue-panel h3{font-size:12px;padding:8px 10px;border-bottom:1px solid var(--border);color:var(--orange)}
-.queue-item{padding:5px 10px;font-size:11px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between}
-.queue-item:last-child{border-bottom:none}
-.qstatus.queued{color:var(--yellow)}.qstatus.sent{color:var(--green)}.qstatus.skipped{color:var(--muted);text-decoration:line-through}.qstatus.blocked{color:var(--red)}
-.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
-.progress{background:var(--panel);padding:8px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
-.progress .lbl{font-size:11px;color:var(--muted)}
-.progress .bar{flex:1;height:4px;background:var(--panel2);border-radius:2px;overflow:hidden}
-.progress .bar div{height:100%;background:var(--accent);transition:width .3s}
-.card-deck{flex:1;overflow:hidden;padding:10px}
-.card.single{background:var(--panel);border:2px solid var(--accent);border-radius:10px;height:100%;overflow:hidden;display:flex;flex-direction:column}
-.rec-banner{background:linear-gradient(90deg,rgba(79,140,255,.25),rgba(167,139,250,.15));border-bottom:1px solid var(--border);padding:8px 14px;display:flex;align-items:center;gap:10px;flex-shrink:0}
-.rec-banner .rb-label{font-size:12px;color:var(--accent);font-weight:700}
-.rec-banner .rb-key{font-size:16px;font-weight:800;color:#fff;background:var(--accent);border-radius:6px;padding:1px 9px}
-.rec-banner .rb-text{font-size:13px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.rec-banner .rb-conf{font-size:11px;color:var(--muted)}
-.rec-banner .rb-hint{font-size:11px;color:var(--yellow)}
-.card-body{flex:1;display:grid;grid-template-columns:200px 1fr 300px;gap:0;overflow:hidden}
-.card-col{padding:10px 12px;overflow-y:auto}
-.col-left{border-right:1px solid var(--border);background:rgba(26,29,39,.4)}
-.col-mid{background:var(--panel)}
-.col-right{border-left:1px solid var(--border);background:rgba(26,29,39,.4)}
-.platform-badge{display:inline-block;font-size:11px;padding:2px 8px;border-radius:4px;margin-bottom:6px}
-.platform-badge.ichigo{background:rgba(79,140,255,.15);color:var(--accent)}
-.src-badge{font-size:10px;color:var(--muted);margin-left:6px}
-.avatar-row{display:flex;gap:5px;margin-bottom:6px}
-.avatar{width:36px;height:36px;border-radius:6px;background:var(--panel2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--muted)}
-.online-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-left:6px}
-.online-dot.tier1{background:var(--green)}.online-dot.tier2{background:var(--yellow)}.online-dot.tier3{background:var(--muted)}.online-dot.tier4{background:var(--muted)}
-.no-revoke{font-size:10px;color:var(--red);margin-top:4px}
-.who{margin-top:8px}
-.who-name{font-size:18px;font-weight:700}
-.who-meta{font-size:12px;color:var(--muted);margin:4px 0}
-.status-badge{font-size:10px;padding:2px 6px;border-radius:4px;font-weight:400}
-.status-badge.pending{background:var(--panel2);color:var(--muted)}
-.status-badge.drafted{background:rgba(251,191,36,.15);color:var(--yellow)}
-.status-badge.sent{background:rgba(52,195,143,.15);color:var(--green)}
-.status-badge.skipped{background:rgba(139,143,163,.15);color:var(--muted)}
-.status-badge.blocked{background:rgba(239,68,68,.15);color:var(--red)}
-.last-msg{margin-top:10px;background:var(--panel2);border-radius:6px;padding:8px;border-left:3px solid var(--accent)}
-.last-msg .lm-jp{font-size:12px;line-height:1.4}
-.last-msg .lm-zh{font-size:11px;color:var(--muted);margin-top:3px}
-.last-msg .lm-time{font-size:10px;color:var(--muted);margin-top:4px}
-.profile-cell{background:var(--panel2);border-radius:6px;padding:8px 10px;margin-bottom:8px}
-.profile-cell h5{font-size:11px;color:var(--muted);margin-bottom:4px;font-weight:600}
-.profile-cell p{font-size:12px;line-height:1.5}
-.profile-cell .intro{color:var(--text);margin-top:4px}
-.profile-cell .traits{color:var(--muted);margin-top:4px}
-.tag{display:inline-block;background:var(--panel2);border-radius:4px;padding:1px 6px;font-size:11px;color:var(--muted);margin-right:4px}
-.ai-section{background:var(--panel2);border-radius:6px;padding:8px 10px;margin-bottom:8px}
-.ai-section h5{font-size:11px;color:var(--purple);margin-bottom:4px}
-.ai-section p{font-size:12px;line-height:1.5}
-.chat-history{background:var(--panel2);border-radius:6px;padding:8px 10px;margin-bottom:8px;max-height:120px;overflow-y:auto}
-.chat-history h5{font-size:11px;color:var(--muted);margin-bottom:4px}
-.msg{margin-bottom:6px;padding:5px 8px;border-radius:6px;font-size:11px}
-.msg.recv{background:rgba(79,140,255,.08);border-left:3px solid var(--accent)}
-.msg .jp{margin-bottom:2px}.msg .zh{color:var(--muted);font-size:10px}.msg .time{color:var(--muted);font-size:9px}
-.talks h5{font-size:11px;color:var(--orange);margin-bottom:8px}
-.talk{display:flex;align-items:flex-start;gap:8px;padding:8px;border-radius:6px;margin-bottom:6px;border:1px solid transparent;cursor:default}
-.talk.selected{border-color:var(--accent);background:rgba(79,140,255,.12)}
-.talk .key{font-size:14px;font-weight:800;color:var(--accent);width:20px;flex-shrink:0}
-.talk .content{flex:1;min-width:0}
-.talk .jp{font-size:12px;margin-bottom:2px;line-height:1.4}
-.talk .zh{font-size:11px;color:var(--muted)}
-.toolbar{background:var(--panel);border-top:1px solid var(--border);padding:8px 14px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
-.toolbar kbd{background:var(--panel2);border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-family:monospace;font-size:10px;color:var(--accent)}
-.toolbar .hint{font-size:10px;color:var(--muted)}
-.queue-stats{margin-left:auto;font-size:11px;color:var(--muted)}
-.queue-stats span{color:var(--yellow)}
-.overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;display:flex;align-items:center;justify-content:center}
-.overlay.hidden{display:none}
-.confirm-box{background:var(--panel);border:2px solid var(--red);border-radius:12px;padding:24px 32px;text-align:center;max-width:340px}
-.confirm-box h2{color:var(--red);font-size:16px;margin-bottom:10px}
+.app{display:flex;flex-direction:column;height:100vh;overflow:hidden}
+
+/* 顶部全局状态栏 */
+.topbar{display:flex;align-items:center;gap:10px;padding:7px 14px;background:var(--panel);border-bottom:1px solid var(--border);flex-shrink:0}
+.brand{font-size:13px;font-weight:700;color:var(--accent);margin-right:6px}
+.win-pill{display:flex;align-items:center;gap:5px;font-size:11px;background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:3px 10px}
+.win-pill .dot{width:8px;height:8px;border-radius:50%}
+.win-pill.open .dot{background:var(--green)}
+.win-pill.closed .dot{background:var(--muted)}
+.win-pill span.lbl{color:var(--muted)}
+.queue-strip{margin-left:auto;display:flex;align-items:center;gap:8px;font-size:11px;color:var(--muted)}
+.queue-strip .count{color:var(--yellow);font-weight:700}
+.queue-strip .next{color:var(--accent)}
+.alert-strip{background:rgba(251,191,36,.15);color:var(--yellow);font-size:11px;padding:2px 10px;border-radius:4px}
+
+/* 主体: 高密度三栏(260 + 1fr + 420) */
+.body{flex:1;display:grid;grid-template-columns:260px 1fr 420px;overflow:hidden;min-height:0}
+.col{padding:10px 12px;overflow-y:auto;min-height:0}
+.col.left{background:rgba(26,29,39,.4);border-right:1px solid var(--border)}
+.col.mid{background:var(--panel)}
+.col.right{background:rgba(26,29,39,.4);border-left:1px solid var(--border)}
+
+/* 左栏: 人设与资料对照 */
+.plate{background:var(--panel2);border-radius:8px;padding:10px;margin-bottom:10px}
+.plate h4{font-size:11px;color:var(--muted);margin-bottom:6px;font-weight:600}
+.plate .n{font-size:15px;font-weight:700}
+.plate .m{font-size:11px;color:var(--muted);margin-top:3px;line-height:1.6}
+.badge{display:inline-block;font-size:10px;padding:1px 7px;border-radius:4px;margin-right:4px}
+.badge.ichigo{background:rgba(79,140,255,.15);color:var(--accent)}
+.badge.happymail{background:rgba(52,195,143,.15);color:var(--green)}
+.badge.no-revoke{background:rgba(239,68,68,.15);color:var(--red)}
+.badge.revoke{background:rgba(52,195,143,.15);color:var(--green)}
+.tag{display:inline-block;background:var(--panel2);border-radius:4px;padding:1px 6px;font-size:10px;color:var(--muted);margin:0 4px 3px 0}
+.interests{margin-top:6px}
+
+/* 中栏: 紧凑分析 + 最近 5 条双语 */
+.ai-box{background:var(--panel2);border-radius:8px;padding:9px 11px;margin-bottom:8px}
+.ai-box h5{font-size:11px;color:var(--purple);margin-bottom:4px;font-weight:600}
+.ai-box p{font-size:12px;line-height:1.5;color:var(--text)}
+.chat{background:var(--panel2);border-radius:8px;padding:8px 10px}
+.chat h5{font-size:11px;color:var(--muted);margin-bottom:6px}
+.mline{margin-bottom:7px;font-size:11px;line-height:1.4}
+.mline .jp{color:var(--text)}
+.mline .zh{color:var(--accent);font-size:11px;margin-top:2px;padding-left:8px;border-left:2px solid rgba(79,140,255,.3)}
+.mline .t{color:var(--muted);font-size:10px;margin-top:2px}
+.empty{color:var(--muted);font-size:11px;padding:14px;text-align:center}
+
+/* 右栏: A~D 大卡 */
+.talk{background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:9px 11px;margin-bottom:8px;cursor:default}
+.talk.sel{border-color:var(--accent);background:rgba(79,140,255,.12)}
+.talk .head{display:flex;align-items:center;gap:7px;margin-bottom:5px}
+.talk .key{font-size:15px;font-weight:800;color:var(--accent);width:20px}
+.talk .intent{font-size:11px;color:var(--orange);flex:1}
+.talk .conf{font-size:10px;color:var(--muted)}
+.talk .jp{font-size:12.5px;font-weight:500;line-height:1.45}
+.talk .zh{font-size:11px;color:var(--accent);margin-top:4px;background:rgba(79,140,255,.06);padding:3px 7px;border-radius:4px}
+
+/* 底部快捷键 + 队列倒计时条 */
+.bottombar{display:flex;align-items:center;gap:10px;padding:7px 14px;background:var(--panel);border-top:1px solid var(--border);flex-shrink:0}
+.bottombar .hint{font-size:10px;color:var(--muted)}
+.bottombar kbd{background:var(--panel2);border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-family:monospace;font-size:10px;color:var(--accent)}
+.qbar{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;max-width:60%}
+.qitem{display:flex;align-items:center;gap:5px;font-size:11px;background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:3px 9px}
+.qitem .timer{color:var(--yellow);font-weight:700}
+.qitem .cancel{color:var(--muted);cursor:pointer;font-size:10px}
+.qitem .cancel:hover{color:var(--red)}
+.qitem .revoke{color:var(--green);cursor:pointer;font-size:10px;margin-left:4px}
+
+/* 拉黑确认层 */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;display:none;align-items:center;justify-content:center}
+.overlay.show{display:flex}
+.confirm-box{background:var(--panel);border:2px solid var(--red);border-radius:12px;padding:22px 30px;text-align:center;max-width:340px}
+.confirm-box h2{color:var(--red);font-size:15px;margin-bottom:10px}
 .confirm-box p{color:var(--muted);font-size:12px;margin-bottom:14px;line-height:1.5}
 .confirm-box .target{font-size:13px;color:var(--text);margin-bottom:14px}
 .confirm-box .keys{font-size:11px;color:var(--muted);margin-top:10px}
+.confirm-box button{background:var(--red);color:#fff;border:none;border-radius:6px;padding:7px 18px;font-size:12px;cursor:pointer;margin:0 4px}
+.confirm-box button.cancel{background:var(--panel2);color:var(--muted)}
+
+/* 微调弹窗 */
+.adjust-box{background:var(--panel);border:2px solid var(--accent);border-radius:12px;padding:22px 30px;max-width:440px;text-align:left}
+.adjust-box h2{color:var(--accent);font-size:15px;margin-bottom:10px}
+.adjust-box textarea{width:100%;background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;font-size:12px;resize:vertical;min-height:50px}
+.adjust-box .row{display:flex;gap:8px;margin-top:10px;justify-content:flex-end}
+.adjust-box button{background:var(--accent);color:#fff;border:none;border-radius:6px;padding:7px 16px;font-size:12px;cursor:pointer}
+.adjust-box button.cancel{background:var(--panel2);color:var(--muted)}
+.loading{color:var(--muted);font-size:12px;padding:10px}
 </style>
 </head>
 <body>
 <div class="app">
-  <aside class="sidebar">
-    <h1>出会 · 键盘驱动</h1>
-    <div class="keys">
-      <div style="margin-bottom:8px"><strong style="color:var(--text)">选话术（→待发送）</strong></div>
-      <div><kbd>A</kbd> 话术A &nbsp; <kbd>B</kbd> 话术B</div>
-      <div><kbd>C</kbd> 话术C &nbsp; <kbd>D</kbd> 话术D</div>
-      <div style="margin:12px 0 8px"><strong style="color:var(--text)">处置</strong></div>
-      <div><kbd>1</kbd> 标记 &nbsp; <kbd>2</kbd> 拉黑</div>
-      <div><kbd>3</kbd> 跳过 &nbsp; <kbd>4</kbd> 重新生成</div>
-      <div><kbd>5</kbd> AI对话 &nbsp; <kbd>6</kbd> 展开</div>
-      <div style="margin:12px 0 8px"><strong style="color:var(--text)">导航</strong></div>
-      <div><kbd>→</kbd>/<kbd>Space</kbd> 下一张</div>
-      <div><kbd>←</kbd> 上一张</div>
-      <div style="margin:12px 0 8px"><strong style="color:var(--text)">拉黑确认</strong></div>
-      <div><kbd>Y</kbd> 确认 &nbsp; <kbd>Esc</kbd> 取消</div>
-    </div>
-    <div class="queue-panel" id="queuePanel"></div>
-  </aside>
-  <div class="main">
-    <div class="progress">
-      <span class="lbl" id="progress">1 / 5</span>
-      <div class="bar"><div id="progressBar" style="width:0%"></div></div>
-      <span id="queueStats"></span>
-    </div>
-    <div class="card-deck" id="cardDeck"></div>
-    <div class="toolbar">
-      <span class="hint"><kbd>A</kbd>~<kbd>D</kbd> 选话术入待发送（自动滑卡）&nbsp; <kbd>1</kbd>标记 <kbd>2</kbd>拉黑 <kbd>3</kbd>跳过 <kbd>4</kbd>重生成 <kbd>5</kbd>AI对话 <kbd>6</kbd>展开</span>
+  <!-- 顶部全局状态栏 -->
+  <div class="topbar">
+    <span class="brand">⚡ 卡片流</span>
+    <div class="win-pill closed" id="win17098"><span class="dot"></span><span class="lbl">出会 17098</span></div>
+    <div class="win-pill closed" id="win18595"><span class="dot"></span><span class="lbl">快乐 18595</span></div>
+    <div id="alertStrip" style="display:none"></div>
+    <div class="queue-strip">
+      <span>⏳ 待发送 <span class="count" id="qCount">0</span></span>
+      <span class="next" id="qNext"></span>
     </div>
   </div>
+
+  <!-- 三栏主体 -->
+  <div class="body">
+    <div class="col left" id="colLeft"></div>
+    <div class="col mid" id="colMid"></div>
+    <div class="col right" id="colRight"></div>
+  </div>
+
+  <!-- 底部快捷键 + 队列条 -->
+  <div class="bottombar">
+    <span class="hint"><kbd>A</kbd>~<kbd>D</kbd> 选话术入队 · <kbd>1</kbd> 标记 <kbd>2</kbd> 拉黑 <kbd>3</kbd> 跳过 <kbd>4</kbd> 重生成 <kbd>5</kbd> 微调 <kbd>6</kbd> 展开 · <kbd>→</kbd> 下一张 <kbd>←</kbd> 上一张</span>
+    <div class="qbar" id="qbar"></div>
+  </div>
 </div>
-<div class="overlay hidden" id="blockOverlay">
+
+<!-- 拉黑确认层 -->
+<div class="overlay" id="blockOverlay">
   <div class="confirm-box">
     <h2>⚠ 确认拉黑</h2>
     <p>拉黑后对方无法再给你发消息/点赞。<br>出会平台为强副作用，确认后不可立即撤销。</p>
     <div class="target">目标：<strong id="blockTargetName"></strong></div>
-    <div class="keys">按 <kbd>Y</kbd> 确认拉黑 · <kbd>Esc</kbd> 取消</div>
+    <button class="cancel" onclick="cancelBlock()">取消 (Esc)</button>
+    <button onclick="confirmBlock()">确认拉黑 (Y)</button>
+    <div class="keys">按 <kbd>Y</kbd> 确认 · <kbd>Esc</kbd> 取消</div>
   </div>
 </div>
+
+<!-- 微调弹窗 -->
+<div class="overlay" id="adjustOverlay">
+  <div class="adjust-box">
+    <h2>🤖 AI 对话微调话术</h2>
+    <p style="color:var(--muted);font-size:12px;margin-bottom:8px">给个指令，AI 重写 A~D（如「从温泉切入、更温和一点」）</p>
+    <textarea id="adjustNote" placeholder="输入微调指令…"></textarea>
+    <div class="row">
+      <button class="cancel" onclick="cancelAdjust()">取消</button>
+      <button onclick="doAdjust()">重新生成</button>
+    </div>
+  </div>
+</div>
+
 <script src="card-deck.js"></script>
 </body>
 </html>

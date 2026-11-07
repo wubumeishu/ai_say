@@ -196,4 +196,38 @@ export function initMain() {
   var stored = null;
   try { stored = localStorage.getItem('aisay:platform:v1'); } catch (e) { /* ignore */ }
   try { if (stored === 'kairaku') switchView('18595'); else switchView('17098'); } catch (e) { console.warn('[main-init] 平台记忆刷新失败', e); }
+
+  // 卡片流键盘绑定(A~D/1~6/→←, 仅 cards 视图激活时生效)
+  document.addEventListener('keydown', function(e) {
+    var cur = state.currentView;
+    if (cur !== 'cards') return; // 只在卡片流视图拦截键盘
+    if (document.activeElement && /input|textarea/i.test(document.activeElement.tagName)) return;
+    var cf = window.__cardflow;
+    if (!cf) return;
+    // 拉黑/微调 overlay 激活时只处理 Y/Esc
+    if (cf.isCardFlowBusy()) {
+      var k = e.key.toLowerCase();
+      if (k === 'y') { e.preventDefault(); cf.confirmBlock(); }
+      if (k === 'escape') { e.preventDefault(); cf.cancelBlock(); cf.cancelAdjust(); }
+      return;
+    }
+    switch (e.key.toLowerCase()) {
+      var _ci = cf._idx ? cf._idx() : 0;
+      case 'a': cf.selectTalk(_ci, 'A'); break;
+      case 'b': cf.selectTalk(_ci, 'B'); break;
+      case 'c': cf.selectTalk(_ci, 'C'); break;
+      case 'd': cf.selectTalk(_ci, 'D'); break;
+      case '1': cf.handleAction(_ci, '1'); break;
+      case '2': cf.handleAction(_ci, '2'); break;
+      case '3': cf.handleAction(_ci, '3'); break;
+      case '4': cf.handleAction(_ci, '4'); break;
+      case '5': cf.handleAction(_ci, '5'); break;
+      case '6': cf.handleAction(_ci, '6'); break;
+      case 'arrowright':
+      case ' ': cf.nextCard(); break;
+      case 'arrowleft': cf.prevCard(); break;
+    }
+    // 选中/操作类拦截默认
+    if (['a','b','c','d','1','2','3','4','5','6','arrowright','arrowleft',' '].indexOf(e.key.toLowerCase()) !== -1) e.preventDefault();
+  });
 }

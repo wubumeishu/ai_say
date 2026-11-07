@@ -1,401 +1,401 @@
-// 卡片交互原型 JS（mock 数据，真键盘操作，不碰真发）
+// 卡片流 · 真数据版（/api/console/card-leads + SendQueue + assistant B v1.1）
 'use strict';
 
-// ============ Mock 数据（模拟出会平台真实候选） ============
-// ============ 真实数据加载（/api/console/card-leads）============
-// 基底 = Lead 线索池（已灌库，CDP 窗口关着也有数据）+ CDP 实时 P1/P2 补全
-var MOCK_LEADS = [];   // 兜底：拉不到时显示"无数据"
-// 按候选数据拼 4 条占位话术（真实 LLM 生成待接 assistant.js B v1.1；当前仅为模拟数据流跑通界面）
+var currentIdx = 0;
+var leads = [];
+var leadsLoaded = false;
+var queueItems = [];   // 内存队列(镜像后端 SendQueue; 真发由后端 dispatcher 驱动, 此处只做展示+撤出)
+var pendingBlock = null;
+var pendingAdjust = null;
+
+function now() { return new Date().toISOString().replace('T', ' ').slice(0, 19); }
+
+// ============ 加载真实候选 ============
+async function loadLeads() {
+  if (String(location.search || '').indexOf('mock=1') !== -1) {
+    leads = [MOCK_DEMO_CARD()];
+    leadsLoaded = true;
+    render();
+    return;
+  }
+  try {
+    var r = await fetch('/api/console/card-leads?maxLeads=60&maxLikes=20&maxChats=10');
+    var d = await r.json();
+    if (d.ok && Array.isArray(d.cards) && d.cards.length) {
+      leads = d.cards.map(function(c, i) {
+        return mapCard(c, i);
+      });
+    }
+  } catch (e) { /* 网络失败 → mock 兜底 */ }
+  if (!leads.length) {
+    leads = [{
+      id: 'ERR', platform: 'ichigo', platformName: '出会', noRevoke: true, cat: '', source: '',
+      customer: { name: '（拉取失败）', age: '', city: '', interests: [], selfIntro: 'CDP 窗口未开或线索池为空。请开 17098/18595 窗口后刷新本页面。', avatarUrls: [] },
+      accountSelf: ACCOUNT_SELF, chatHistory: [], lastMsg: '', lastMsgZh: '', lastTime: '', ai: null,
+      state: 'PENDING', selectedTalk: null, tags: [], opLog: []
+    }];
+  }
+  leadsLoaded = true;
+  // 加载队列快照(后端 SendQueue)
+  loadQueueSnapshot();
+  refreshWindows();
+  render();
+}
+
+var ACCOUNT_SELF = { name: 'ともね', age: 38, city: '三重・津市', traits: '美人系·巨乳·B型' };
+
+function mapCard(c, i) {
+  var isHappy = c.platform === 'happymail';
+  // 后端 card 对象: {name,age,city,onlineIcon,chatHistory,lastMsg,lastMsgZh,interests,selfIntro,platform,noRevoke,...}
+  return {
+    id: c.id || ('L' + i),
+    platform: c.platform || 'ichigo',
+    platformName: c.platform === 'happymail' ? '快乐' : '出会',
+    noRevoke: c.noRevoke !== false,
+    cat: c.cat || '', source: c.source || '',
+    memberId: c.memberId || null,
+    customer: {
+      name: c.name || '（未名）', age: c.age || '', city: c.city || '',
+      interests: c.interests || [], selfIntro: c.selfIntro || '',
+      avatarUrls: c.avatarUrls || []
+    },
+    accountSelf: ACCOUNT_SELF,
+    onlineIcon: c.onlineIcon || null,
+    chatHistory: Array.isArray(c.chatHistory) ? c.chatHistory : [],
+    lastMsg: c.lastMsg || '', lastMsgZh: c.lastMsgZh || '', lastTime: c.lastTime || '',
+    ai: c.ai,  // 后端没带 ai → 首次渲染时按 4 键调 assistant
+    state: 'PENDING', selectedTalk: null, tags: c.tags || [], opLog: c.opLog || []
+  };
+}
+
+// 4/5 键: 调 assistant B v1.1 真生成
+async function generateTalks(l, intent, adjustNote) {
+  l.ai = null;
+  render();
+  try {
+    var r = await fetch('/api/console/card/regenerate', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        conversationId: l.id, contactId: l.memberId || l.id,
+        platform: l.platform, accountId: l.platform === 'happymail' ? '18595' : '17098',
+        intent: intent || 'reply', adjustNote: adjustNote || '',
+        history: (l.chatHistory || []).slice(-12).map(function(m) { return { from: m.who === 'me' ? 'me' : 'peer', text: m.text, at: m.time }; })
+      })
+    });
+    var d = await r.json();
+    if (d.ok && d.ai && d.ai.replies && Array.isArray(d.ai.replies)) {
+      l.ai = {
+        analysis: (d.ai.analysis || '').slice(0, 300),
+        strategy: (d.ai.strategy || '').slice(0, 300),
+        recommendedKey: 'A',
+        talks: d.ai.replies.slice(0, 4).map(function(rp, i) {
+          var key = ['A', 'B', 'C', 'D'][i] || 'A';
+          return { key: key, intent: rp.type || 'reply', textJp: rp.content, textZh: (rp.zh || ''), conf: 0.7 + i * 0.05 };
+        })
+      };
+    } else if (d.ok && d.ai) {
+      l.ai = d.ai;
+    }
+  } catch (e) { /* 降级 */ }
+  // 后端没返回时用占位
+  if (!l.ai || !l.ai.talks) l.ai = buildPlaceholderAi(l);
+  render();
+}
+
 function buildPlaceholderAi(c) {
-  var it = (c.interests && c.interests.length) ? c.interests : [];
+  var it = (c.customer && c.customer.interests && c.customer.interests.length) ? c.customer.interests : [];
   var first = it[0] || '';
   var talks = [
     { key: 'A', intent: '破冰·兴趣切入', textJp: first ? ('最近' + first + 'はよくやりますか？一緒にどうですか？') : 'この前の休日、何しましたか？', textZh: first ? ('最近常玩「' + first + '」吗？要一起吗？') : '上个休息日做了什么？', conf: 0.78 },
     { key: 'B', intent: '推进·线下', textJp: '今週末、少し会えますか？三重でいい場所知ってます。', textZh: '这周末见个面？我知道三重不错的地方。', conf: 0.62 },
     { key: 'C', intent: '轻唤回', textJp: first ? ('先日話した' + first + '、覚えてますか？') : '先日も話した事、覚えてますか？', textZh: first ? ('前几天聊的「' + first + '」还记得吗？') : '前几天聊的事还记得吗？', conf: 0.55 },
-    { key: 'D', intent: '婉转', textJp: 'お疲れ様でした。ゆっくり休んでください。', textZh: '辛苦了，好好休息。', conf: 0.40 },
+    { key: 'D', intent: '婉转', textJp: 'お疲れ様でした。ゆっくり休んでください。', textZh: '辛苦了，好好休息。', conf: 0.40 }
   ];
   var best = talks.reduce(function(b, t) { return t.conf > b.conf ? t : b; }, talks[0]);
   return {
     recommendedKey: best.key,
     analysis: c.lastMsg ? ('对方最后说：「' + c.lastMsg + '」→ ' + (it.length ? ('兴趣重合：' + it.slice(0, 3).join('/') + '，从兴趣切入最稳') : '暂无兴趣数据，建议软话题破冰')) : '（暂无聊天记录）',
     strategy: it.length ? ('从「' + it[0] + '」切入 → 推进线下 → 观察回复节奏') : '先软话题破冰，观察对方回复节奏再推进。',
-    talks: talks,
+    talks: talks
   };
 }
-// 调试示例卡（?mock=1 用）
-function MOCK_DEMO_CARD() {
-  return { id:'DEMO-1', platform:'ichigo', platformName:'出会', noRevoke:true, cat:'like', source:'点赞',
-    customer:{ name:'流石（示例）', age:'49', city:'伊勢市', interests:['温泉','読書'], selfIntro:'仕事の関係で伊勢に住む事になりました。' },
-    accountSelf:{ name:'ともね', age:38, city:'三重・津市', traits:'美人系·巨乳·B型' },
-    chatHistory:[], lastMsg:'こんばんは、口下手で…', lastTime:'10/27 19:39', sourceHref:null,
-    ai:null, state:'PENDING', selectedTalk:null, tags:[], opLog:[] };
-}
-function MOCK_DEMO_CARD2() {
-  return { id:'DEMO-2', platform:'ichigo', platformName:'出会', noRevoke:true, cat:'browse', source:'BBS帖子',
-    customer:{ name:'つよし＿（示例）', age:'46', city:'伊勢市', interests:[], selfIntro:'今日〜火曜日に伊勢市周辺で' },
-    accountSelf:{ name:'ともね', age:38, city:'三重・津市', traits:'美人系·巨乳·B型' },
-    chatHistory:[], lastMsg:'', lastTime:'10/27', sourceHref:null,
-    ai:null, state:'PENDING', selectedTalk:null, tags:[], opLog:[] };
-}
-
-async function loadLeads() {
-  // 调试：/card-deck?mock=1 直接返回本地示例数据（不请求后端，排查前端渲染用）
-  if (String(location.search || '').indexOf('mock=1') !== -1) {
-    return [MOCK_DEMO_CARD(), MOCK_DEMO_CARD2()];
-  }
-  try {
-    var r = await fetch('/api/console/card-leads?maxLeads=60&maxLikes=20&maxChats=10');
-    var d = await r.json();
-    if (d.ok && Array.isArray(d.cards) && d.cards.length) {
-      // 把后端 cards[] 映射成卡片对象（补 customer/accountSelf/ai 结构）
-      return d.cards.map(function(c, i) {
-        return {
-          id: c.id || ('L' + i),
-          platform: c.platform || 'ichigo',
-          platformName: c.source || '出会',
-          noRevoke: c.noRevoke !== false,
-          cat: c.cat || '',
-          source: c.source || '',
-          memberId: c.memberId || null,
-          customer: {
-            name: c.name || '（未名）',
-            age: c.age || '',
-            city: c.city || '',
-            avatar: (c.avatarUrls && c.avatarUrls.length) ? c.avatarUrls.length : 0,
-            avatarUrls: c.avatarUrls || [],
-            interests: c.interests || [],
-            selfIntro: c.selfIntro || ''
-          },
-          accountSelf: { name: 'ともね', age: 38, city: '三重・津市', traits: '美人系·巨乳·B型' },
-          chatHistory: [],
-          lastMsg: c.lastMsg || '',
-          lastTime: c.lastTime || '',
-          sourceHref: c.sourceHref || null,
-          ai: (c.ai && Array.isArray(c.ai.talks) && c.ai.talks.length) ? c.ai : buildPlaceholderAi(c),
-          state: 'PENDING',
-          selectedTalk: null,
-          tags: c.tags || [],
-          opLog: c.opLog || [],
-        };
-      });
-    }
-  } catch (e) { /* 网络失败 → 用 mock 兜底 */ }
-  // 兜底 mock（拉不到真实数据时，至少界面能跑）
-  return [
-    { id:'L1', platform:'ichigo', platformName:'出会', noRevoke:true, cat:'like', source:'点赞', memberId:null,
-      customer:{ name:'（拉取失败·示例）', age:'', city:'', avatar:0, avatarUrls:[], interests:[], selfIntro:'CDP 窗口未开，未能抓到真实线索。请开 17098 出会窗口后刷新。' },
-      accountSelf:{ name:'ともね', age:38, city:'三重・津市', traits:'美人系·巨乳·B型' },
-      chatHistory:[], lastMsg:'', lastTime:'', sourceHref:null, ai: buildPlaceholderAi({ name:'（拉取失败·示例）', interests:[], lastMsg:'', selfIntro:'CDP 窗口未开，未能抓到真实线索。' }), state:'PENDING', selectedTalk:null, tags:[], opLog:[] }
-  ];
-}
-
-// ============ 状态管理 ============
-
-// ============ 状态管理 ============
-var currentIdx = 0;
-var leads = [];          // 由 loadLeads() 异步填充
-var leadsLoaded = false;
-var queueItems = [];
-var pendingBlock = null;
-
-function now() { return new Date().toISOString().replace('T',' ').slice(0,19); }
-function operator() { return 'A'; }
 
 // ============ 渲染 ============
 function render() {
-  renderActiveCard();
-  renderQueue();
-  renderStats();
-  renderProgress();
-}
-
-function renderProgress() {
-  var el = document.getElementById('progress');
-  if (el) el.textContent = (currentIdx + 1) + ' / ' + leads.length + '（已处理 ' +
-    leads.filter(function(l) { return l.state !== 'PENDING'; }).length + '）';
-  var bar = document.getElementById('progressBar');
-  if (bar) {
-    var processed = leads.filter(function(l) { return l.state !== 'PENDING'; }).length;
-    bar.style.width = (processed / leads.length * 100) + '%';
-  }
-}
-function renderActiveCard() {
-  var deck = document.getElementById('cardDeck');
-  if (!deck) return;
-  if (!leadsLoaded) {
-    deck.innerHTML = '<div style="text-align:center;padding:60px;color:var(--muted)">加载中…（拉取 /card-leads 真实候选）</div>';
-    return;
-  }
+  if (!leadsLoaded) return;
   var l = leads[currentIdx];
-  if (!l || leads.length === 0) {
-    deck.innerHTML = '<div style="text-align:center;padding:60px;color:var(--muted)">（无候选卡片——CDP 窗口未开或线索池为空）<br><br><span style="color:var(--accent);font-size:13px">刷新本页面重新拉取</span> · 或开 17098 出会窗口后刷新</div>';
-    return;
+  if (!l) { setEmpty(); return; }
+  if (!l.ai || !l.ai.talks) l.ai = buildPlaceholderAi(l);
+  renderLeft(l); renderMid(l); renderRight(l); renderQueue();
+}
+
+function setEmpty() {
+  ['colLeft', 'colMid', 'colRight'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.innerHTML = '<div class="empty">（无候选——CDP 窗口未开或线索池为空）</div>';
+  });
+}
+
+function renderLeft(l) {
+  var el = document.getElementById('colLeft');
+  var isHappy = l.platform === 'happymail';
+  var interests = (l.customer.interests || []).map(function(x) { return '<span class="tag">' + x + '</span>'; }).join('');
+  var avatar = '';
+  if (l.customer.avatarUrls && l.customer.avatarUrls.length) {
+    avatar = '<img src="' + l.customer.avatarUrls[0] + '" style="width:48px;height:48px;border-radius:8px;object-fit:cover;border:1px solid var(--border)" onerror="this.style.display=\'none\'">';
+  } else {
+    avatar = '<div style="width:48px;height:48px;border-radius:8px;background:var(--panel2);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:11px">無写真</div>';
   }
-  var stateMap = { PENDING: 'pending', DRAFTED: 'drafted', QUEUED: 'queued', SENT: 'sent', SKIPPED: 'skipped', BLOCKED: 'blocked' };
-  var stateTextMap = { PENDING: '待处理', DRAFTED: '待发送', QUEUED: '排队中', SENT: '已发送', SKIPPED: '已跳过', BLOCKED: '已拉黑' };
-  // 防御：ai / customer 缺失时用占位对象，避免 null 引用崩渲染
-  if (!l.ai || !Array.isArray(l.ai.talks) || !l.ai.talks.length) l.ai = buildPlaceholderAi(l);
-  if (!l.customer) l.customer = { name: l.name || '（未名）', age: l.age || '', city: l.city || '', interests: l.interests || [], selfIntro: l.selfIntro || '' };
-  if (!l.accountSelf) l.accountSelf = { name: 'ともね', age: 38, city: '三重・津市', traits: '美人系·巨乳·B型' };
-  l.customer.interests = Array.isArray(l.customer.interests) ? l.customer.interests : [];
-  l.customer.selfIntro = l.customer.selfIntro || '';
-  l.customer.name = l.customer.name || '（未名）';
-
-  var talkHtml = l.ai.talks.map(function(t) {
-    return '<div class="talk ' + (l.selectedTalk === t.key ? 'selected' : '') + '">'
-      + '<span class="key">' + t.key + '</span>'
-      + '<div class="content"><div class="jp">「' + t.textJp + '」</div>'
-      + '<div class="zh">“' + t.textZh + '”（中） · ' + t.intent + ' · conf' + t.conf + '</div></div>'
-      + '</div>';
-  }).join('');
-
-  var chatHtml = l.chatHistory.map(function(m) {
-    var cls = m.dir === 'recv' ? 'recv' : 'send';
-    var who = m.dir === 'recv' ? '彼:' : '私:';
-    return '<div class="msg ' + cls + '"><div class="jp">' + who + '「' + m.textJp + '」</div>'
-      + '<div class="zh">' + m.textZh + '</div><div class="time">' + m.at + '</div></div>';
-  }).join('');
-
-  var interests = (l.customer.interests || []).map(function(x) {
-    return '<span class="tag">' + x + '</span>';
-  }).join('');
-  var tags = (l.tags || []).map(function(t) {
-    return '<span style="font-size:10px;color:var(--orange);margin-left:4px">#' + t + '</span>';
-  }).join('');
-  var noRevokeHtml = l.noRevoke
-    ? '<div class="no-revoke">⚠ 出会：发出后不可撤回</div>'
-    : '<div style="font-size:11px;color:var(--green);margin-top:4px">✓ 快乐：发出后可撤回</div>';
-
-  var avatars = '';
-  for (var a = 1; a <= Math.min(l.customer.avatar, 3); a++) {
-    avatars += '<div class="avatar">写真' + a + '</div>';
-  }
-
-  var recKey2 = (l.ai && l.ai.recommendedKey) ? l.ai.recommendedKey : 'A';
-  var recTalk2 = (l.ai && l.ai.talks ? l.ai.talks.filter(function(t){ return t.key === recKey2; })[0] : null);
-  var lastMsgHtml = l.lastMsg
-    ? '<div class="last-msg"><div class="lm-jp">最后：「' + l.lastMsg + '」</div><div class="lm-time">' + (l.lastTime || '') + '</div></div>'
-    : '';
-  var srcBadge = l.source ? '<span class="src-badge">来源:' + l.source + '</span>' : '';
-  var onlineDot = l.onlineIcon
-    ? '<span class="online-dot ' + String(l.onlineIcon).replace('online-icon','tier') + '"></span>'
-    : '';
-
-  deck.innerHTML = '<div class="card single" id="card-' + l.id + '">'
-    + '<div class="rec-banner">'
-    +   '<span class="rb-label">⚡ AI 推荐</span>'
-    +   '<span class="rb-key">' + recKey2 + '</span>'
-    +   (recTalk2 ? '<span class="rb-text">「' + recTalk2.textJp + '」</span>' : '')
-    +   '<span class="rb-conf">conf ' + (recTalk2 ? recTalk2.conf : '-') + '</span>'
-    +   '<span class="rb-hint">按 ' + recKey2 + ' 一键入待发送</span>'
+  el.innerHTML =
+    '<div class="plate"><h4>平台 / 撤回性</h4>'
+    + '<span class="badge ' + l.platform + '">' + (isHappy ? '快乐 happymail' : '出会 ichigo') + '</span>'
+    + '<span class="badge ' + (l.noRevoke ? 'no-revoke' : 'revoke') + '">' + (l.noRevoke ? '⚠ 出会·不可撤回' : '✓ 快乐·可撤回') + '</span>'
+    + '<div style="font-size:10px;color:var(--muted);margin-top:5px">来源: ' + (l.source || '—') + '</div></div>'
+    + '<div class="plate"><h4>客户</h4>'
+    + '<div style="display:flex;gap:10px;align-items:center">' + avatar
+    + '<div><div class="n">' + l.customer.name + '</div><div class="m">'
+    + (l.customer.age ? l.customer.age + ' · ' : '') + (l.customer.city || '') + '</div></div></div>'
+    + (l.onlineIcon ? '<div style="margin-top:6px;font-size:11px;color:var(--green)">● 在线(' + l.onlineIcon + ')</div>' : '')
     + '</div>'
-    + '<div class="card-body">'
-    +   '<div class="card-col col-left">'
-    +     '<div class="ident">'
-    +       '<div class="platform-badge ' + l.platform + '">' + l.platformName + ' ' + srcBadge + '</div>'
-    +       '<div class="avatar-row">' + avatars + onlineDot + '</div>'
-    +       noRevokeHtml
-    +     '</div>'
-    +     '<div class="who">'
-    +       '<div class="who-name">' + l.customer.name + '</div>'
-    +       '<div class="who-meta">' + (l.customer.age ? l.customer.age + '歳' : '') + ' ' + (l.customer.city ? l.customer.city : '') + '</div>'
-    +       '<span class="status-badge ' + stateMap[l.state] + '">' + stateTextMap[l.state] + '</span>'
-    +       tags
-    +     '</div>'
-    +     lastMsgHtml
-    +   '</div>'
-    +   '<div class="card-col col-mid">'
-    +     '<div class="profile-cell"><h5>客户资料 / 兴趣</h5><p>' + (interests || '<span style="color:var(--muted)">（无兴趣数据）</span>') + '</p>'
-    +     '<p class="intro">自己紹介: ' + (l.customer.selfIntro ? l.customer.selfIntro.slice(0, 80) : '（无）') + '</p></div>'
-    +     '<div class="profile-cell me"><h5>我方账号（' + l.accountSelf.name + '）</h5>'
-    +     '<p>' + l.accountSelf.age + '歳 · ' + l.accountSelf.city + '</p>'
-    +     '<p class="traits">' + l.accountSelf.traits + '</p></div>'
-    +     '<div class="ai-section"><h5>🧠 心理分析</h5><p>' + l.ai.analysis + '</p></div>'
-    +     '<div class="ai-section"><h5>🎯 应对策略</h5><p>' + l.ai.strategy + '</p></div>'
-    +     (l.chatHistory.length ? '<div class="chat-history"><h5>💬 聊天记录（原文/译文）</h5>' + chatHtml + '</div>' : '')
-    +   '</div>'
-    +   '<div class="card-col col-right">'
-    +     '<div class="talks"><h5>💬 话术 A-D（原文+译文 · 按键入待发送）</h5>' + talkHtml + '</div>'
-    +   '</div>'
-    + '</div>'
+    + '<div class="plate"><h4>兴趣重合</h4><div class="interests">' + (interests || '<span style="color:var(--muted);font-size:11px">（无兴趣数据）</span>') + '</div></div>'
+    + '<div class="plate"><h4>我方人设（' + l.accountSelf.name + '）</h4>'
+    + '<div class="m">' + l.accountSelf.age + '歳 · ' + l.accountSelf.city + '</div>'
+    + '<div class="m" style="color:var(--purple)">' + l.accountSelf.traits + '</div></div>'
+    + '<div class="plate"><h4>自己紹介</h4>'
+    + '<p style="font-size:12px;line-height:1.5;color:var(--text)">' + (l.customer.selfIntro ? l.customer.selfIntro.slice(0, 200) : '<span style="color:var(--muted)">（无）</span>') + '</p></div>';
+}
+
+function renderMid(l) {
+  var el = document.getElementById('colMid');
+  var ai = l.ai || {};
+  var chat = (l.chatHistory || []).slice(-5).map(function(m) {
+    var who = (m.who === 'me' || m.dir === 'send') ? '私:' : '彼:';
+    var jp = m.textJp || m.text || '';
+    var zh = m.zh || m.textZh || '';
+    var t = m.at || m.time || '';
+    return '<div class="mline"><div class="jp">' + who + ' 「' + jp + '」</div>'
+      + (zh ? '<div class="zh">' + zh + '</div>' : '')
+      + (t ? '<div class="t">' + t + '</div>' : '') + '</div>';
+  }).join('');
+  el.innerHTML =
+    '<div class="ai-box"><h5>🧠 心理分析</h5><p>' + (ai.analysis || '<span style="color:var(--muted)">按 4 键生成…</span>') + '</p></div>'
+    + '<div class="ai-box"><h5>🎯 应对策略</h5><p>' + (ai.strategy || '<span style="color:var(--muted)">按 4 键生成…</span>') + '</p></div>'
+    + '<div class="chat"><h5>💬 最近 5 轮对话（日原文 + 中译文）</h5>'
+    + (chat ? chat : '<div style="color:var(--muted);font-size:11px;padding:10px;text-align:center">（暂无聊天记录——未开聊或无数据）</div>')
     + '</div>';
 }
-function renderCard(l, i) {
-  var active = i === currentIdx ? ' active' : '';
-  var sent = l.state === 'SENT' ? ' sent' : '';
-  var talkHtml = l.ai.talks.map(function(t) {
-    return '<div class="talk ' + (l.selectedTalk === t.key ? 'selected' : '') + '" data-key="' + t.key + '" data-idx="' + i + '">'
-      + '<span class="key">' + t.key + '</span>'
-      + '<div class="content"><div class="jp">「' + t.textJp + '」</div>'
-      + '<div class="zh">"' + t.textZh + '"（中） · ' + t.intent + ' conf' + t.conf + '</div></div>'
+
+function renderRight(l) {
+  var el = document.getElementById('colRight');
+  var ai = l.ai || buildPlaceholderAi(l);
+  var talks = (ai.talks || []).map(function(t) {
+    return '<div class="talk ' + (l.selectedTalk === t.key ? 'sel' : '') + '" data-key="' + t.key + '">'
+      + '<div class="head"><span class="key">' + t.key + '</span><span class="intent">' + (t.intent || 'reply') + '</span>'
+      + '<span class="conf">conf ' + (t.conf != null ? t.conf : '-') + '</span></div>'
+      + '<div class="jp">「' + t.textJp + '」</div>'
+      + (t.textZh ? '<div class="zh">' + t.textZh + '</div>' : '')
       + '</div>';
   }).join('');
-  var chatHtml = l.chatHistory.map(function(m) {
-    var cls = m.dir === 'recv' ? 'recv' : 'send';
-    var who = m.dir === 'recv' ? '彼:' : '私:';
-    return '<div class="msg ' + cls + '"><div class="jp">' + who + '「' + m.textJp + '」</div>'
-      + '<div class="zh">' + m.textZh + '</div><div class="time">' + m.at + '</div></div>';
-  }).join('');
-  var interests = (l.customer.interests || []).map(function(x) {
-    return '<span class="tag">' + x + '</span>';
-  }).join('');
-  var tags = (l.tags || []).map(function(t) {
-    return '<span style="font-size:10px;color:var(--orange);margin-left:4px">#' + t + '</span>';
-  }).join('');
-  var noRevokeHtml = l.noRevoke
-    ? '<div class="no-revoke">⚠ 出会：发出后不可撤回</div>'
-    : '<div style="font-size:11px;color:var(--green);margin-top:4px">✓ 快乐：发出后可撤回</div>';
-  var avatars = '';
-  for (var a = 1; a <= Math.min(l.customer.avatar, 3); a++) {
-    avatars += '<div class="avatar">写真' + a + '</div>';
-  }
-  return '<div class="card' + active + sent + '" data-idx="' + i + '" id="card-' + l.id + '">'
-    + '<div class="card-block">'
-    + '<div class="card-left">'
-    + '<div class="platform-badge ' + l.platform + '">' + l.platformName + '</div>'
-    + '<div class="avatar-row">' + avatars + '</div>'
-    + noRevokeHtml
-    + '</div>'
-    + '<div class="card-mid">'
-    + '<h4>' + l.customer.name + ' · ' + l.customer.age + '歳 · ' + l.customer.city
-    + ' <span class="status-badge ' + l.state.toLowerCase() + '">' + getStateText(l.state) + '</span>'
-    + tags
-    + '</h4>'
-    + '<div class="profile-grid">'
-    + '<div class="profile-cell"><h5>客户资料</h5><p>' + interests + '</p>'
-    + '<p style="color:var(--muted);margin-top:4px">自己紹介: ' + l.customer.selfIntro.slice(0, 40) + '…</p></div>'
-    + '<div class="profile-cell"><h5>我方账号（' + l.accountSelf.name + '）</h5>'
-    + '<p>' + l.accountSelf.age + '歳 · ' + l.accountSelf.city + '</p>'
-    + '<p style="color:var(--muted);margin-top:4px">' + l.accountSelf.traits + '</p></div>'
-    + '</div>'
-    + '<div class="ai-section"><h5>🧠 心理分析 <span style="font-size:10px;color:var(--muted);margin-left:auto">点击折叠</span></h5><p>' + l.ai.analysis + '</p></div>'
-    + '<div class="ai-section"><h5>🎯 应对策略</h5><p>' + l.ai.strategy + '</p></div>'
-    + (l.chatHistory.length ? '<div class="chat-history"><h5>💬 聊天记录（原文/译文）</h5>' + chatHtml + '</div>' : '')
-    + '<div class="talks"><h5>💬 话术选项（日语原文 + 中文译文）</h5>' + talkHtml + '</div>'
-    + '<div class="card-actions">'
-    + '<button data-action="1" class="a1">1·标记</button>'
-    + '<button data-action="2" class="a2">2·拉黑</button>'
-    + '<button data-action="3" class="a3">3·跳过</button>'
-    + '<button data-action="4" class="a4">4·重新生成</button>'
-    + '<button data-action="5" class="a5">5·AI对话</button>'
-    + '<button data-action="6" class="a6">6·展开</button>'
-    + '</div>'
-    + '</div></div></div>';
+  el.innerHTML = '<div style="font-size:11px;color:var(--muted);margin-bottom:8px">💬 话术 A-D（日原文 + 中译文 · 按 A~D 入队滑卡）</div>'
+    + (talks || '<div class="empty">（按 4 键生成话术）</div>')
+    + '<div style="margin-top:10px;font-size:11px;color:var(--muted);line-height:1.8">'
+    + '<kbd style="background:var(--panel2);border:1px solid var(--border);border-radius:3px;padding:1px 5px;font-size:10px">A</kbd>~'
+    + '<kbd style="background:var(--panel2);border:1px solid var(--border);border-radius:3px;padding:1px 5px;font-size:10px">D</kbd> 选话术入待发送队列（20s±10s 浮动串行）'
+    + '<br><kbd style="background:var(--panel2);border:1px solid var(--border);border-radius:3px;padding:1px 5px;font-size:10px">4</kbd> 重新生成 · '
+    + '<kbd style="background:var(--panel2);border:1px solid var(--border);border-radius:3px;padding:1px 5px;font-size:10px">5</kbd> AI 对话微调</div>';
 }
 
 function renderQueue() {
-  var panel = document.getElementById('queuePanel');
-  var items = queueItems.slice();
-  var active = items.filter(function(q) { return q.status === 'queued' || q.status === 'pending'; });
-  panel.innerHTML = '<h3>⏳ 待发送队列（' + active.length + ' 待发）</h3>' + items.map(function(q) {
+  // 顶栏统计
+  var active = queueItems.filter(function(q) { return q.status === 'queued' || q.status === 'pending'; });
+  document.getElementById('qCount').textContent = active.length;
+  var next = active[0];
+  document.getElementById('qNext').textContent = next ? ('下条 ' + countdown(next.scheduledAt) + ' 后') : '';
+  // 底部队列条
+  var qbar = document.getElementById('qbar');
+  qbar.innerHTML = active.slice(0, 6).map(function(q) {
     var l = leads.find(function(x) { return x.id === q.leadId; });
     var name = l ? l.customer.name : q.leadId;
-    return '<div class="queue-item"><span>' + name + ' · ' + q.talkKey + '</span>'
-      + '<span class="qstatus ' + q.status + '">' + (q.status === 'sent' ? '已发' : q.status === 'skipped' ? '跳过' : q.status === 'blocked' ? '拉黑' : '排队') + '</span></div>';
+    var cancelBtn = '<span class="cancel" onclick="cancelQueueItem(\'' + q.id + '\')">×</span>';
+    var revokeBtn = (q.platform === 'happymail' && q.status === 'sent') ? '<span class="revoke" onclick="revokeQueueItem(\'' + q.id + '\')">↩撤回</span>' : '';
+    return '<div class="qitem"><span>' + name + ' · 话术' + q.talkKey + '</span>'
+      + '<span class="timer">' + countdown(q.scheduledAt) + '</span>' + cancelBtn + revokeBtn + '</div>';
   }).join('');
 }
 
-function renderStats() {
-  var queued = queueItems.filter(function(q) { return q.status === 'queued' || q.status === 'pending'; }).length;
-  var sent = queueItems.filter(function(q) { return q.status === 'sent'; }).length;
-  var skipped = queueItems.filter(function(q) { return q.status === 'skipped'; }).length;
-  document.getElementById('queueStats').innerHTML =
-    '<span>' + queued + '</span> 待发 · <span>' + sent + '</span> 已发 · <span>' + skipped + '</span> 跳过';
+function countdown(ts) {
+  if (!ts) return '-';
+  var diff = new Date(ts) - Date.now();
+  if (diff <= 0) return '0s';
+  var s = Math.ceil(diff / 1000);
+  return s + 's';
 }
+
+// 撤出队列(调后端 /card/send-queue/cancel)
+function cancelQueueItem(id) {
+  var q = queueItems.find(function(x) { return x.id === id; });
+  if (!q) return;
+  queueItems = queueItems.filter(function(x) { return x.id !== id; });
+  renderQueue();
+  fetch('/api/console/card/send-queue/cancel?id=' + encodeURIComponent(id), { method: 'POST', headers: { 'Content-Type': 'application/json' } })
+    .then(function(r) { return r.json(); }).then(function(d) {
+      if (d && d.ok) { /* 已撤出 */ }
+    }).catch(function() {});
+}
+
+// 快乐平台撤回(调后端 /card/send-queue/revoke)
+function revokeQueueItem(id) {
+  fetch('/api/console/card/send-queue/revoke?id=' + encodeURIComponent(id), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ result: 'user-revoke' }) })
+    .then(function(r) { return r.json(); }).then(function(d) {
+      if (d && d.ok) {
+        var q = queueItems.find(function(x) { return x.id === id; });
+        if (q) q.status = 'revoked';
+        renderQueue();
+      }
+    }).catch(function() {});
+}
+
+// 加载后端队列快照
+function loadQueueSnapshot() {
+  fetch('/api/console/card/send-queue?status=pending&limit=50')
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d.ok && Array.isArray(d.queue)) {
+        queueItems = d.queue.map(function(q) {
+          return {
+            id: q.queueId, leadId: q.conversationId, talkKey: q.talkIntent || '',
+            talkText: q.talkText, scheduledAt: q.scheduledAt, status: q.status,
+            platform: q.platform
+          };
+        });
+        renderQueue();
+      }
+    }).catch(function() {});
+}
+
+// 窗口状态灯(轮询 /window/status, 90s 降频防 BitBrowser 限频)
+function refreshWindows() {
+  ['17098', '18595'].forEach(function(wid) {
+    fetch('/api/console/window/status?windowId=' + wid)
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        var el = document.getElementById('win' + wid);
+        if (!el) return;
+        var isOpen = d && (d.isOpen === true || d.open === true);
+        el.className = 'win-pill ' + (isOpen ? 'open' : 'closed');
+      }).catch(function() {});
+  });
+}
+setInterval(refreshWindows, 90000); // 90s 降频(§9 BitBrowser 限频)
+
+// 队列倒计时刷新(1s 一次)
+setInterval(function() { renderQueue(); }, 1000);
 
 // ============ 操作处理 ============
 function selectTalk(idx, talkKey) {
   var l = leads[idx];
-  if (l.state === 'SENT' || l.state === 'BLOCKED') return;
+  if (!l || l.state === 'SENT' || l.state === 'BLOCKED') return;
+  var talk = (l.ai && l.ai.talks ? l.ai.talks.find(function(t) { return t.key === talkKey; }) : null);
+  if (!talk) { generateTalks(l, 'reply'); return; }
   l.selectedTalk = talkKey;
   l.state = 'DRAFTED';
-  var talk = l.ai.talks.find(function(t) { return t.key === talkKey; });
-  // 入队列（如果还没入）
-  var exists = queueItems.find(function(q) { return q.leadId === l.id && q.status !== 'sent' && q.status !== 'skipped'; });
-  if (!exists) {
-    var delay = 20 + Math.floor(Math.random() * 11); // 20-30s
-    var sched = new Date(Date.now() + delay * 1000);
-    queueItems.push({
-      leadId: l.id, talkKey: talkKey,
-      talkJp: talk.textJp, talkZh: talk.textZh,
-      scheduledAt: sched.toISOString().replace('T', ' ').slice(0, 16),
-      status: 'queued',
-    });
-  }
-  l.opLog.push({ op: 'select-talk', operator: operator(), at: now(), note: '选 ' + talkKey + '「' + talk.textJp.slice(0, 10) + '…」' });
-  // 自动滑到下一张
+  l.opLog.push({ op: 'select-talk', at: now(), note: '选 ' + talkKey + '「' + talk.textJp.slice(0, 12) + '…」' });
+  // 入后端 SendQueue(20s±10s 浮动串行)
+  enqueueToBackend(l, talk, talkKey);
   currentIdx = Math.min(idx + 1, leads.length - 1);
   render();
+}
+
+function enqueueToBackend(l, talk, talkKey) {
+  fetch('/api/console/card/send-queue', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      conversationId: l.id, platform: l.platform,
+      accountId: l.platform === 'happymail' ? '18595' : '17098',
+      contactKey: l.memberId || l.id,
+      talkText: talk.textJp, talkZh: talk.textZh, talkIntent: talk.intent, talkConfidence: talk.conf
+    })
+  }).then(function(r) { return r.json(); }).then(function(d) {
+    if (d.ok && d.queue) {
+      queueItems.push({
+        id: d.queue.queueId, leadId: l.id, talkKey: talkKey,
+        talkText: talk.textJp, scheduledAt: d.queue.scheduledAt,
+        status: d.queue.status, platform: l.platform
+      });
+      renderQueue();
+    }
+  }).catch(function() {});
 }
 
 function handleAction(idx, action) {
   var l = leads[idx];
   switch (action) {
-    case '1': // 标记 - 不滑卡
+    case '1':
+      l.tags = l.tags || [];
       if (l.tags.indexOf('重点') === -1) l.tags.push('重点');
-      l.opLog.push({ op: 'mark', operator: operator(), at: now(), note: '标记为重点跟进' });
+      l.opLog.push({ op: 'mark', at: now(), note: '标记为重点跟进' });
       render();
       break;
-    case '2': // 拉黑 - 需二次确认
+    case '2':
       pendingBlock = idx;
-      document.getElementById('blockTargetName').textContent = l.customer.name + ' · ' + l.customer.age + '歳';
-      document.getElementById('blockOverlay').classList.remove('hidden');
+      document.getElementById('blockTargetName').textContent = l.customer.name + ' · ' + (l.customer.age || '');
+      document.getElementById('blockOverlay').classList.add('show');
       break;
-    case '3': // 跳过 - 挪队尾 + 记日志 + 滑卡
+    case '3':
       l.state = 'SKIPPED';
-      var qi = queueItems.findIndex(function(q) { return q.leadId === l.id; });
-      if (qi !== -1) {
-        var item = queueItems.splice(qi, 1)[0];
-        item.status = 'skipped';
-        queueItems.push(item);
-      }
-      l.opLog.push({ op: 'skip', operator: operator(), at: now(), note: '【暂不回复】跳过，挪到队尾' });
+      var qi = queueItems.findIndex(function(q) { return q.leadId === l.id && q.status !== 'sent' && q.status !== 'skipped'; });
+      if (qi !== -1) queueItems.splice(qi, 1);
+      l.opLog.push({ op: 'skip', at: now(), note: '跳过' });
       currentIdx = Math.min(idx + 1, leads.length - 1);
       render();
       break;
-    case '4': // 重新生成（mock：随机调整置信度）
-      l.ai.talks = l.ai.talks.map(function(t) {
-        return { key: t.key, intent: t.intent, textJp: t.textJp, textZh: t.textZh,
-          conf: Math.max(0.1, Math.min(1, t.conf + (Math.random() - 0.5) * 0.15)).toFixed(2) };
-      });
-      l.opLog.push({ op: 'regen', operator: operator(), at: now(), note: '重新生成话术' });
-      render();
+    case '4':
+      generateTalks(l, 'reply', '');
       break;
-    case '5': // AI 对话（mock）
-      alert('🤖 AI 对话（mock）\n\n你："更活泼一点，强调兴趣重合"\nAI："收到，已重新生成 4 条更活泼的话术（见 A-D）"\n\n（真实版将接 assistant.js）');
-      l.opLog.push({ op: 'ai-dialog', operator: operator(), at: now(), note: '与 AI 对话微调话术' });
-      render();
+    case '5':
+      pendingAdjust = idx;
+      document.getElementById('adjustNote').value = '';
+      document.getElementById('adjustOverlay').classList.add('show');
       break;
-    case '6': // 展开/收起
-      var card = document.getElementById('card-' + l.id);
-      if (card) {
-        Array.from(card.querySelectorAll('.ai-section')).forEach(function(s) {
-          s.classList.remove('collapsed');
-        });
-      }
-      render();
+    case '6':
+      // 展开: 滚动到全部
+      document.querySelectorAll('.col').forEach(function(c) { c.scrollTop = 0; });
       break;
   }
 }
 
 function confirmBlock() {
-  if (pendingBlock !== null) {
-    var l = leads[pendingBlock];
-    l.state = 'BLOCKED';
-    l.opLog.push({ op: 'block', operator: operator(), at: now(), note: '拉黑 ' + l.customer.name });
-    var qi = queueItems.findIndex(function(q) { return q.leadId === l.id; });
-    if (qi !== -1) queueItems[qi].status = 'blocked';
-    var nextIdx = pendingBlock;
-    pendingBlock = null;
-    document.getElementById('blockOverlay').classList.add('hidden');
-    currentIdx = Math.min(nextIdx + 1, leads.length - 1);
-    render();
-  }
+  if (pendingBlock === null) return;
+  var l = leads[pendingBlock];
+  l.state = 'BLOCKED';
+  l.opLog.push({ op: 'block', at: now(), note: '拉黑 ' + l.customer.name });
+  document.getElementById('blockOverlay').classList.remove('show');
+  // 调后端 /card/block(落库 Contact.blacklisted + OperationLog)
+  fetch('/api/console/card/block', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ conversationId: l.id, contactId: l.memberId || l.id, platform: l.platform, accountId: l.platform === 'happymail' ? '18595' : '17098', reason: 'card-deck 2键拉黑' })
+  }).catch(function() {});
+  pendingBlock = null;
+  currentIdx = Math.min(pendingBlock + 1, leads.length - 1);
+  render();
 }
 function cancelBlock() {
   pendingBlock = null;
-  document.getElementById('blockOverlay').classList.add('hidden');
+  document.getElementById('blockOverlay').classList.remove('show');
+}
+
+// 微调(5键)
+function doAdjust() {
+  if (pendingAdjust === null) return;
+  var l = leads[pendingAdjust];
+  var note = document.getElementById('adjustNote').value.trim();
+  document.getElementById('adjustOverlay').classList.remove('show');
+  generateTalks(l, 'reply', note);
+  pendingAdjust = null;
+}
+function cancelAdjust() {
+  document.getElementById('adjustOverlay').classList.remove('show');
+  pendingAdjust = null;
 }
 
 // ============ 键盘快捷键 ============
@@ -405,6 +405,10 @@ document.addEventListener('keydown', function(e) {
   if (pendingBlock !== null) {
     if (k === 'y') { e.preventDefault(); confirmBlock(); }
     if (k === 'escape') { e.preventDefault(); cancelBlock(); }
+    return;
+  }
+  if (pendingAdjust !== null) {
+    if (k === 'escape') { e.preventDefault(); cancelAdjust(); }
     return;
   }
   switch (k) {
@@ -424,69 +428,12 @@ document.addEventListener('keydown', function(e) {
   }
 });
 
-// 导航切换
-Array.from(document.querySelectorAll('.nav-item')).forEach(function(n) {
-  n.addEventListener('click', function() {
-    Array.from(document.querySelectorAll('.nav-item')).forEach(function(x) { x.classList.remove('active'); });
-    n.classList.add('active');
-    var view = n.dataset.view;
-    var deck = document.getElementById('cardDeck');
-    var toolbar = document.getElementById('toolbar');
-    if (view === 'deck') {
-      deck.style.display = 'flex';
-      toolbar.style.display = 'flex';
-      render();
-    } else {
-      deck.style.display = 'block';
-      toolbar.style.display = 'none';
-      if (view === 'queue') {
-        deck.innerHTML = '<h2 style="font-size:16px;margin-bottom:12px;color:var(--accent)">⏳ 待发送队列</h2>' +
-          queueItems.map(function(q) {
-            var l = leads.find(function(x) { return x.id === q.leadId; });
-            return '<div style="padding:8px 12px;border-bottom:1px solid var(--border)"><strong>'
-              + (l ? l.customer.name : q.leadId) + '</strong> · 话术' + q.talkKey + ' · ' + q.status + ' · 计划 ' + q.scheduledAt + '</div>';
-          }).join('') || '<div style="padding:16px;color:var(--muted)">暂无待发送项</div>';
-      }
-      if (view === 'log') {
-        var allLog = leads.flatMap(function(l) {
-          return l.opLog.map(function(e) { return { op: e.op, operator: e.operator, at: e.at, note: e.note, leadId: l.id, name: l.customer.name }; });
-        });
-        deck.innerHTML = '<h2 style="font-size:16px;margin-bottom:12px;color:var(--accent)">📝 操作日志</h2>' +
-          allLog.map(function(e) {
-            return '<div style="padding:6px 12px;border-bottom:1px solid var(--border);font-size:12px">'
-              + e.at + ' · 操作员' + e.operator + ' · <strong>' + e.name + '</strong> · 【' + e.note + '】</div>';
-          }).join('') || '<div style="padding:16px;color:var(--muted)">暂无操作日志</div>';
-      }
-      if (view === 'help') {
-        deck.innerHTML = '<h2 style="font-size:16px;margin-bottom:12px;color:var(--accent)">❓ 快捷键说明</h2><div style="padding:16px;font-size:13px;line-height:2.2">'
-          + '<kbd style="background:var(--panel2);border-radius:4px;padding:2px 6px">A</kbd>~<kbd style="background:var(--panel2);border-radius:4px;padding:2px 6px">D</kbd> 选话术 → 待发送（自动滑卡）<br>'
-          + '<kbd style="background:var(--panel2);border-radius:4px;padding:2px 6px">1</kbd> 标记（不滑卡） · '
-          + '<kbd style="background:var(--panel2);border-radius:4px;padding:2px 6px">2</kbd> 拉黑（需 Y 确认） · '
-          + '<kbd style="background:var(--panel2);border-radius:4px;padding:2px 6px">3</kbd> 跳过（挪队尾+记日志）<br>'
-          + '<kbd style="background:var(--panel2);border-radius:4px;padding:2px 6px">4</kbd> 重新生成 · '
-          + '<kbd style="background:var(--panel2);border-radius:4px;padding:2px 6px">5</kbd> AI 对话 · '
-          + '<kbd style="background:var(--panel2);border-radius:4px;padding:2px 6px">6</kbd> 展开分析<br>'
-          + '<kbd style="background:var(--panel2);border-radius:4px;padding:2px 6px">→</kbd>/<kbd style="background:var(--panel2);border-radius:4px;padding:2px 6px">Space</kbd> 下一张 · '
-          + '<kbd style="background:var(--panel2);border-radius:4px;padding:2px 6px">←</kbd> 上一张<br>'
-          + '<br>发送节奏：每 20 秒 ± 0-10 秒浮动（后台队列池串行发）</div>';
-      }
-    }
-  });
-});
-
 window.onerror = function(msg, src, line, col, err) {
   try {
-    var el = document.getElementById('cardDeck');
-    if (el) el.innerHTML = '<div style="padding:20px;color:#ef4444;font-family:monospace;font-size:12px">JS 错误: ' + msg + ' @ ' + line + ':' + col + '<br>' + (err && err.stack ? err.stack.split('\n').slice(0,5).join('<br>') : '') + '</div>';
+    var el = document.getElementById('colMid');
+    if (el) el.innerHTML = '<div style="padding:20px;color:#ef4444;font-family:monospace;font-size:12px">JS 错误: ' + msg + '</div>';
   } catch (_) {}
-  console.error('[card-deck] onerror:', msg, src, line, col, err && err.stack);
+  console.error('[card-deck] onerror:', msg);
 };
-loadLeads().then(function(list) {
-  leads = list;
-  leadsLoaded = true;
-  render();
-}).catch(function(e) {
-  leadsLoaded = true;
-  render();
-});
 
+loadLeads();

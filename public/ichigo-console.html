@@ -486,6 +486,49 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 .ai-hist-entry .hi-role{ font-size:10px; padding:0 4px; border-radius:4px; background:var(--panel,#1b1e28); color:var(--muted,#888); }
 .ai-hist-entry .hi-text{ margin-top:3px; line-height:1.4; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 /* H2 · 平台切换控件（出会/快乐 分段按钮） */
+
+/* 卡片流整合样式 */
+.cf-page .cf-main{position:relative}
+.cf-col{padding:10px 12px;overflow-y:auto;min-height:0}
+.cf-left{background:rgba(26,29,39,.4);border-right:1px solid var(--border,#2d3140)}
+.cf-mid{background:var(--panel,#1a1d27)}
+.cf-right{background:rgba(26,29,39,.4);border-left:1px solid var(--border,#2d3140)}
+.cf-plate{background:var(--panel2,#22252f);border-radius:8px;padding:9px 11px;margin-bottom:9px}
+.cf-plate h4{font-size:11px;color:var(--muted,#8b8fa3);margin-bottom:5px;font-weight:600}
+.cf-badge{display:inline-block;font-size:10px;padding:1px 7px;border-radius:4px;margin-right:4px}
+.cf-badge.ichigo{background:rgba(79,140,255,.15);color:#4f8cff}
+.cf-badge.happymail{background:rgba(52,195,143,.15);color:#34c38f}
+.cf-badge.no-rev{background:rgba(239,68,68,.15);color:#ef4444}
+.cf-badge.rev{background:rgba(52,195,143,.15);color:#34c38f}
+.cf-tag{display:inline-block;background:var(--panel2,#22252f);border-radius:4px;padding:1px 6px;font-size:10px;color:var(--muted,#8b8fa3);margin:0 4px 3px 0}
+.cf-ai{background:var(--panel2,#22252f);border-radius:8px;padding:8px 10px;margin-bottom:8px}
+.cf-ai h5{font-size:11px;color:var(--purple,#a78bfa);margin-bottom:4px;font-weight:600}
+.cf-ai p{font-size:12px;line-height:1.5}
+.cf-chat{background:var(--panel2,#22252f);border-radius:8px;padding:8px 10px}
+.cf-chat h5{font-size:11px;color:var(--muted,#8b8fa3);margin-bottom:6px}
+.cf-mline{margin-bottom:7px;font-size:11px;line-height:1.4}
+.cf-jp{color:var(--text,#e8eaed)}
+.cf-zh{color:var(--accent,#4f8cff);font-size:11px;margin-top:2px;padding-left:8px;border-left:2px solid rgba(79,140,255,.3)}
+.cf-t{color:var(--muted,#8b8fa3);font-size:10px;margin-top:2px}
+.cf-talk{background:var(--panel2,#22252f);border:1px solid var(--border,#2d3140);border-radius:8px;padding:8px 10px;margin-bottom:8px}
+.cf-talk.sel{border-color:var(--accent,#4f8cff);background:rgba(79,140,255,.12)}
+.cf-talkhead{display:flex;align-items:center;gap:7px;margin-bottom:5px}
+.cf-key{font-size:14px;font-weight:800;color:var(--accent,#4f8cff);width:18px}
+.cf-intent{font-size:11px;color:var(--orange,#fb923c);flex:1}
+.cf-conf{font-size:10px;color:var(--muted,#8b8fa3)}
+.cf-progress{display:flex;align-items:center;gap:10px;padding:6px 14px;background:var(--panel,#1a1d27);border-top:1px solid var(--border,#2d3140);font-size:11px;color:var(--muted,#8b8fa3)}
+.cf-bar{flex:1;height:4px;background:var(--panel2,#22252f);border-radius:2px;overflow:hidden}
+.cf-bar div{height:100%;background:var(--accent,#4f8cff);transition:width .3s}
+.cf-toolbar{display:flex;align-items:center;gap:10px;padding:6px 14px;background:var(--panel,#1a1d27);border-top:1px solid var(--border,#2d3140);flex-wrap:wrap}
+.cf-hint{font-size:10px;color:var(--muted,#8b8fa3)}
+.cf-hint kbd{background:var(--panel2,#22252f);border:1px solid var(--border,#2d3140);border-radius:4px;padding:1px 5px;font-family:monospace;font-size:10px;color:var(--accent,#4f8cff)}
+.cf-queue{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;max-width:60%}
+.cf-qitem{display:flex;align-items:center;gap:5px;font-size:11px;background:var(--panel2,#22252f);border:1px solid var(--border,#2d3140);border-radius:6px;padding:3px 9px}
+.cf-timer{color:var(--yellow,#fbbf24);font-weight:700}
+.cf-cancel{color:var(--muted,#8b8fa3);cursor:pointer;font-size:10px}
+.cf-cancel:hover{color:#ef4444}
+.cf-rev{color:#34c38f;cursor:pointer;font-size:10px;margin-left:4px}
+.cf-overlay.show{display:flex !important}
 </style>
 <script>
 // 防闪烁：首屏渲染前就确定主题（localStorage → 系统偏好 → 黑夜）
@@ -550,6 +593,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
         <div class="nav-item" data-view="domain-diary">日记</div>
         <div class="nav-item" data-view="domain-unified">📋 统一待办</div>
           <div class="nav-item" data-view="domain-leads">🎯 线索池</div>
+          <div class="nav-item" data-view="cards">⚡ 卡片流（批处理）</div>
           <div class="nav-item" data-view="domain-toolbox">🧰 工具箱（备忘/日历/模板）</div>
           <div class="nav-item" data-view="domain-pool">🖥 账号池/窗口池</div>
 
@@ -837,6 +881,9 @@ import { initMain } from './ichigo-assets/main.js';
 document.addEventListener('DOMContentLoaded', function() { initMain(); });
 </script>
 
+  <div class="cf-page" id="cardPage" style="display:none;position:absolute;top:48px;left:160px;right:0;bottom:0;z-index:90;background:var(--bg,#0f1117)">    <div class="cf-main" style="display:flex;flex-direction:column;height:100%;padding:0">    </div>  </div>
+  <div class="cf-overlay" id="cfBlockOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;align-items:center;justify-content:center">    <div style="background:var(--panel,#1a1d27);border:2px solid #ef4444;border-radius:12px;padding:20px 28px;text-align:center;max-width:320px">      <h2 style="color:#ef4444;font-size:14px;margin:0 0 8px">⚠ 确认拉黑</h2>      <p style="color:var(--muted,#8b8fa3);font-size:11px;margin:0 0 12px">出会平台为强副作用，确认后不可立即撤销</p>      <div style="font-size:12px;margin-bottom:12px">目标：<strong id="cfBlockName"></strong></div>      <div style="display:flex;gap:8px;justify-content:center">        <button id="cfBlockCancel" style="background:var(--panel2,#22252f);color:var(--muted,#8b8fa3);border:none;border-radius:6px;padding:6px 14px;font-size:11px;cursor:pointer">取消 (Esc)</button>        <button id="cfBlockConfirm" style="background:#ef4444;color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:11px;cursor:pointer">确认拉黑 (Y)</button>      </div>    </div>  </div>
+  <div class="cf-overlay" id="cfAdjustOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;align-items:center;justify-content:center">    <div style="background:var(--panel,#1a1d27);border:2px solid #4f8cff;border-radius:12px;padding:20px 28px;max-width:420px">      <h2 style="color:#4f8cff;font-size:14px;margin:0 0 8px">🤖 AI 对话微调话术</h2>      <p style="color:var(--muted,#8b8fa3);font-size:11px;margin:0 0 8px">给个指令（如「从温泉切入、更温和一点」），AI 重写 A~D</p>      <textarea id="cfAdjustNote" style="width:100%;background:var(--panel2,#22252f);color:var(--text,#e8eaed);border:1px solid var(--border,#2d3140);border-radius:6px;padding:7px;font-size:12px;resize:vertical;min-height:44px;box-sizing:border-box"></textarea>      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">        <button id="cfAdjustCancel" style="background:var(--panel2,#22252f);color:var(--muted,#8b8fa3);border:none;border-radius:6px;padding:6px 14px;font-size:11px;cursor:pointer">取消</button>        <button id="cfAdjustGo" style="background:#4f8cff;color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:11px;cursor:pointer">重新生成</button>      </div>    </div>  </div>
   <div class="domain-page" id="domainPage" style="display:none;padding:20px;overflow-y:auto">
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
       <h2 id="domainTitle" style="margin:0;font-size:16px">全域运营</h2>
@@ -909,6 +956,24 @@ document.addEventListener('DOMContentLoaded', function() { initMain(); });
     bind(); refresh('17098'); refresh('18595'); setInterval(function(){ refresh('17098'); refresh('18595'); }, 90000);
   }
 })();
+<script type="module">
+// 卡片流整合: 把 cardflow.js 的函数挂到 window.__cardflow(view.js 通过它切视图)
+(function() {
+  import('./ichigo-assets/cardflow.js').then(function(cf) {
+    window.__cardflow = cf;
+    // 拉黑/微调 overlay 按钮绑定
+    var bc = document.getElementById('cfBlockCancel');
+    var bco = document.getElementById('cfBlockConfirm');
+    var ac = document.getElementById('cfAdjustCancel');
+    var ago = document.getElementById('cfAdjustGo');
+    if (bc) bc.onclick = function() { cf.cancelBlock(); };
+    if (bco) bco.onclick = function() { cf.confirmBlock(); };
+    if (ac) ac.onclick = function() { cf.cancelAdjust(); };
+    if (ago) ago.onclick = function() { cf.doAdjust(); };
+  });
+})();
+</script>
+
 </script>
 </body>
 </html>

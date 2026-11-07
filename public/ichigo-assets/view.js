@@ -84,7 +84,26 @@ export function switchView(view) {
     renderAgentPage(); // nav-poll 同批次已迁移，直接 import 调用
     return;
   }
-  var domainViews = ['domain', 'domain-ashiato', 'domain-faces', 'domain-search', 'domain-ignore', 'domain-calendar', 'domain-toolbox', 'domain-pool', 'domain-pool', 'domain-toolbox', 'domain-diary', 'domain-unified', 'domain-leads'];
+  if (view === 'cards') {
+    cols.customers.style.display = 'none';
+    cols.messages.style.display = 'none';
+    cols.analysis.style.display = 'none';
+    if (cols.account) cols.account.style.display = 'none';
+    cols.ai.style.display = 'none';
+    setCrossPages(null);
+    var domPage = document.getElementById('domainPage'); if (domPage) domPage.style.display = 'none';
+    var cardPage = document.getElementById('cardPage');
+    if (cardPage) cardPage.style.display = '';
+    Array.prototype.forEach.call(document.querySelectorAll('.nav-item'), function(i) {
+      i.classList.toggle('active', i.getAttribute('data-view') === view);
+    });
+    try {
+      var cf = window.__cardflow;
+      if (cf) { cf.startQueueTick(); cf.loadLeads(); }
+    } catch (e) { console.warn('[cards] cardflow 未注入', e); }
+    return;
+  }
+  var domainViews = ['domain', 'domain-ashiato', 'domain-faces', 'domain-search', 'domain-ignore', 'domain-calendar', 'domain-toolbox', 'domain-pool', 'domain-pool', 'domain-toolbox', 'domain-diary', 'domain-unified', 'domain-leads'', 'cards'];
   if (domainViews.indexOf(view) !== -1) {
     cols.customers.style.display = 'none';
     cols.messages.style.display = 'none';
