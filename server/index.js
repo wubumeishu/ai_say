@@ -234,6 +234,39 @@ const { createUnreadPoller } = require('./adapter/unreadPoller');
 const { createBreathEngine } = require('./acquisition/breathEngine');
 const { createSopExecutor } = require('./acquisition/sopExecutor');
 // breathEngine 实例（注入 store；默认不 start，由 /tasks/breath/start 路由控制启停）
+let deepScrape = null;
+try {
+  const { createIchigoDeepScrape } = require('./adapter/ichigoDeepScrape');
+  if (liveScanner && typeof liveScanner.openCdpSession === 'function') {
+    deepScrape = createIchigoDeepScrape({
+      openCdpSession: () => liveScanner.openCdpSession(),
+      rootDir: require('path').join(__dirname, '..'),
+    });
+  }
+} catch (e) {
+  // deepScrape 构建失败不阻断服务启动；/api/console/live/deep 返回 501
+  console.warn('[deepScrape] 构建失败，控制台 /api/console/live/deep 降级 501:', e && e.message);
+  deepScrape = null;
+}
+
+// 切出会窗口到收件箱的轻量 helper（供 consoleRoutes 发送后调用；deepScrape 缺省时返回 501）
+function navigateToInbox() {
+  if (!deepScrape || typeof deepScrape.navigateInbox !== 'function') {
+    return Promise.resolve({ ok: false, reason: 'deepScrape-not-ready' });
+  }
+  return deepScrape.navigateInbox();
+}
+
+// 控制台偏好（账号覆盖 + 常用语）
+// --- IPDeep 代理池 v1（池数据 data/proxy-pool.json + 密码 data/proxy-secrets.json；两者在 .gitignore）---
+let proxyPool = null;
+try {
+  proxyPool = createProxyPool({ rootDir: require('path').join(__dirname, '..') });
+  console.log('[proxyPool] 就绪: 池数据 ' + require('path').join(__dirname, '..', 'data', 'proxy-pool.json') + '（首次 ensurePool 时从当前窗口代理生成）');
+} catch (e) {
+  console.warn('[proxyPool] 构建失败:', e && e.message);
+  proxyPool = null;
+}
 let breathEngine = null;
 try {
   // onTask SOP 执行器：引擎到点唤醒 → 开窗 + 场景动作（只读自动跑，强副作用只出待确认）
@@ -322,39 +355,7 @@ const consoleApp = {
   delete: (p, h) => { consoleRoutes.push({ method: 'DELETE', pathname: p, handler: h }); },
 };
 // M5 核心改造②：17098 深度抓取器（收件箱 2 页 18 客户 + 资料页 12 字段 + 兴趣 icon 反查）
-let deepScrape = null;
-try {
-  const { createIchigoDeepScrape } = require('./adapter/ichigoDeepScrape');
-  if (liveScanner && typeof liveScanner.openCdpSession === 'function') {
-    deepScrape = createIchigoDeepScrape({
-      openCdpSession: () => liveScanner.openCdpSession(),
-      rootDir: require('path').join(__dirname, '..'),
-    });
-  }
-} catch (e) {
-  // deepScrape 构建失败不阻断服务启动；/api/console/live/deep 返回 501
-  console.warn('[deepScrape] 构建失败，控制台 /api/console/live/deep 降级 501:', e && e.message);
-  deepScrape = null;
-}
 
-// 切出会窗口到收件箱的轻量 helper（供 consoleRoutes 发送后调用；deepScrape 缺省时返回 501）
-function navigateToInbox() {
-  if (!deepScrape || typeof deepScrape.navigateInbox !== 'function') {
-    return Promise.resolve({ ok: false, reason: 'deepScrape-not-ready' });
-  }
-  return deepScrape.navigateInbox();
-}
-
-// 控制台偏好（账号覆盖 + 常用语）
-// --- IPDeep 代理池 v1（池数据 data/proxy-pool.json + 密码 data/proxy-secrets.json；两者在 .gitignore）---
-let proxyPool = null;
-try {
-  proxyPool = createProxyPool({ rootDir: require('path').join(__dirname, '..') });
-  console.log('[proxyPool] 就绪: 池数据 ' + require('path').join(__dirname, '..', 'data', 'proxy-pool.json') + '（首次 ensurePool 时从当前窗口代理生成）');
-} catch (e) {
-  console.warn('[proxyPool] 构建失败:', e && e.message);
-  proxyPool = null;
-}
 
 
 

@@ -3012,6 +3012,111 @@ if (action === 'blacklist' && deepScrape && typeof deepScrape.blockContact === '
     });
   }));
 
+  // ---------- 卡片流全链路 · SendQueue + OperationLog + 拉黑/微调/撤出/撤回 (006) ----------
+  // POST /api/console/card/send-queue  入队(A~D 选话术, 20s±10s 浮动串行; 不真发, 仅落库排队)
+  register('POST', '/api/console/card/send-queue', wrap(async (req, res, body) => {
+    if (!store || typeof store.enqueueSend !== 'function') return json(res, 501, { ok: false, reason: 'store-send-queue-not-ready' });
+    const b = body || {};
+    if (!b.conversationId || !b.talkText) return json(res, 400, { ok: false, reason: 'missing-conversation-or-talk' });
+    const q = store.enqueueSend({
+      conversationId: String(b.conversationId),
+      platform: b.platform || 'ichigo',
+      accountId: b.accountId || '',
+      contactKey: b.contactKey || null,
+      talkText: String(b.talkText),
+      talkZh: b.talkZh || null,
+      talkIntent: b.talkIntent || null,
+      talkConfidence: b.talkConfidence != null ? Number(b.talkConfidence) : null,
+    });
+    // 审计留痕(§0.2: 发给谁、发什么, 但此刻只是排队不真发)
+    if (typeof store.logOperation === 'function') {
+      store.logOperation({ conversationId: b.conversationId, platform: b.platform || 'ichigo', accountId: b.accountId || null, opType: 'send', detail: JSON.stringify({ queueId: q.queueId, slotSeq: q.slotSeq, scheduledAt: q.scheduledAt }), result: 'queued' });
+    }
+    return json(res, 200, { ok: true, queue: q });
+  }));
+
+  // GET /api/console/card/send-queue?status=pending&limit=50  队列快照(前端倒计时条读这个)
+  register('GET', '/api/console/card/send-queue', wrap(async (req, res) => {
+    if (!store || typeof store.listSendQueue !== 'function') return json(res, 501, { ok: false, reason: 'store-send-queue-not-ready' });
+    const qs = queryOf(req);
+    const status = qs.status || '';
+    const limit = qs.limit || 50;
+    const rows = store.listSendQueue(status || undefined, limit);
+    return json(res, 200, { ok: true, count: rows.length, queue: rows });
+  }));
+
+  // POST /api/console/card/send-queue/cancel?id=  撤出队列(发出不晚于取消, 铁律安全)
+  register('POST', '/api/console/card/send-queue/cancel', wrap(async (req, res, body) => {
+    if (!store || typeof store.cancelSendQueue !== 'function') return json(res, 501, { ok: false, reason: 'store-send-queue-not-ready' });
+    const qs = queryOf(req);
+    const id = qs.id || (body && body.id) || '';
+    if (!id) return json(res, 400, { ok: false, reason: 'missing-id' });
+    const row = store.cancelSendQueue(id);
+    if (typeof store.logOperation === 'function') {
+      store.logOperation({ conversationId: row && row.conversationId, platform: row && row.platform, accountId: row && row.accountId, opType: 'cancel', detail: JSON.stringify({ queueId: id }), result: row ? 'cancelled' : 'not-found' });
+    }
+    return json(res, 200, { ok: !!row, queue: row || null });
+  }));
+
+  // POST /api/console/card/send-queue/revoke?id=  快乐平台撤回(§1.9 窗口最终回收件箱; 强副作用, 仅 happymail)
+  register('POST', '/api/console/card/send-queue/revoke', wrap(async (req, res, body) => {
+    if (!store || typeof store.getSendQueue !== 'function') return json(res, 501, { ok: false, reason: 'store-send-queue-not-ready' });
+    const qs = queryOf(req);
+    const id = qs.id || (body && body.id) || '';
+    if (!id) return json(res, 400, { ok: false, reason: 'missing-id' });
+    const row = store.getSendQueue(id);
+    if (!row) return json(res, 404, { ok: false, reason: 'queue-not-found' });
+    if (row.platform !== 'happymail') return json(res, 400, { ok: false, reason: 'platform-no-revoke', msg: '出会平台不可撤回(§1.1), 仅快乐平台支持撤回' });
+    // 撤回本身要走 happyScanner/happySendExpr.revokeTextMessage(真副作用, 此处标记 revoked; 真撤回由窗口侧执行后回调)
+    const up = store.revokeSendQueue(id, body && body.result ? String(body.result) : 'user-revoke');
+    if (typeof store.logOperation === 'function') {
+      store.logOperation({ conversationId: row.conversationId, platform: row.platform, accountId: row.accountId, opType: 'revoke', detail: JSON.stringify({ queueId: id }), result: 'revoked' });
+    }
+    return json(res, 200, { ok: true, queue: up });
+  }));
+
+  // POST /api/console/card/block { conversationId, platform, accountId, reason? }  2键拉黑(接 ichigoBlockExpr / Contact.blacklisted)
+  register('POST', '/api/console/card/block', wrap(async (req, res, body) => {
+    if (!store) return json(res, 501, { ok: false, reason: 'store-not-ready' });
+    const b = body || {};
+    const contactId = b.contactId || b.conversationId;
+    if (!contactId) return json(res, 400, { ok: false, reason: 'missing-contact' });
+    // 落库: Contact.blacklisted=1(003 批次列)
+    try {
+      const r = store.db.prepare('UPDATE Contact SET blacklisted=1 WHERE contactId = ?').run(String(contactId));
+      const affected = (r && r.changes) ? r.changes : 0;
+      if (typeof store.logOperation === 'function') {
+        store.logOperation({ conversationId: b.conversationId || contactId, platform: b.platform || 'ichigo', accountId: b.accountId || null, opType: 'block', detail: JSON.stringify({ contactId: contactId, reason: b.reason || 'card-deck 2键拉黑' }), result: affected > 0 ? 'ok' : 'no-contact-row' });
+      }
+      return json(res, 200, { ok: affected > 0, blocked: affected, contactId: contactId });
+    } catch (e) {
+      return json(res, 500, { ok: false, reason: 'block-failed', msg: String(e && e.message || e) });
+    }
+  }));
+
+  // POST /api/console/card/regenerate { conversationId, platform, accountId, intent?, adjustNote? }  4/5键: 调 assistant B v1.1 真生成
+  register('POST', '/api/console/card/regenerate', wrap(async (req, res, body) => {
+    if (!assistant || typeof assistant.generate !== 'function') return json(res, 501, { ok: false, reason: 'assistant-not-injected' });
+    const b = body || {};
+    if (!b.conversationId) return json(res, 400, { ok: false, reason: 'missing-conversation' });
+    try {
+      const r = await assistant.generate({
+        message: b.adjustNote || '',
+        intent: b.intent || 'reply',
+        contactId: b.contactId || b.conversationId,
+        history: Array.isArray(b.history) ? b.history.slice(-12) : undefined,
+        maxMsgs: 12,
+      });
+      if (typeof store.logOperation === 'function') {
+        store.logOperation({ conversationId: b.conversationId, platform: b.platform || 'ichigo', accountId: b.accountId || null, opType: 'regen', detail: JSON.stringify({ intent: b.intent, adjustNote: b.adjustNote }), result: r && r.ok !== false ? 'ok' : 'degraded' });
+      }
+      return json(res, 200, { ok: true, ai: r });
+    } catch (e) {
+      return json(res, 500, { ok: false, reason: 'regen-failed', msg: String(e && e.message || e) });
+    }
+  }));
+
+
   // ---------- 模块9 · P2 点赞调试（诊断翻页） ----------
   register('GET', '/api/console/domain/like-debug', wrap(async (req, res) => {
     if (!deepScrape || typeof deepScrape.fetchTypedLikes !== 'function') {

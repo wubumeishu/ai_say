@@ -569,3 +569,44 @@ CREATE INDEX IF NOT EXISTS idx_task_account ON TaskQueue(accountId);
   -- 注：Conversation/Contact/ContactProfile/Account/AccountPersona 的 ADD COLUMN（未读4字段/头像/profileUrl/candidates/ageNum/pageUrl/mypageUrl/platformId）
   --    由独立迁移批次 002_add_columns.sql.js 承载（SQLite 无 ADD IF NOT EXISTS；探测式幂等，见 server/db/migrations/）；
   --    版本号口径（单写源收敛，node 2 核验基准）：v2 = 本 DDL 静态写「新表已落」；列补齐批次独立写 v21（002_add_columns.sql.js），互不冲突。
+
+
+-- =====================================================================
+-- 006 批次 · 卡片流全链路: SendQueue(后台串行发送队列) + OperationLog(操作审计)
+-- 2026-11-07 A 卡片流: A~D 选话术入队, 20s±10s 浮动串行调度; 强副作用(拉黑/撤回/微调)落库留痕
+-- =====================================================================
+CREATE TABLE IF NOT EXISTS SendQueue (
+  queueId TEXT PRIMARY KEY,
+  conversationId TEXT NOT NULL,
+  platform TEXT NOT NULL,          -- ichigo / happymail
+  accountId TEXT NOT NULL,         -- 17098 / 18595
+  contactKey TEXT,
+  talkText TEXT NOT NULL,          -- 要发的话术(日文原文)
+  talkZh TEXT,                    -- 中文译文
+  talkIntent TEXT,
+  talkConfidence REAL,
+  slotSeq INTEGER,
+  scheduledAt TEXT,
+  dispatchAt TEXT,
+  sentAt TEXT,
+  revokedAt TEXT,
+  status TEXT NOT NULL DEFAULT 'pending',
+  result TEXT,
+  createdAt TEXT NOT NULL,
+  updatedAt TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idxSendQueue_status ON SendQueue(status, scheduledAt);
+CREATE INDEX IF NOT EXISTS idxSendQueue_conv ON SendQueue(conversationId, status);
+
+CREATE TABLE IF NOT EXISTS OperationLog (
+  opId INTEGER PRIMARY KEY AUTOINCREMENT,
+  conversationId TEXT,
+  platform TEXT,
+  accountId TEXT,
+  opType TEXT NOT NULL,           -- block / regen / adjust / send / revoke / cancel
+  detail TEXT,
+  result TEXT,
+  at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idxOpLog_conv ON OperationLog(conversationId, at);
+

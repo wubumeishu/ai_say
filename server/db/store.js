@@ -1072,6 +1072,71 @@ function createStore({ dbPath = path.join(__dirname, '..', '..', 'data', 'aisay.
 
   const insertLead = upsertLead;
 
+  // ================================================================ 006 · 卡片流 SendQueue + OperationLog
+  /** SendQueue · 后台串行发送队列(20s±10s 浮动调度)。强副作用留痕, 铁律 0.2。 */
+  function enqueueSend(q) {
+    const ts = now();
+    const queueId = q.queueId || ('Q' + crypto.createHash('sha1').update(q.conversationId + ':' + q.talkText + ':' + ts).digest('hex').slice(0, 12));
+    const dbSlot = db.prepare('SELECT COALESCE(MAX(slotSeq), 0) + 1 AS n FROM SendQueue WHERE status = ?');
+    const slot = dbSlot.get('pending').n;
+    // 20s 基础 + 0~10s 随机浮动; 按 slot 排布(前一条未发不派后一条 → 实际由 dispatcher 串行, scheduledAt 给前端倒计时展示)
+    const baseMs = 20000 + Math.floor(Math.random() * 10000);
+    const scheduledAt = new Date(Date.now() + baseMs * slot).toISOString();
+    db.prepare(`INSERT INTO SendQueue (queueId, conversationId, platform, accountId, contactKey, talkText, talkZh, talkIntent, talkConfidence, slotSeq, scheduledAt, status, createdAt, updatedAt)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?, 'pending', ?, ?)`)
+      .run(queueId, q.conversationId, q.platform || 'ichigo', q.accountId || '', q.contactKey || null, q.talkText, q.talkZh || null, q.talkIntent || null, q.talkConfidence != null ? q.talkConfidence : null, slot, scheduledAt, ts, ts);
+    return db.prepare('SELECT * FROM SendQueue WHERE queueId = ?').get(queueId);
+  }
+
+  function listSendQueue(status, limit) {
+    const lim = Math.min(parseInt(limit || '50', 10), 200);
+    if (status) {
+      return db.prepare('SELECT * FROM SendQueue WHERE status = ? ORDER BY slotSeq ASC, scheduledAt ASC LIMIT ?').all(status, lim);
+    }
+    return db.prepare('SELECT * FROM SendQueue ORDER BY slotSeq ASC, scheduledAt ASC LIMIT ?').all(lim);
+  }
+
+  function getSendQueue(queueId) {
+    return db.prepare('SELECT * FROM SendQueue WHERE queueId = ?').get(queueId);
+  }
+
+  function markSendQueue(queueId, patch) {
+    const ts = now();
+    const old = getSendQueue(queueId);
+    if (!old) return null;
+    const keys = Object.keys(patch || {});
+    if (!keys.length) return old;
+    const setSql = keys.map(k => k + ' = ?').join(', ') + ", updatedAt = ?";
+    const vals = keys.map(k => patch[k]);
+    vals.push(ts, queueId);
+    db.prepare('UPDATE SendQueue SET ' + setSql + ' WHERE queueId = ?').run(...vals);
+    return getSendQueue(queueId);
+  }
+
+  function cancelSendQueue(queueId) {
+    return markSendQueue(queueId, { status: 'cancelled' });
+  }
+
+  function revokeSendQueue(queueId, result) {
+    return markSendQueue(queueId, { status: 'revoked', revokedAt: now(), result: result ? String(result).slice(0, 500) : null });
+  }
+
+  /** OperationLog · 强副作用审计(拉黑/重生成/微调/发送/撤回/撤出), §0.3 留痕。 */
+  function logOperation(op) {
+    const ts = now();
+    const r = db.prepare('INSERT INTO OperationLog (conversationId, platform, accountId, opType, detail, result, at) VALUES (?,?,?,?,?,?,?)')
+      .run(op.conversationId || null, op.platform || 'ichigo', op.accountId || null, op.opType, op.detail ? String(op.detail) : null, op.result || 'ok', ts);
+    return { opId: Number(r.lastInsertRowid), at: ts };
+  }
+
+  function listOperationLog(conversationId, limit) {
+    const lim = Math.min(parseInt(limit || '50', 10), 200);
+    if (conversationId) {
+      return db.prepare('SELECT * FROM OperationLog WHERE conversationId = ? ORDER BY at DESC LIMIT ?').all(conversationId, lim);
+    }
+    return db.prepare('SELECT * FROM OperationLog ORDER BY at DESC LIMIT ?').all(lim);
+  }
+
 return {
     upsertAccountProfile,
     listAccountProfiles,
@@ -1091,6 +1156,15 @@ return {
     leadBySourceDim,
     upsertLead,
     insertLead,
+    // 006 · 卡片流 SendQueue + OperationLog
+    enqueueSend,
+    listSendQueue,
+    getSendQueue,
+    markSendQueue,
+    cancelSendQueue,
+    revokeSendQueue,
+    logOperation,
+    listOperationLog,
     // task-3 · 频控账本 LedgerHandle 导出（选法 a：数组=快照读，句柄=写入口）
     loadRateLedger,
     pushLedger,
