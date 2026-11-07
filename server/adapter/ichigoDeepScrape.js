@@ -376,7 +376,155 @@ function fillUrl(exprSrc, url, isAccount, customerName, mode) {
   // ---------- ③b 账号自己的资料卡（snsmypage/show_profile.html）----------
   var ACCOUNT_PROFILE_URL = 'https://sp.194964.com/sns/snsmypage/show_profile.html';
   function fetchAccountProfile(url) {
-    return fetchProfile(url || ACCOUNT_PROFILE_URL, { isAccount: true });
+    // 账号自己的资料卡(snsmypage/show_profile.html)。
+    // 用户裁定: 无论窗口停在哪个页面都要能抓。
+    //   ① 已停在 snsmypage tab → 直读 innerText(不切页);
+    //   ② 否则记原 URL → 切到账号页 → 轮询等渲染读 → 读完切回原 URL(不破坏用户当前页面)。
+    var target = url || ACCOUNT_PROFILE_URL;
+    var GRAB = '(function(){ try { var b = document.body ? document.body.innerText : ""; return JSON.stringify({ ready: b.indexOf("ニックネーム") !== -1, rawText: b, url: location.href }); } catch(e){ return JSON.stringify({ ready: false, err: String(e && e.message || e) }); } })()';
+    var GOTO = function(toUrl) { return '(function(){ try { window.location.href = ' + JSON.stringify(toUrl) + '; return "nav"; } catch(e){ return "err:" + String(e && e.message || e); } })()'; };
+    function pageAction(wsUrl, expression) {
+      return new Promise(function(resolve) {
+        var ws = null, timer = null;
+        var WebSocket = require('ws');
+        try {
+          ws = new WebSocket(wsUrl, { perMessageDeflate: false });
+          timer = setTimeout(function() { try { ws && ws.close(); } catch (_) {} resolve(null); }, 30000);
+          ws.on('open', function() {
+            try { ws.send(JSON.stringify({ id: 1, method: 'Runtime.evaluate', params: { expression: expression, returnByValue: true } })); } catch (_) {}
+          });
+          ws.on('message', function(data) {
+            var m; try { m = JSON.parse(String(data)); } catch (_) { return; }
+            if (m.id === 1) {
+              clearTimeout(timer);
+              var rawVal = null;
+              if (m.result && m.result.result) rawVal = m.result.result.value;
+              else if (m.result && m.result.value !== undefined) rawVal = m.result.value;
+              try { ws.close(); } catch (_) {}
+              resolve(rawVal);
+            }
+          });
+          ws.on('error', function() { clearTimeout(timer); resolve(null); });
+        } catch (e) { clearTimeout(timer); resolve(null); }
+      });
+    }
+    return Promise.resolve()
+      .then(function() { return deps.openCdpSession(); })
+      .then(function(s) {
+        if (!s || !s.http) throw Object.assign(new Error('no-cdp-port'), { reason: 'no-cdp-port' });
+        return getTargets(s.http);
+      })
+      .then(function(firstTargets) {
+        var fl = Array.isArray(firstTargets) ? firstTargets : [];
+        var acct0 = fl.find(function(t) { return t && t.type === 'page' && String(t.url || '').indexOf('snsmypage') !== -1; });
+        var sp0 = fl.find(function(t) { return t && t.type === 'page' && String(t.url || '').indexOf('sp.194964.com') !== -1; });
+        var pick0 = acct0 || sp0;
+        if (!pick0) throw Object.assign(new Error('no-sp-target'), { reason: 'no-sp-target' });
+        var originalUrl = acct0 ? null : String(pick0.url || ''); // 已停在账号页则无需切回
+        var POLL = 2500, MAX = 8;
+        var switched = false; // 是否已切到账号页(切过则后续轮次直接读, 不再切)
+        return new Promise(function(resolve) {
+          var n = 0, lastRead = null;
+          (function attempt() {
+            n += 1;
+            var wsUrl = pick0.webSocketDebuggerUrl;
+            var onAcctNow = switched || String(pick0.url || '').indexOf('snsmypage') !== -1;
+            var expr = onAcctNow ? GRAB : GOTO(target);
+            pageAction(wsUrl, expr).then(function(val) {
+              if (!onAcctNow) {
+                // 第 1 次: 刚切到账号页, 标记 switched, 下一轮读(等渲染)
+                switched = true;
+                lastRead = null;
+                if (n < MAX) setTimeout(attempt, 3500);
+                else resolve({ ok: false, reason: 'account-page-empty', msg: '已切到账号页但未读完成(可能未登录)' });
+                return;
+              }
+              // 读账号页 innerText
+              lastRead = (typeof val === 'string') ? JSON.parse(val) : val;
+              if (lastRead && lastRead.ready && String(lastRead.rawText || '').length > 100) {
+                var p = parseAccountPersona(String(lastRead.rawText));
+                var finish = function(fromTag, restored) {
+                  resolve(Object.assign({ ok: true, url: target, rawText: String(lastRead.rawText).slice(0, 4000), from: fromTag, restored: restored }, p));
+                };
+                if (originalUrl && originalUrl.indexOf('snsmypage') === -1) {
+                  // 切回原页面(不破坏用户当前页)
+                  pageAction(wsUrl, GOTO(originalUrl)).then(function() { finish('navigate+restore', true); }, function() { finish('navigate', false); });
+                } else finish('open-tab', false);
+                return;
+              }
+              if (n < MAX) setTimeout(attempt, POLL);
+              else resolve({ ok: false, reason: 'account-page-empty', msg: '账号页 innerText 未渲染/为空(未登录或跳转失败) ' + ((lastRead && lastRead.err) || String(pick0.url || '')) });
+            });
+          })();
+        });
+      })
+      .catch(function(e) {
+        return { ok: false, reason: 'account-profile-failed', msg: String(e && e.message || e) };
+      });
+  }
+
+    // 日本主要城市 → 都府県("よく遊ぶ地域"多为市名, 补 pref-city 格式, AGENTS §七)
+  var CITY_PREF_MAP = {
+    '津市': '三重', '鈴鹿': '三重', '四日市': '三重', '松坂': '三重',
+    '札幌市': '北海道', '函館': '北海道', '旭川': '北海道', '釧路': '北海道', '帯広': '北海道',
+    '仙台市': '宮城', '盛岡': '岩手', '秋田市': '秋田',
+    '横浜市': '神奈川', '川崎市': '神奈川', '横須賀': '神奈川', '小田原': '神奈川',
+    'さいたま市': '埼玉', '浦和': '埼玉', '川口': '埼玉', '所沢': '埼玉', '春日部': '埼玉', '大宮': '埼玉',
+    '千葉市': '千葉', '船橋': '千葉', '柏': '千葉',
+    '松江市': '島根', '高知市': '高知', '長崎市': '長崎', '鹿児島市': '鹿児島',
+    '富山市': '富山', '金沢市': '石川', '岐阜市': '岐阜', '福井市': '福井', '大垣': '岐阜', '高岡': '富山',
+    '東京': '東京', '大阪': '大阪', '京都': '京都', '福岡市': '福岡', '北九州市': '福岡'
+  };
+  function normRegionCity(v) {
+    if (!v) return '';
+    var s = String(v).trim();
+    if (/[都道府県]$/.test(s)) return s; // 已是都府県
+    // 命中城市映射 → pref-city
+    if (CITY_PREF_MAP[s]) return CITY_PREF_MAP[s] + '-' + s;
+    // 已是 "pref-city" 格式(含-) → 原样
+    if (s.indexOf('-') !== -1) return s;
+    // 市名但没映射到 → 加"三重"(账号常见地域兜底, 用户可前端改)
+    if (/市$/.test(s)) return '三重-' + s;
+    return s;
+  }
+
+  function parseAccountPersona(rawText) {
+    var p = { nickname: '', birth: '', displayAge: '', height: '', style: '', bloodType: '', type: '', region: '', status: '', birthplace: '', occupation: '', income: '', zodiac: '', smoking: '', drinking: '', children: '', eyes: '', freeTime: '', prefAge: '', prefStyle: '', threeSize: '', cup: '', dateWant: '', meetingIntent: '', interests: '', selfIntro: '' };
+    if (!rawText) return p;
+    var lines = String(rawText).split('\n').map(function(s) { return s.replace(/[\t\u3000]+/g, ' ').trim(); }).filter(function(s) { return s; });
+    var LABELS = {
+      'ニックネーム': 'nickname', 'あなたの誕生日': 'birth', '身長': 'height', 'スタイル': 'style',
+      '血液型': 'bloodType', 'あなたのタイプ': 'type', 'よく遊ぶ地域': 'region', '交際ステータス': 'status',
+      '出身地': 'birthplace', '職業': 'occupation', '年収': 'income', '星座': 'zodiac',
+      'タバコ': 'smoking', 'お酒': 'drinking', '子供': 'children', '目': 'eyes',
+      '空き時間': 'freeTime', '好みの年齢': 'prefAge', '好みのスタイル': 'prefStyle',
+      'スリーサイズ': 'threeSize', 'カップ': 'cup', 'デートでしたいこと': 'dateWant',
+      '出会うまでの希望': 'meetingIntent', '興味あること（趣味・共通点）': 'interests'
+    };
+    var SKIP = { '設定する': 1, '未入力です': 1, '追加': 1, 'する': 1, '交換': 1 };
+    var EMPTY = { '未設定': 1, '不明': 1 };
+    for (var i = 0; i < lines.length; i++) {
+      var key = LABELS[lines[i]];
+      if (!key) continue;
+      var v = lines[i + 1];
+      if (!v || SKIP[v] || LABELS[v]) continue;
+      if (/^※/.test(v)) continue;
+      p[key] = EMPTY[v] ? '' : v; // 未設定/不明 写空串(占位, 前端可编辑)
+    }
+    // 地区: 市名补都府県前缀(津市→三重-津市), 出身地同理
+    if (p.region) p.region = normRegionCity(p.region);
+    if (p.birthplace) p.birthplace = normRegionCity(p.birthplace);
+    // 显示年龄(「お相手にはN歳と表示」)
+    var am = String(rawText).match(/お相手には(\d+)歳と表示/);
+    if (am) p.displayAge = am[1];
+    // 自我介绍(「自己紹介」段到「基本プロフィール」之间正文; 空则保持 null)
+    var sm = String(rawText).indexOf('自己紹介');
+    var em = String(rawText).indexOf('基本プロフィール');
+    if (sm !== -1 && em > sm) {
+      var seg = String(rawText).slice(sm, em).replace(/自己紹介|設定する|未入力です/g, '').trim();
+      if (seg && seg.length > 4 && seg !== '追加') p.selfIntro = seg.slice(0, 500);
+    }
+    return p;
   }
 
   // ---------- ④ 一次 CDP 会话内批量取多个 URL（复用连接，最快） ----------
@@ -1202,6 +1350,7 @@ return {
     networkHealth: networkHealth,
     fetchProfile: fetchProfile,
     fetchAccountProfile: fetchAccountProfile,
+    parseAccountPersona: parseAccountPersona,   // 账号资料卡 innerText → 人设字段
     ACCOUNT_PROFILE_URL: ACCOUNT_PROFILE_URL,
     fetchBatch: fetchBatch,
     deepScrape: deepScrape,

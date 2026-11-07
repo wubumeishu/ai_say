@@ -774,39 +774,78 @@ export async function loadPersona() {
       persona = JSON.parse(d.persona.persona || '{}');
     }
   } catch (e) { /* 未注入降级 */ }
-  var rows = '';
-  if (persona && (persona.name || persona.interests)) {
-    rows = '<div class="persona-grid">'
-      + personaField('姓名', persona.name)
-      + personaField('年龄', persona.age)
-      + personaField('地区', persona.region)
-      + personaField('职业', persona.occupation)
-      + personaField('身高', persona.height)
-      + personaField('收入', persona.income)
-      + personaField('风格', persona.style)
-      + '<div class="persona-field"><h5>兴趣</h5><p>' + (Array.isArray(persona.interests) ? persona.interests.join(' · ') : '<span style="color:var(--muted)">（无）</span>') + '</p></div>'
-      + '<div class="persona-field"><h5>自我介绍</h5><p>' + (persona.selfIntro || '<span style="color:var(--muted)">（无）</span>') + '</p></div>'
-      + (persona.crawledAt ? '<div style="font-size:11px;color:var(--muted);margin-top:8px">抓取于 ' + persona.crawledAt + '</div>' : '')
-      + '</div>';
-  } else {
-    rows = '<div style="padding:16px;color:var(--muted);font-size:13px">暂无账户人设数据。开 17098 窗口后点「抓取本账号资料卡」。</div>';
-  }
+  // 未抓取时也给空 persona(②未填写也先写入, 可随机/手填)
+  if (!persona) persona = {};
+  // 字段定义(label, key, 是否多行)
+  var FIELDS = [
+    ['昵称', 'nickname'], ['显示年龄', 'displayAge'], ['生日', 'birth'],
+    ['地区', 'region'], ['出身地', 'birthplace'], ['职业', 'occupation'],
+    ['身高', 'height'], ['收入', 'income'], ['风格', 'style'], ['血型', 'bloodType'],
+    ['类型', 'type'], ['交際状态', 'status'], ['星座', 'zodiac'],
+    ['吸烟', 'smoking'], ['饮酒', 'drinking'], ['子女', 'children'], ['目', 'eyes'],
+    ['兴趣爱好', 'interests'], ['喜欢的事', 'dateWant'], ['见面期望', 'meetingIntent']
+  ];
+  var grid = FIELDS.map(function(f) {
+    var key = f[1], val = persona[key];
+    var isLong = key === 'interests' || key === 'selfIntro';
+    var input = isLong
+      ? '<textarea class="pInput" data-key="' + key + '" rows="2" style="width:100%;box-sizing:border-box;background:var(--bg,#0f1117);color:var(--text);border:1px solid var(--border,#2d3140);border-radius:5px;padding:6px;font-size:12px;margin-top:4px">' + String(val == null ? '' : (Array.isArray(val) ? val.join(', ') : val)) + '</textarea>'
+      : '<input class="pInput" data-key="' + key + '" type="text" style="width:100%;box-sizing:border-box;background:var(--bg,#0f1117);color:var(--text);border:1px solid var(--border,#2d3140);border-radius:5px;padding:6px;font-size:12px;margin-top:4px" value="' + String(val == null ? '' : val).replace(/"/g, '&quot;') + '">';
+    var emptyTip = (val == null || val === '') ? '<span style="color:#e07b39;font-size:10px;margin-left:6px">（未填写）</span>' : '';
+    return '<div class="persona-field"><h5>' + f[0] + emptyTip + '</h5>' + input +
+      '<button class="pSave" data-key="' + key + '" style="margin-top:5px;background:var(--accent,#4f8cff);color:#fff;border:none;border-radius:4px;padding:3px 10px;font-size:11px;cursor:pointer">保存</button></div>';
+  }).join('');
+  var interestVal = persona.interests ? (Array.isArray(persona.interests) ? persona.interests.join(' · ') : persona.interests) : '';
+  var rows = '<div class="persona-grid">' + grid
+    + '<div class="persona-field" style="grid-column:1/-1"><h5>自我介绍' + ((persona.selfIntro == null || persona.selfIntro === '') ? '<span style="color:#e07b39;font-size:10px;margin-left:6px">（未填写）</span>' : '') + '</h5>'
+    + '<textarea class="pInput" data-key="selfIntro" rows="3" style="width:100%;box-sizing:border-box;background:var(--bg,#0f1117);color:var(--text);border:1px solid var(--border,#2d3140);border-radius:5px;padding:6px;font-size:12px;margin-top:4px">' + String(persona.selfIntro == null ? '' : persona.selfIntro) + '</textarea>'
+    + '<button class="pSave" data-key="selfIntro" style="margin-top:5px;background:var(--accent,#4f8cff);color:#fff;border:none;border-radius:4px;padding:3px 10px;font-size:11px;cursor:pointer">保存</button></div>'
+    + (persona.crawledAt ? '<div style="font-size:11px;color:var(--muted);margin-top:8px">抓取于 ' + persona.crawledAt + '</div>' : '<div style="font-size:11px;color:var(--muted);margin-top:8px">（尚未抓取平台资料卡——可点「🎲 随机生成」或「🔭 抓取」）</div>')
+    + '</div>';
   el.innerHTML = rows
     + '<div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap">'
     + '<button id="btnPersonaCrawl" style="background:var(--accent,#4f8cff);color:#fff;border:none;border-radius:6px;padding:8px 16px;font-size:12px;cursor:pointer">🔭 抓取本账号资料卡（17098）</button>'
-    + '<button id="btnPersonaUpdate" style="background:var(--panel2,#22252f);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px 16px;font-size:12px;cursor:pointer">✏️ 一键修改（后续）</button>'
+    + '<button id="btnPersonaRandom" style="background:#8e44ad;color:#fff;border:none;border-radius:6px;padding:8px 16px;font-size:12px;cursor:pointer">🎲 随机更换全部资料</button>'
     + '</div>';
+  // 绑定: 抓取
   var bc = document.getElementById('btnPersonaCrawl');
   if (bc) bc.onclick = function() { crawlPersona(); };
-  // 样式内联
+  // ③ 随机更换
+  var br = document.getElementById('btnPersonaRandom');
+  if (br) br.onclick = function() { randomPersona(); };
+  // ④ 单项保存(每个 .pSave 按钮 → 读同 data-key 的 .pInput → POST /update {field,value})
+  Array.prototype.forEach.call(el.querySelectorAll('.pSave'), function(btn) {
+    btn.onclick = function() {
+      var key = btn.getAttribute('data-key');
+      var inp = el.querySelector('.pInput[data-key="' + key + '"]');
+      var value = inp ? inp.value : '';
+      fetch('/api/console/account-persona/update', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accountId: '17098', field: key, value: value })
+      }).then(function(r) { return r.json(); }).then(function(d) {
+        if (d.ok) { btn.textContent = '✓ 已保存'; setTimeout(function() { btn.textContent = '保存'; }, 1500); }
+        else { btn.textContent = '保存失败'; setTimeout(function() { btn.textContent = '保存'; }, 1500); }
+      }).catch(function() { btn.textContent = '网络错'; setTimeout(function() { btn.textContent = '保存'; }, 1500); });
+    };
+  });
   var st = document.createElement('style');
-  st.textContent = '.persona-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.persona-field{background:var(--panel2);border-radius:8px;padding:8px 12px}.persona-field h5{font-size:11px;color:var(--muted);margin-bottom:4px;font-weight:600}.persona-field p{font-size:12px;line-height:1.5}';
+  st.textContent = '.persona-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.persona-field{background:var(--panel2);border-radius:8px;padding:8px 12px}.persona-field h5{font-size:11px;color:var(--muted);margin-bottom:4px;font-weight:600}';
   el.appendChild(st);
 }
 
-function personaField(label, val) {
-  return '<div class="persona-field"><h5>' + label + '</h5><p>' + (val != null && val !== '' ? val : '<span style="color:var(--muted)">（无）</span>') + '</p></div>';
+// ③ 随机更换全部资料
+async function randomPersona() {
+  var btn = document.getElementById('btnPersonaRandom');
+  if (btn) { btn.textContent = '⏳ 随机中…'; btn.disabled = true; }
+  try {
+    var r = await fetch('/api/console/account-persona/randomize', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accountId: '17098' }) });
+    var d = await r.json();
+    if (d.ok) { loadPersona(); }
+    else { alert('随机失败: ' + (d.msg || d.reason)); }
+  } catch (e) { alert('请求失败: ' + e.message); }
+  finally { if (btn) { btn.textContent = '🎲 随机更换全部资料'; btn.disabled = false; } }
 }
+
 
 async function crawlPersona() {
   var btn = document.getElementById('btnPersonaCrawl');

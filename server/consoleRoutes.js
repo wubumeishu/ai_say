@@ -2926,17 +2926,29 @@ if (action === 'blacklist' && deepScrape && typeof deepScrape.blockContact === '
       // Contact 表无 accountId/contactKey 列(M0 归一化身份), 用 displayName+contactId 去重。
       try {
         const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString();
-        // ① 最近 7 天有消息互动(有 Conversation/Message 的 Contact)
+        // ① 未回复会话(第4点裁定): 该会话最后一条 Message.role='other'(对方发的) → 我还没回复,
+        //    不随"点开=已读"清零。数据源 Conversation + Message(MAX seq 那条的 role)。
         let recentRows = [];
         if (store && store.db) {
           try {
+            // 未回复口径: ① 最后一条 Message.role='other'(对方发的, 我还没回) 或 ② Conversation.unread>0(收件箱未读)。
+            // UNION 双源 —— Message 表数据少时靠 unread 兜底; 点开客户页只清 unread 标记, 不删"未回复"判定(看最后一条方向)。
+            // 未回复双源: ① 会话最后一条 Message.role='other'(对方发的我还没回) ② Conversation.unread>0(收件箱未读)。
+            // UNION 合并, 不随"点开客户页"清零(看的是消息方向+未读数, 非"已读"动作)。
             recentRows = store.db.prepare(
-              "SELECT c.contactId, c.displayName AS name, MAX(m.sentAt) AS lastAt " +
-              "FROM Contact c JOIN Message m ON m.contactId = c.contactId " +
-              "WHERE m.sentAt >= ? GROUP BY c.contactId ORDER BY lastAt DESC LIMIT ?"
-            ).all(sevenDaysAgo, parseInt(qs.get('maxChats') || '30', 10));
+              "SELECT u.convId AS convId, u.contactId, c.displayName AS name " +
+              "FROM ( " +
+              "  SELECT cv.conversationId AS convId, cv.contactId " +
+              "  FROM Conversation cv " +
+              "  JOIN (SELECT conversationId, MAX(seq) AS lastSeq FROM Message GROUP BY conversationId) lm ON lm.conversationId = cv.conversationId " +
+              "  JOIN Message m ON m.conversationId = lm.conversationId AND m.seq = lm.lastSeq WHERE m.role = 'other' " +
+              "  UNION " +
+              "  SELECT cv.conversationId AS convId, cv.contactId FROM Conversation cv WHERE cv.unread > 0 " +
+              ") u LEFT JOIN Contact c ON c.contactId = u.contactId " +
+              "ORDER BY c.displayName LIMIT ?"
+            ).all(parseInt(qs.get('maxChats') || '30', 10));
           } catch (_) {
-            // Message 可能用 seq/createdAt 而非 sentAt; 降级用 Contact 最近 updated
+            // 降级: 最近 7 天有消息的 Contact(不依赖 role 判定)
             try {
               recentRows = store.db.prepare(
                 "SELECT c.contactId, c.displayName AS name, c.updatedAt AS lastAt " +
@@ -2973,7 +2985,38 @@ if (action === 'blacklist' && deepScrape && typeof deepScrape.blockContact === '
             platform: 'ichigo', noRevoke: true, fromInbox: true,
           }, extra || {}));
         };
-        (recentRows || []).forEach(r => pick(r.name, 'active', { contactId: r.contactId || null, lastTime: r.lastAt || '' }));
+        (recentRows || []).forEach(function(r) {
+          // 补上下文: 资料卡链接 + 该会话最近 5 条消息(assistant 生成话术的上下文), 不用 CDP 实时抓
+          var ctxExtra = { contactId: r.contactId || null, conversationId: r.convId || null, lastTime: r.lastAt || '', notReplied: true };
+          try {
+            if (r.convId && store && store.db) {
+              var convRow = store.db.prepare('SELECT profileUrl, historyUrl FROM Conversation WHERE conversationId = ?').get(r.convId);
+              if (convRow && convRow.profileUrl) ctxExtra.sourceHref = convRow.profileUrl;
+            }
+            if (r.convId && store && store.db) {
+              var msgs = store.db.prepare(
+                "SELECT role, original, translation FROM Message WHERE conversationId = ? ORDER BY seq DESC LIMIT 5"
+              ).all(r.convId).reverse();
+              ctxExtra.chatHistory = msgs.map(function(mg) {
+                return { who: mg.role === 'other' ? 'peer' : 'me', text: mg.original || '', zh: mg.translation || '' };
+              });
+            }
+            // 客户画像(ContactProfile)补 interests/职业/地区(真实列), 头像/简介走 Conversation 兜底
+            if (r.contactId && store && store.db) {
+              try {
+                var prof = store.db.prepare('SELECT age, region, occupation, interests, height FROM ContactProfile WHERE contactId = ?').get(r.contactId);
+                if (prof) {
+                  ctxExtra.interests = prof.interests ? (typeof prof.interests === 'string' ? (function(){try{var a=JSON.parse(prof.interests);return Array.isArray(a)?a:[];}catch(_){return [];}})() : (Array.isArray(prof.interests)?prof.interests:[])) : [];
+                  if (prof.occupation) ctxExtra.occupation = prof.occupation;
+                  if (prof.region) ctxExtra.city = prof.region;
+                  if (prof.age != null) ctxExtra.age = String(prof.age);
+                  if (prof.height) ctxExtra.height = String(prof.height);
+                }
+              } catch (_) {}
+            }
+          } catch (_) { /* 补上下文失败不阻断 */ }
+          pick(r.name, 'active', ctxExtra);
+        });
         (leadRows || []).forEach(ld => pick(ld.name, 'lead', {
           sourceHref: ld.profileUrl || null, memberId: (ld.extras && ld.extras.memberId) || null,
           lastTime: ld.lastSeen || '', age: ld.age != null ? String(ld.age) : '', city: ld.region || '',
@@ -3020,55 +3063,59 @@ if (action === 'blacklist' && deepScrape && typeof deepScrape.blockContact === '
       });
     } catch (e) { leadErr = String((e && e.message) || e); }
     }
-    // CDP 实时 P2 互赞（窗口开了才抓；抓到则补 seenKeys 去重，避免与 Lead 重复）
-    const seenKeys = new Set();
-    cards.forEach(function(c) {
-      seenKeys.add(c.memberId ? ('m/' + c.memberId) : ('n/' + c.name + '/' + c.age + '/' + c.city + '/' + c.cat));
-    });
-    if (typeof deepScrape.fetchTypedLikes === 'function') {
-      try {
-        const likeR = await deepScrape.fetchTypedLikes({ tab: 'mutual', maxItems: parseInt(qs.get('maxLikes') || '30', 10) });
-        if (likeR && likeR.ok && Array.isArray(likeR.likes)) {
-          likeR.likes.forEach(function(lk, idx) {
-            const k = lk.memberId ? ('m/' + lk.memberId) : ('n/' + (lk.name||'') + '/' + (lk.age||'') + '/' + (lk.city||'') + '/like');
-            if (seenKeys.has(k)) return;
-            seenKeys.add(k);
-            cards.push({
-              id: 'L2-mutual-' + idx, cat: 'like', source: lk.tab === 'mutual' ? '互赞' : '点赞',
-              name: lk.name || '', age: lk.age || '', city: lk.city || '',
-              onlineIcon: lk.onlineIcon || null, onlineLabel: lk.time ? ('互赞 ' + lk.time) : '',
-              memberId: lk.memberId || null, sourceHref: lk.profileUrl || lk.sourceHref || null,
-              lastMsg: '', lastMsgZh: '', lastTime: lk.time || '',
-              selfIntro: lk.selfIntro || '', interests: Array.isArray(lk.interests) ? lk.interests : [],
-              avatarUrls: Array.isArray(lk.avatars) ? lk.avatars : (lk.avatar ? [lk.avatar] : []),
-              ai: null, state: 'PENDING', selectedTalk: null, tags: [], opLog: [],
-              platform: 'ichigo', noRevoke: true,
-            });
+    // CDP 实时补全: 仅 ?cdp=1 显式开启时跑(默认纯 DB 出候选, 不'先爬取再展示'; 资料卡走'精细爬取'手动补)
+    if (qs.get('cdp') === '1') {
+          // CDP 实时 P2 互赞（窗口开了才抓；抓到则补 seenKeys 去重，避免与 Lead 重复）
+          const seenKeys = new Set();
+          cards.forEach(function(c) {
+            seenKeys.add(c.memberId ? ('m/' + c.memberId) : ('n/' + c.name + '/' + c.age + '/' + c.city + '/' + c.cat));
           });
-        }
-      } catch (e) { /* CDP 窗口未开 → 降级，不阻断 */ }
-    }
-    // CDP 实时 P1 正在聊
-    if (typeof deepScrape.fetchChatInbox === 'function') {
-      try {
-        const chatR = await deepScrape.fetchChatInbox({ maxItems: parseInt(qs.get('maxChats') || '30', 10) });
-        if (chatR && chatR.ok && Array.isArray(chatR.chats)) {
-          chatR.chats.forEach(function(c, idx) {
-            const k = 'n/' + (c.name||'') + '/' + (c.age||'') + '/' + (c.city||'') + '/chat';
-            if (c.name && seenKeys.has(k)) return;
-            if (c.name) seenKeys.add(k);
-            cards.push({
-              id: 'L1-chat-' + idx, cat: 'chat', source: '正在聊',
-              name: c.name || '', age: c.age || '', city: c.city || '',
-              onlineIcon: c.onlineIcon || null, onlineLabel: '', memberId: null,
-              sourceHref: c.link || null, lastMsg: c.lastMsg || '', lastMsgZh: '', lastTime: c.lastTime || '',
-              selfIntro: '', interests: [], avatarUrls: [],
-              ai: null, state: 'PENDING', selectedTalk: null, tags: [], opLog: [],
-              platform: 'ichigo', noRevoke: true,
-            });
-          });
-        }
-      } catch (e) { /* CDP 窗口未开 → 降级 */ }
+          if (typeof deepScrape.fetchTypedLikes === 'function') {
+            try {
+              const likeR = await deepScrape.fetchTypedLikes({ tab: 'mutual', maxItems: parseInt(qs.get('maxLikes') || '30', 10) });
+              if (likeR && likeR.ok && Array.isArray(likeR.likes)) {
+                likeR.likes.forEach(function(lk, idx) {
+                  const k = lk.memberId ? ('m/' + lk.memberId) : ('n/' + (lk.name||'') + '/' + (lk.age||'') + '/' + (lk.city||'') + '/like');
+                  if (seenKeys.has(k)) return;
+                  seenKeys.add(k);
+                  cards.push({
+                    id: 'L2-mutual-' + idx, cat: 'like', source: lk.tab === 'mutual' ? '互赞' : '点赞',
+                    name: lk.name || '', age: lk.age || '', city: lk.city || '',
+                    onlineIcon: lk.onlineIcon || null, onlineLabel: lk.time ? ('互赞 ' + lk.time) : '',
+                    memberId: lk.memberId || null, sourceHref: lk.profileUrl || lk.sourceHref || null,
+                    lastMsg: '', lastMsgZh: '', lastTime: lk.time || '',
+                    selfIntro: lk.selfIntro || '', interests: Array.isArray(lk.interests) ? lk.interests : [],
+                    avatarUrls: Array.isArray(lk.avatars) ? lk.avatars : (lk.avatar ? [lk.avatar] : []),
+                    ai: null, state: 'PENDING', selectedTalk: null, tags: [], opLog: [],
+                    platform: 'ichigo', noRevoke: true,
+                  });
+                });
+              }
+            } catch (e) { /* CDP 窗口未开 → 降级，不阻断 */ }
+          }
+          // CDP 实时 P1 正在聊
+          if (typeof deepScrape.fetchChatInbox === 'function') {
+            try {
+              const chatR = await deepScrape.fetchChatInbox({ maxItems: parseInt(qs.get('maxChats') || '30', 10) });
+              if (chatR && chatR.ok && Array.isArray(chatR.chats)) {
+                chatR.chats.forEach(function(c, idx) {
+                  const k = 'n/' + (c.name||'') + '/' + (c.age||'') + '/' + (c.city||'') + '/chat';
+                  if (c.name && seenKeys.has(k)) return;
+                  if (c.name) seenKeys.add(k);
+                  cards.push({
+                    id: 'L1-chat-' + idx, cat: 'chat', source: '正在聊',
+                    name: c.name || '', age: c.age || '', city: c.city || '',
+                    onlineIcon: c.onlineIcon || null, onlineLabel: '', memberId: null,
+                    sourceHref: c.link || null, lastMsg: c.lastMsg || '', lastMsgZh: '', lastTime: c.lastTime || '',
+                    selfIntro: '', interests: [], avatarUrls: [],
+                    ai: null, state: 'PENDING', selectedTalk: null, tags: [], opLog: [],
+                    platform: 'ichigo', noRevoke: true,
+                  });
+                });
+              }
+            } catch (e) { /* CDP 窗口未开 → 降级 */ }
+          }
+
     }
     // domainRank 排序（P1 chat > P2 like > P6 browse）
     try {
@@ -3080,7 +3127,7 @@ if (action === 'blacklist' && deepScrape && typeof deepScrape.blockContact === '
       leadCount: leadCount,
       leadErr: leadErr,
       cards: cards,
-      note: '基底=Lead 线索池（已灌库）+ CDP 实时 P1/P2 补全；domainRank 排序（P1>P2>P6）。CDP 窗口未开时退化为纯 Lead 池。',
+      note: '默认=收件箱未回复会话+Lead 互动线索(纯 DB, 秒出); ?cdp=1 才补 CDP 实时 P1/P2; 资料卡走精细爬取手动补。',
     });
   }));
 
@@ -3170,19 +3217,28 @@ if (action === 'blacklist' && deepScrape && typeof deepScrape.blockContact === '
   register('POST', '/api/console/card/regenerate', wrap(async (req, res, body) => {
     if (!assistant || typeof assistant.chat !== 'function') return json(res, 501, { ok: false, reason: 'assistant-not-injected' });
     const b = body || {};
-    if (!b.conversationId) return json(res, 400, { ok: false, reason: 'missing-conversation' });
+    // conversationId 不再必填: 候选可能无 conv id, 用候选自带客户资料当上下文(需求: 资料卡齐了 AI 才有针对性)
     try {
-      // assistant.chat = B v1.1(强制 JSON {analysis/strategy/replies}), intent 经 message 前缀传递
       const intentTag = (b.intent && b.intent !== 'reply') ? ('[意图:' + b.intent + '] ') : '';
       const adjustTag = b.adjustNote ? ('[微调指令:' + b.adjustNote + '] ') : '';
+      // 候选客户资料(兴趣/人设/最近消息/资料卡)拼进 prompt —— 即使 Conversation 库没这个客户也有上下文
+      let ctxNote = '';
+      const cust = b.customer || {};
+      if (cust.name || cust.interests || cust.selfIntro) {
+        ctxNote = '目标客户: ' + (cust.name || '(未名)') + (cust.age ? ' ' + cust.age : '') + (cust.city ? ' ' + cust.city : '');
+        if (Array.isArray(cust.interests) && cust.interests.length) ctxNote += '; 兴趣: ' + cust.interests.join(',');
+        if (cust.selfIntro) ctxNote += '; 自我介绍: ' + String(cust.selfIntro).slice(0, 200);
+      }
+      const history = Array.isArray(b.history) ? b.history.slice(-12) : [];
       const r = await assistant.chat({
-        message: (intentTag + adjustTag + '基于当前会话, 生成 4 条候选回复话术(日/中双语, 带意图与置信度)'),
+        message: (intentTag + adjustTag + ctxNote + '。基于上述客户资料与最近对话, 生成 4 条候选回复话术(日/中双语, 带意图与置信度)')
+          .replace(/^[\s。]+/, ''),
         contactId: b.contactId || b.conversationId,
-        history: Array.isArray(b.history) ? b.history.slice(-12) : [],
+        history: history,
         maxMsgs: 12,
       });
       if (typeof store.logOperation === 'function') {
-        store.logOperation({ conversationId: b.conversationId, platform: b.platform || 'ichigo', accountId: b.accountId || null, opType: 'regen', detail: JSON.stringify({ intent: b.intent, adjustNote: b.adjustNote }), result: r && r.ok !== false ? 'ok' : 'degraded' });
+        store.logOperation({ conversationId: b.conversationId || b.contactId || null, platform: b.platform || 'ichigo', accountId: b.accountId || null, opType: 'regen', detail: JSON.stringify({ intent: b.intent, adjustNote: b.adjustNote, customer: cust.name }), result: r && r.ok !== false ? 'ok' : 'degraded' });
       }
       return json(res, 200, { ok: true, ai: r });
     } catch (e) {
@@ -3199,12 +3255,31 @@ if (action === 'blacklist' && deepScrape && typeof deepScrape.blockContact === '
     if (!deepScrape || typeof deepScrape.fetchProfile !== 'function') return json(res, 501, { ok: false, reason: 'deepscrape-not-injected', msg: '出会深度抓取器未注入(17098 窗口未开?)' });
     if (refineCrawlState.running) return json(res, 409, { ok: false, reason: 'already-running', msg: '精细爬取进行中, 等完再发' });
     const b = body || {};
-    // 入队对象: [{ leadId?, name?, url, age?, region? }] —— 前端候选卡的 sourceHref(资料卡链接)+ memberId
+    // 入队对象: [{ leadId?, name?, url, age?, region? }] —— 候选卡带 sourceHref 的直接用; 没的按 name/memberId 从 Lead 池反查 profileUrl
     let targets = Array.isArray(b.items) ? b.items : [];
     if (targets.length && !targets[0].url && targets[0].sourceHref) targets = targets.map(t => ({ ...t, url: t.sourceHref }));
     const max = Math.min(parseInt(b.max || '5', 10), 10);   // 默认每次 5 个(拟人, 不触发风控)
     targets = targets.slice(0, max);
-    if (!targets.length) return json(res, 400, { ok: false, reason: 'no-targets', msg: '没有可爬的资料卡链接(候选需带 sourceHref/资料卡 url)' });
+    if (!targets.length) return json(res, 400, { ok: false, reason: 'no-targets', msg: '没有可爬的目标(候选需带 name 或 sourceHref/资料卡 url)' });
+    // 没 url 的按 name/memberId 从 Lead 池反查 profileUrl(二次筛选: 线索池里有资料卡链接的)
+    if (store && typeof store.listLeads === 'function') {
+      const needUrl = targets.filter(t => !t.url);
+      if (needUrl.length) {
+        let leadPool = [];
+        try {
+          const allLeads = store.listLeads({ platform: 'ichigo' }, { limit: 300 });
+          leadPool = Array.isArray(allLeads) ? allLeads : [];
+        } catch (_) { leadPool = []; }
+        needUrl.forEach(function(t) {
+          const hit = leadPool.find(function(ld) {
+            if (t.memberId && ld.extras && ld.extras.memberId && String(ld.extras.memberId) === String(t.memberId)) return true;
+            if (t.name && ld.name && String(t.name).trim() === String(ld.name).trim()) return true;
+            return false;
+          });
+          if (hit && hit.profileUrl) t.url = hit.profileUrl;
+        });
+      }
+    }
     // 启动后台爬取(不阻塞本请求)
     refineCrawlState = { running: true, done: 0, total: targets.length, lastError: null, startedAt: new Date().toISOString(), finishedAt: null };
     (async function() {
@@ -3274,12 +3349,35 @@ if (action === 'blacklist' && deepScrape && typeof deepScrape.blockContact === '
       if (!prof || prof.ok === false) return json(res, 500, { ok: false, reason: 'account-profile-failed', msg: (prof && (prof.reason || prof.msg)) || '抓取失败' });
       // 存 AccountPersona(人设 = 账号本体资料, 不混客户数据; §-1.3 三要素隔离)
       const personaId = 'persona-' + accountId;
+      // fetchAccountProfile 新返回: 账号页标签词解析出的字段(昵称/生日/身高/风格/职业/兴趣/自我介绍…)
       const personaJson = JSON.stringify({
-        name: prof.name || null, age: prof.age || null, region: prof.region || prof.city || null,
-        interests: (prof.interests && prof.interests.length) ? prof.interests : (Array.isArray(prof.interestIcons) ? prof.interestIcons.map(x => (x && x.label) || x) : []),
-        occupation: prof.occupation || null, height: prof.height || null, income: prof.income || null,
-        style: prof.style || null, selfIntro: (prof.selfIntro || prof.intro || '').slice(0, 500) || null,
-        avatarCount: (prof.avatarCount != null) ? prof.avatarCount : 0,
+        nickname: prof.nickname || null,
+        birth: prof.birth || null,
+        displayAge: prof.displayAge || null,
+        height: prof.height || null,
+        style: prof.style || null,
+        bloodType: prof.bloodType || null,
+        type: prof.type || null,
+        region: prof.region || null,
+        status: prof.status || null,
+        birthplace: prof.birthplace || null,
+        occupation: prof.occupation || null,
+        income: prof.income || null,
+        zodiac: prof.zodiac || null,
+        smoking: prof.smoking || null,
+        drinking: prof.drinking || null,
+        children: prof.children || null,
+        eyes: prof.eyes || null,
+        freeTime: prof.freeTime || null,
+        prefAge: prof.prefAge || null,
+        prefStyle: prof.prefStyle || null,
+        threeSize: prof.threeSize || null,
+        cup: prof.cup || null,
+        dateWant: prof.dateWant || null,
+        meetingIntent: prof.meetingIntent || null,
+        interests: prof.interests || null,
+        selfIntro: prof.selfIntro || null,
+        rawText: (prof.rawText || '').slice(0, 2000),
         crawledAt: new Date().toISOString()
       });
       const ts = new Date().toISOString();
@@ -3297,12 +3395,79 @@ if (action === 'blacklist' && deepScrape && typeof deepScrape.blockContact === '
           realAccId = accId;
         } catch (e2) { realAccId = accountId; /* FK 未强制时兜底 */ }
       }
+      // upsert AccountPersona(personaId 主键, 保留原 createdAt)
+      const oldRow = store.db.prepare("SELECT createdAt FROM AccountPersona WHERE personaId = ?").get(personaId);
+      const createdKeep = oldRow ? oldRow.createdAt : ts;
+      store.db.prepare(
+        "INSERT INTO AccountPersona (personaId, accountId, persona, tone, background, targetAudience, taboos, status, createdAt, updatedAt) " +
+        "VALUES (?, ?, ?, '', '', '', ?, 'active', ?, ?) " +
+        "ON CONFLICT(personaId) DO UPDATE SET persona = excluded.persona, accountId = excluded.accountId, updatedAt = excluded.updatedAt"
+      ).run(personaId, realAccId, personaJson, null, createdKeep, ts);
       const saved = store.db.prepare("SELECT * FROM AccountPersona WHERE personaId = ?").get(personaId);
       return json(res, 200, { ok: true, persona: saved, crawled: JSON.parse(personaJson) });
     } catch (e) {
       console.error('[account-persona/crawl] 失败:', e && e.message);
       return json(res, 500, { ok: false, reason: 'crawl-error', msg: String(e && e.message || e) });
     }
+  }));
+
+  // POST /api/console/account-persona/randomize { accountId } → 一键随机填写所有资料(养号/测试用; 铁律 0.1: 只改本地人设, 不发平台)
+  register('POST', '/api/console/account-persona/randomize', wrap(async (req, res, body) => {
+    if (!store || typeof store.db !== 'object') return json(res, 501, { ok: false, reason: 'store-not-ready' });
+    const b = body || {};
+    const accountId = b.accountId || '17098';
+    const personaId = 'persona-' + accountId;
+    // 随机素材(日本女性养号池; 可后续接"人设库"表)
+    var POOL = {
+      nickname: ['さくら', 'ゆき', 'はな', 'まり', 'ゆな', 'こころ', 'れい', 'なお', 'みき', 'あおい'],
+      displayAge: ['28', '30', '32', '34', '36', '38'],
+      birth: ['1988年05月', '1990年03月', '1991年07月', '1989年11月', '1992年02月', '1987年09月'],
+      height: ['150～154cm', '155～159cm', '160～164cm', '165～169cm', '145～149cm'],
+      style: ['美人系', '癒し系', 'スポーツ系', 'ギャル系', 'エロ系', '清楚系', '巨乳'],
+      bloodType: ['A型', 'B型', 'O型', 'AB型'],
+      type: ['美人系', '癒し系', 'スポーツ系', '清楚系', 'セクシー系'],
+      region: ['三重-津市', '三重-鈴鹿', '三重-四日市', '三重-松阪', '京都-京都', '滋賀-大津', '和歌山-和歌山', '大阪-大阪'],
+      status: ['秘密', '付き合っている', '既婚', 'フリー'],
+      birthplace: ['三重-津市', '京都-京都', '大阪-大阪', '滋賀-大津', '和歌山-和歌山', '東京-東京'],
+      occupation: ['会社員', '公務員', 'サービス', '営業', 'フリーター', 'その他', '自営'],
+      income: ['100～300万円', '300～500万円', '500～700万円', '700～1000万円', '1000万円以上'],
+      zodiac: ['未設定', ' Cancer', '獅子座', '乙女座', '天秤座', '蠍座', '射手座', '魚座'],
+      smoking: ['吸わない', '時々吸う', '禁煙中', '未設定'],
+      drinking: ['普通', '弱め', '強い', '飲まない'],
+      children: ['未設定', '子供はいない', '一人', '二人'],
+      eyes: ['未設定', '二重', '一重'],
+      freeTime: ['未設定', '夜', '土日', '毎日'],
+      dateWant: ['食事をしたい', '映画を見たい', '散歩したい', 'ドライブ', 'その他'],
+      meetingIntent: ['まずは会いたい', '友だちから', '交際から', '未設定'],
+      interests: ['映画', '音楽', '料理', '旅行', 'ゴルフ', '写真', '読書', '猫', '犬', '海', '山', '釣り', 'ゲーム', 'アニメ'],
+      selfIntro: ['こんにちは、よろしくお願いします。', '趣味は旅行と料理です。', '猫が好きです。よろしくお願いします。', '海と山が好きな、穏やかな性格です。', 'よろしくお願いしますね。']
+    };
+    function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+    // 读旧 persona, 保留 crawledAt/updatedAt, 其余随机覆盖
+    const old = store.db.prepare('SELECT persona, createdAt FROM AccountPersona WHERE personaId = ?').get(personaId);
+    let cur = {}; try { cur = old && old.persona ? JSON.parse(old.persona) : {}; } catch (_) { cur = {}; }
+    Object.keys(POOL).forEach(function(k) {
+      if (k === 'interests') {
+        // 兴趣随机 3-5 个
+        var n = 3 + Math.floor(Math.random() * 3);
+        var arr = POOL.interests.slice();
+        var out = [];
+        for (var i = 0; i < n && arr.length; i++) { out.push(arr.splice(Math.floor(Math.random() * arr.length), 1)[0]); }
+        cur.interests = out.join(',');
+      } else {
+        cur[k] = pick(POOL[k]);
+      }
+    });
+    cur.crawledAt = new Date().toISOString();
+    cur.randomizedAt = new Date().toISOString();
+    // upsert
+    store.db.prepare(
+      'INSERT INTO AccountPersona (personaId, accountId, persona, tone, background, targetAudience, taboos, status, createdAt, updatedAt) ' +
+      'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ' +
+      'ON CONFLICT(personaId) DO UPDATE SET persona = excluded.persona, updatedAt = excluded.updatedAt'
+    ).run(personaId, accountId, JSON.stringify(cur), '', '', '', '', 'active', old && old.createdAt ? old.createdAt : new Date().toISOString(), new Date().toISOString());
+    const row = store.db.prepare('SELECT * FROM AccountPersona WHERE personaId = ?').get(personaId);
+    return json(res, 200, { ok: true, persona: row, randomized: cur, note: '已随机填写全部资料(本地人设; 未发平台)。前端可单项改。' });
   }));
 
   // GET /api/console/account-persona?accountId=17098 → 读账户人设
@@ -3321,11 +3486,18 @@ if (action === 'blacklist' && deepScrape && typeof deepScrape.blockContact === '
     const accountId = b.accountId || '17098';
     const personaId = 'persona-' + accountId;
     const old = store.db.prepare("SELECT * FROM AccountPersona WHERE personaId = ?").get(personaId);
-    if (!old) return json(res, 404, { ok: false, reason: 'persona-not-found', msg: '先 POST /account-persona/crawl 抓取' });
-    // 合并 patch(白名单字段, 防注入)
-    let cur = {}; try { cur = JSON.parse(old.persona || '{}'); } catch (_) {}
-    const allow = ['name', 'age', 'region', 'interests', 'occupation', 'height', 'income', 'style', 'selfIntro'];
-    allow.forEach(k => { if (b[k] !== undefined) cur[k] = b[k]; });
+    if (!old) return json(res, 404, { ok: false, reason: 'persona-not-found', msg: '先抓取或随机生成一份人设' });
+    // 合并 patch: 支持 { field, value } 单项 或 { 字段: 值 } 多项。白名单=parseAccountPersona 全字段 + 兼容旧 name/age
+    let cur = {}; try { cur = JSON.parse(old.persona || '{}'); } catch (_) { cur = {}; }
+    const allow = ['nickname', 'birth', 'displayAge', 'height', 'style', 'bloodType', 'type', 'region', 'status',
+      'birthplace', 'occupation', 'income', 'zodiac', 'smoking', 'drinking', 'children', 'eyes', 'freeTime',
+      'prefAge', 'prefStyle', 'threeSize', 'cup', 'dateWant', 'meetingIntent', 'interests', 'selfIntro',
+      'name', 'age']; // 兼容旧字段
+    if (b.field !== undefined) { // 单项: { field, value }
+      if (allow.indexOf(b.field) !== -1) cur[b.field] = b.value;
+    } else {
+      allow.forEach(k => { if (b[k] !== undefined) cur[k] = b[k]; });
+    }
     cur.updatedAt = new Date().toISOString();
     store.db.prepare("UPDATE AccountPersona SET persona = ?, updatedAt = ? WHERE personaId = ?").run(JSON.stringify(cur), cur.updatedAt, personaId);
     const row = store.db.prepare("SELECT * FROM AccountPersona WHERE personaId = ?").get(personaId);
