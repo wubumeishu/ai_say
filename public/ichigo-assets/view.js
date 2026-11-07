@@ -103,7 +103,7 @@ export function switchView(view) {
     } catch (e) { console.warn('[cards] cardflow 未注入', e); }
     return;
   }
-  var domainViews = ['domain', 'domain-ashiato', 'domain-faces', 'domain-search', 'domain-ignore', 'domain-calendar', 'domain-toolbox', 'domain-pool', 'domain-pool', 'domain-toolbox', 'domain-diary', 'domain-unified', 'domain-leads'', 'cards'];
+  var domainViews = ['domain', 'domain-ashiato', 'domain-faces', 'domain-search', 'domain-ignore', 'domain-calendar', 'domain-toolbox', 'domain-pool', 'domain-pool', 'domain-toolbox', 'domain-diary', 'domain-unified', 'domain-leads', 'cards'];
   if (domainViews.indexOf(view) !== -1) {
     cols.customers.style.display = 'none';
     cols.messages.style.display = 'none';
