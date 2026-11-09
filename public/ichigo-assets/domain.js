@@ -343,7 +343,7 @@ export function renderDomainPage(view) {
     case 'domain-diary': loadDiary(); break;
     case 'domain-unified': renderUnifiedList(); break;
     case 'domain-leads': loadLeads(); break;
-    case 'domain-profiles': loadProfiles(); break;
+    case 'domain-profiles': loadProfiles().catch(function (e) { var _el = document.getElementById('domainContent'); if (_el) _el.innerHTML = '<div style="padding:16px;color:#c0392b;font-size:13px">资料池渲染失败: ' + String(e && e.message || e) + '</div>'; }); break;
     case 'domain-persona': loadPersona(); break;
     case 'domain-toolbox': loadToolbox(); break;
     case 'domain-pool': loadAccountPool(); break;
@@ -818,6 +818,7 @@ export async function loadProfiles() {
       : '<div style="font-size:11px;color:var(--muted,#888);padding:4px 0">' + (p.crawlStatus === 'done' ? '已抓取但无资料字段（客户资料卡未填）' : '点下方「🔭 抓资料卡」抓取后显示') + '</div>';
   }
   var rows = prof.map(function (p) {
+    var ex = p.extras || {};
     var avatar = p.avatarUrl ? '<img src="' + p.avatarUrl + '" style="width:34px;height:34px;border-radius:50%;object-fit:cover;border:1px solid var(--border,#2a3550)" alt="">' : '<span style="width:34px;height:34px;border-radius:50%;background:var(--panel,#1a1d27);display:inline-flex;align-items:center;justify-content:center;font-size:16px">👤</span>';
     var head = '<div class="pfHead" data-pf="' + p.profileId + '" style="cursor:pointer;display:flex;align-items:center;gap:10px">' +
       avatar +
