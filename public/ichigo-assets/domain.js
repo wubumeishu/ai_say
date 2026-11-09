@@ -805,13 +805,27 @@ export async function loadProfiles() {
   function detailRows(p) {
     var ex = p.extras || {};
     var rows = [];
-    function row(label, val) { if (val && String(val).trim()) rows.push('<div style="display:flex;gap:10px;padding:3px 0;font-size:12px;line-height:1.5"><span style="width:72px;flex-shrink:0;color:var(--muted,#888);font-size:11px">' + label + '</span><span style="color:var(--text)">' + String(val) + '</span></div>'); }
-    row('兴趣', ex.interests ? (Array.isArray(ex.interests) ? ex.interests.join('、') : ex.interests) : '');
-    row('职业', ex.occupation);
-    row('身高', ex.height);
-    row('收入', ex.income);
-    row('风格', ex.style);
-    row('出身地', ex.birthplace);
+    function row(label, val) { if (val && String(val).trim()) rows.push('<div style="display:flex;gap:10px;padding:2px 0;font-size:12px;line-height:1.4"><span style="width:56px;flex-shrink:0;color:var(--muted,#888);font-size:11px">' + label + '</span><span style="color:var(--text)">' + String(val) + '</span></div>'); }
+    // 兴趣: interestIcons(enriched {icon,label}) 或 interests 文本
+    var _int = '';
+    if (ex.interests && (Array.isArray(ex.interests) ? ex.interests.length : String(ex.interests).trim())) _int = Array.isArray(ex.interests) ? ex.interests.join('、') : ex.interests;
+    if (!_int && ex.interestIcons && ex.interestIcons.length) _int = ex.interestIcons.map(function (x) { return (x && x.label) || ''; }).filter(Boolean).join('、');
+    row('兴趣', _int);
+    row('职业', ex.occupation || p.occupation);
+    row('身高', ex.height || p.height);
+    row('收入', ex.income || p.income);
+    row('风格', ex.style || p.style);
+    row('出身', ex.birthplace || p.birthplace);
+    row('地区', p.region);
+    row('血型', ex.bloodType || p.bloodType);
+    row('类型', ex.type || p.type);
+    row('交際', ex.status || p.status);
+    row('星座', ex.zodiac || p.zodiac);
+    row('吸烟', ex.smoking || p.smoking);
+    row('饮酒', ex.drinking || p.drinking);
+    row('子女', ex.children || p.children);
+    row('性别', p.gender);
+    row('生日', ex.birth || p.birth);
     row('自我介绍', p.selfIntro || ex.selfIntro);
     return rows.length
       ? rows.join('')
@@ -819,7 +833,7 @@ export async function loadProfiles() {
   }
   var rows = prof.map(function (p) {
     var ex = p.extras || {};
-    var avatar = p.avatarUrl ? '<img src="' + p.avatarUrl + '" style="width:34px;height:34px;border-radius:50%;object-fit:cover;border:1px solid var(--border,#2a3550)" alt="">' : '<span style="width:34px;height:34px;border-radius:50%;background:var(--panel,#1a1d27);display:inline-flex;align-items:center;justify-content:center;font-size:16px">👤</span>';
+    var avatar = p.avatarUrl ? '<img src="' + p.avatarUrl + '" style="width:34px;height:34px;border-radius:50%;object-fit:cover;border:1px solid var(--border,#2a3550)" alt="">' : '<span style="width:34px;height:34px;border-radius:50%;background:var(--card2,#f2f5f9);display:inline-flex;align-items:center;justify-content:center;font-size:16px">👤</span>';
     var head = '<div class="pfHead" data-pf="' + p.profileId + '" style="cursor:pointer;display:flex;align-items:center;gap:10px">' +
       avatar +
       '<div style="flex:1;min-width:0">' +
@@ -835,16 +849,16 @@ export async function loadProfiles() {
       (ex.crawledAt ? '<div style="font-size:10px;color:var(--muted,#888)">抓取于 ' + ex.crawledAt + '</div>' : '') +
       '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:2px">' +
       '<button class="pCrawl" data-id="' + p.profileId + '" style="font-size:11px;padding:3px 10px;background:var(--accent,#4f8cff);color:#fff;border:none;border-radius:4px;cursor:pointer">🔭 抓/重抓资料卡</button>' +
-      '<button class="pCms" data-id="' + p.profileId + '" style="font-size:11px;padding:3px 10px;background:var(--panel,#1a1d27);color:var(--text);border:1px solid var(--border);border-radius:4px;cursor:pointer">↻ 刷已沟通</button>' +
+      '<button class="pCms" data-id="' + p.profileId + '" style="font-size:11px;padding:3px 10px;background:var(--card,#fff);color:var(--text);border:1px solid var(--border);border-radius:4px;cursor:pointer">↻ 刷已沟通</button>' +
       '</div></div>';
-    return '<div class="pfCard" style="background:var(--panel2,#22252f);border-radius:8px;padding:10px 12px;margin-bottom:8px;border:1px solid var(--border,#2a3550)">' + head + body + '</div>';
+    return '<div class="pfCard" style="background:var(--card,#fff);border-radius:8px;padding:8px 10px;margin-bottom:6px;border:1px solid var(--border,#2a3550)">' + head + body + '</div>';
   }).join('');
   el.innerHTML =
     '<div id="profAgg" style="font-size:11px;color:var(--muted,#888);margin-bottom:10px">共 ' + (agg.total || prof.length) +
       ' 条 · 已抓取 ' + (agg.crawled || 0) + ' · 未抓取 ' + (agg.pending || 0) + ' · 已沟通 ' + (agg.communicated || 0) +
       ' · 来源 ' + Object.keys(agg.bySource || {}).map(function (k) { return (DIM_CN[k] || k) + ' ' + (agg.bySource[k] || 0); }).join(' / ') +
       ' <span style="margin-left:8px">（点卡片展开看完整资料）</span></div>' +
-    '<div style="max-height:560px;overflow-y:auto">' + (rows || '<div style="padding:16px;color:var(--muted,#888);font-size:13px">资料池暂空。</div>') + '</div>' +
+    '<div style="max-height:640px;overflow-y:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:8px">' + (rows || '<div style="padding:16px;color:var(--muted,#888);font-size:13px">资料池暂空。</div>') + '</div>' +
     profileActionsHtml();
   // 展开/折叠: 点 .pfHead 切换 .pfBody
   Array.prototype.forEach.call(el.querySelectorAll('.pfHead'), function (h) {

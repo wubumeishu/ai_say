@@ -3988,8 +3988,8 @@ if (action === 'blacklist' && deepScrape && typeof deepScrape.blockContact === '
             const prof = await deepScrape.fetchProfile(it.url);
             if (prof && prof.ok !== false) {
               const merged = {};
-              ['interestIcons', 'occupation', 'height', 'income', 'style', 'birthplace'].forEach(function (kk) {
-                if (prof[kk] !== undefined && prof[kk] !== null) merged[kk] = prof[kk];
+              ['interestIcons', 'occupation', 'height', 'income', 'style', 'birthplace', 'gender', 'age', 'bloodType', 'type', 'status', 'zodiac', 'smoking', 'drinking', 'children', 'birth', 'selfIntro', 'region'].forEach(function (kk) {
+                if (prof[kk] !== undefined && prof[kk] !== null && prof[kk] !== '') merged[kk] = prof[kk];
               });
               if (prof.interestIcons) merged.interests = Array.isArray(prof.interestIcons) ? prof.interestIcons.map(function (x) { return (x && x.label) || (typeof x === 'string' ? x : (x && x.name) || String(x)); }) : prof.interestIcons;
               store.markProfileCrawled(it.profileId, 'done', merged);
@@ -4070,7 +4070,7 @@ if (action === 'blacklist' && deepScrape && typeof deepScrape.blockContact === '
         const prof = await deepScrape.fetchProfile(p.profileUrl);
         if (prof && prof.ok !== false) {
           const merged = {};
-          ['interestIcons', 'occupation', 'height', 'income', 'style', 'birthplace'].forEach(function (k) {
+          ['interestIcons', 'occupation', 'height', 'income', 'style', 'birthplace', 'gender', 'age', 'bloodType', 'type', 'status', 'zodiac', 'smoking', 'drinking', 'children', 'birth', 'selfIntro', 'region'].forEach(function (k) {
             if (prof[k] !== undefined && prof[k] !== null) merged[k] = prof[k];
           });
           if (prof.interestIcons) merged.interests = prof.interestIcons.map ? prof.interestIcons.map(function (x) { return (x && x.label) || (typeof x === 'string' ? x : (x && x.name) || String(x)); }) : prof.interestIcons;
