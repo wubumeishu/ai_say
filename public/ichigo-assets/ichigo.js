@@ -295,7 +295,8 @@ export function translate(text, from, to, ctx) {
 }
 
 // 画像分析渲染（复制自 L1224）
-export function renderAnalysis(profile) {
+export var _AFF_ZH = {"0":"在咖啡馆放松","1":"边吃边聊（一起吃饭）","2":"最爱甜点","3":"电影爱好者同好","4":"喜欢运动","5":"喜欢汽车 / 喜欢坐副驾","6":"擅长烹饪","7":"边喝边聊（一起喝酒）","8":"喜欢音乐","9":"喜欢看漫画","10":"喜欢读书","11":"喜欢摄影 / 相机","12":"喜欢搞笑节目 / 喜剧","13":"喜欢时尚 / 打扮","14":"户外活动派","15":"喜欢动物","16":"想一起打游戏","17":"喜欢唱K（卡拉OK）","18":"想一起去游乐园","19":"喜欢旅行","20":"喜欢泡温泉","21":"喜欢拉面","22":"慢跑 / 跑步","23":"自行车（骑行）","24":"喜欢高尔夫","25":"居家休闲派（喜欢在家放松）","26":"其实是个御宅族（二次元迷）","27":"喜欢迪士尼","28":"喜欢飞镖 / 台球","29":"感觉最重要","30":"平日休息同好（工作日休假）","31":"居酒屋约会也可以接受","32":"喜欢笑容","33":"想谈恋爱","34":"以结婚为前提（考虑结婚）","35":"对联谊有兴趣"};
+function renderAnalysis(profile) {
   var host = document.getElementById('analysisList');
   if (!profile) { host.innerHTML = '<div class="empty">资料卡未抓取</div>'; return; }
   var html = '';
@@ -332,7 +333,9 @@ export function renderAnalysis(profile) {
   var icons = profile.interestIcons || [];
   if (icons.length) {
     var labels = icons.map(function(i) {
-      if (i && typeof i === 'object') return i.label || (i.icon ? ('未知(' + i.icon + ')') : '未知');
+      var _lbl = (i && typeof i === 'object' && i.label) ? i.label : ((i && i.icon != null && _AFF_ZH[String(i.icon)]) || null);
+      if (_lbl) return _lbl;
+      if (i && typeof i === 'object') return i.icon ? ('未知(' + i.icon + ')') : '未知';
       return '未知(' + String(i) + ')';
     });
     html += '<div class="pf-group"><div class="pf-group-title">兴趣（' + icons.length + '）</div><div class="pf-row"><span class="pv">' + esc(labels.join('、')) + '</span></div></div>';
