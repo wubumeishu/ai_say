@@ -3968,9 +3968,48 @@ if (action === 'blacklist' && deepScrape && typeof deepScrape.blockContact === '
         try { store.db.prepare('UPDATE Lead SET contactId = ? WHERE leadId = ?').run(contactId, ld.leadId); } catch (_) {}
       }
     }
+    // ② 抓"未抓取"的已沟通自动后台抓: 收集 promoted 里 communicated=true && crawlStatus!=done && 有 profileUrl
+    //    → 后台呼吸节拍抓(不阻塞本请求; 后期放呼吸/编排引擎里跑, 现在先内联 setTimeout 起)
+    const autoTargets = [];
+    for (const ld of targets) {
+      const prof = store.getProfile ? store.getProfile('P' + (function () { var c = require('crypto'); return c.createHash('sha1').update(String(ld.leadId)).digest('hex'); })()) : null;
+      if (prof && prof.communicated && prof.crawlStatus !== 'done' && (ld.profileUrl || prof.profileUrl)) {
+        autoTargets.push({ profileId: prof.profileId, url: ld.profileUrl || prof.profileUrl });
+      }
+    }
+    let autoStarted = 0;
+    if (autoTargets.length) {
+      // 后台呼吸抓(20-40s 间隔), 上限 10 个/批(防风控); 超出部分下一轮再触发
+      const batch = autoTargets.slice(0, 10);
+      (async function() {
+        for (let i = 0; i < batch.length; i++) {
+          const it = batch[i];
+          try {
+            const prof = await deepScrape.fetchProfile(it.url);
+            if (prof && prof.ok !== false) {
+              const merged = {};
+              ['interestIcons', 'occupation', 'height', 'income', 'style', 'birthplace'].forEach(function (kk) {
+                if (prof[kk] !== undefined && prof[kk] !== null) merged[kk] = prof[kk];
+              });
+              if (prof.interestIcons) merged.interests = Array.isArray(prof.interestIcons) ? prof.interestIcons.map(function (x) { return x.name || x; }) : prof.interestIcons;
+              store.markProfileCrawled(it.profileId, 'done', merged);
+            } else {
+              store.markProfileCrawled(it.profileId, 'failed', { crawlErr: (prof && prof.reason) || 'unknown' });
+            }
+          } catch (e) {
+            store.markProfileCrawled(it.profileId, 'failed', { crawlErr: String(e && e.message || e) });
+          }
+          if (i < batch.length - 1) await new Promise(function (r) { setTimeout(r, 20000 + Math.floor(Math.random() * 20000)); });
+        }
+      })();
+      autoStarted = batch.length;
+    }
     return json(res, 200, {
       ok: true, promoted: promoted, total: targets.length,
-      note: '已 promote ' + promoted + ' 条进资料池（含已沟通/来源标注）。资料池页查看。',
+      autoCrawling: autoStarted,
+      note: '已 promote ' + promoted + ' 条进资料池（含已沟通/来源标注）。' +
+        (autoStarted ? ' 其中 ' + autoStarted + ' 条已沟通未抓 → 后台呼吸抓取中(每 20-40s 一个)。' : '') +
+        ' 资料池页查看。',
     });
   }));
 
