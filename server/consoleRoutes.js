@@ -3991,7 +3991,7 @@ if (action === 'blacklist' && deepScrape && typeof deepScrape.blockContact === '
               ['interestIcons', 'occupation', 'height', 'income', 'style', 'birthplace'].forEach(function (kk) {
                 if (prof[kk] !== undefined && prof[kk] !== null) merged[kk] = prof[kk];
               });
-              if (prof.interestIcons) merged.interests = Array.isArray(prof.interestIcons) ? prof.interestIcons.map(function (x) { return x.name || x; }) : prof.interestIcons;
+              if (prof.interestIcons) merged.interests = Array.isArray(prof.interestIcons) ? prof.interestIcons.map(function (x) { return (x && x.label) || (typeof x === 'string' ? x : (x && x.name) || String(x)); }) : prof.interestIcons;
               store.markProfileCrawled(it.profileId, 'done', merged);
             } else {
               store.markProfileCrawled(it.profileId, 'failed', { crawlErr: (prof && prof.reason) || 'unknown' });
@@ -4073,7 +4073,7 @@ if (action === 'blacklist' && deepScrape && typeof deepScrape.blockContact === '
           ['interestIcons', 'occupation', 'height', 'income', 'style', 'birthplace'].forEach(function (k) {
             if (prof[k] !== undefined && prof[k] !== null) merged[k] = prof[k];
           });
-          if (prof.interestIcons) merged.interests = prof.interestIcons.map ? prof.interestIcons.map(function (x) { return x.name || x; }) : prof.interestIcons;
+          if (prof.interestIcons) merged.interests = prof.interestIcons.map ? prof.interestIcons.map(function (x) { return (x && x.label) || (typeof x === 'string' ? x : (x && x.name) || String(x)); }) : prof.interestIcons;
           store.markProfileCrawled(p.profileId, 'done', merged);
           done++;
         } else {
