@@ -311,9 +311,9 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 .mcard.nokey{border-style:dashed}
 .mc-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
 .mc-name{font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.mc-badge{font-size:10px;background:var(--accent);color:var(--on-accent);border-radius:9px;padding:2px 8px;white-space:nowrap;flex:0 0 auto}
+.mc-badge{font-size:12px;background:var(--accent);color:var(--on-accent);border-radius:9px;padding:2px 8px;white-space:nowrap;flex:0 0 auto}
 .mc-rows{display:flex;flex-direction:column;gap:5px;margin-bottom:10px}
-.mc-row{display:flex;gap:8px;font-size:11.5px;line-height:1.4}
+.mc-row{display:flex;gap:8px;font-size:12px;line-height:1.4}
 .mc-row .k{color:var(--muted);flex:0 0 62px}
 .mc-row .v{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .mc-ok{color:var(--ok-fg)}
@@ -908,14 +908,14 @@ document.addEventListener('DOMContentLoaded', function() { initMain(); });
     var dot = document.getElementById('winDot' + winKey);
     var tog = document.getElementById('winToggle' + winKey);
     if (dot) {
-      dot.style.background = busy ? '#f39c12' : (open ? '#1a8b4a' : '#6b7280');
-      dot.style.boxShadow = (open && !busy) ? '0 0 5px #1a8b4a' : 'none';
+      dot.style.background = busy ? '#b7791f' : (open ? '#157340' : '#6b7280');
+      dot.style.boxShadow = (open && !busy) ? '0 0 5px #157340' : 'none';
       dot.title = busy ? '操作中…' : (open ? '窗口运行中' : '窗口未启动');
     }
     if (tog) {
       tog.textContent = busy ? '…' : (open ? '关' : '开');
-      tog.style.borderColor = busy ? '#b7791f' : (open ? '#c0392b' : '#1a8b4a');
-      tog.style.color = busy ? '#b7791f' : (open ? '#c0392b' : '#1a8b4a');
+      tog.style.borderColor = busy ? '#b7791f' : (open ? '#c0392b' : '#157340');
+      tog.style.color = busy ? '#b7791f' : (open ? '#c0392b' : '#157340');
       tog.title = busy ? '操作中…' : (open ? '点击关闭窗口 ' + winKey : '点击启动窗口 ' + winKey);
       tog.style.opacity = busy ? '.5' : '1';
     }
