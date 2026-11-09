@@ -118,7 +118,7 @@ export function switchView(view) {
     })(16); // 16 次 × 500ms = 8s
     return;
   }
-  var domainViews = ['domain', 'domain-ashiato', 'domain-faces', 'domain-search', 'domain-ignore', 'domain-calendar', 'domain-toolbox', 'domain-pool', 'domain-pool', 'domain-toolbox', 'domain-diary', 'domain-unified', 'domain-leads'];
+  var domainViews = ['domain', 'domain-ashiato', 'domain-faces', 'domain-search', 'domain-ignore', 'domain-calendar', 'domain-toolbox', 'domain-pool', 'domain-pool', 'domain-toolbox', 'domain-diary', 'domain-unified', 'domain-leads', 'domain-persona'];
   if (domainViews.indexOf(view) !== -1) {
     cols.customers.style.display = 'none';
     cols.messages.style.display = 'none';

@@ -3856,6 +3856,16 @@ if (action === 'blacklist' && deepScrape && typeof deepScrape.blockContact === '
           avatarUrl: L.avatarUrl, profileUrl: L.profileUrl, selfIntro: L.selfIntro,
           sourceDim: item.sourceDim,
           memberId: memberId != null ? String(memberId) : null,
+          // ②b 灌库回填 contactId(按 name 匹配 Contact, 精确关联收件箱会话)
+          contactId: (function () {
+            try {
+              if (L.name) {
+                const cRow = store.db.prepare('SELECT contactId FROM Contact WHERE displayName = ? LIMIT 1').get(String(L.name));
+                if (cRow && cRow.contactId) return cRow.contactId;
+              }
+            } catch (_) {}
+            return null;
+          })(),
           extras: L.extras,
         };
         const r = store.upsertLead(input);
@@ -3897,6 +3907,163 @@ if (action === 'blacklist' && deepScrape && typeof deepScrape.blockContact === '
   // ============================================================================
   var HAPPY_DIM_KIND = { like: 'type', search: 'profile', bbs: 'billboard', ashiato: 'ashiato' };
   var HAPPY_DIM_LABEL = { like: '点赞', search: '检索', bbs: '帖子', ashiato: '足迹' };
+  // ============================================================================
+  // 007 · 第二阶段 资料池 Profile（线索池筛选选择后 → 抓取 → 资料池; 手动触发）
+  //   promote: 选中 Lead 进资料池(算已沟通/来源/快照)
+  //   GET /profiles: 浏览资料池(crawlStatus 未/已抓取 + communicated 已沟通 + sourceDim 来源)
+  //   POST /profiles/crawl: 对选中 profileId 抓资料卡(refine-crawl 同款 deepScrape.fetchProfile)
+  //   POST /profiles/refresh-comms: 刷新"已沟通"标记
+  // ============================================================================
+  // 算某 contactId 在收件箱的消息条数(有记录=已沟通, 我发或他发都算)
+  function msgCountForContact(contactId) {
+    if (!store || !store.db || !contactId) return 0;
+    try {
+      const r = store.db.prepare('SELECT COUNT(*) AS c FROM Message WHERE contactId = ?').get(String(contactId));
+      return r ? Number(r.c || 0) : 0;
+    } catch (_) { return 0; }
+  }
+
+  // POST /api/console/leads/promote { accountId?, leadIds?:[], limit? } → 选中线索进资料池
+  register('POST', '/api/console/leads/promote', wrap(async (req, res, body) => {
+    if (!store || typeof store.upsertLead !== 'function') return json(res, 501, { ok: false, reason: 'store-not-ready' });
+    const b = body || {};
+    const accountId = b.accountId || '17098';
+    const platform = b.platform || 'ichigo';
+    // 没指定 leadIds → 默认 promote 该账号全部线索(用户"筛选选择后"通常带 leadIds; 不带=全量补登记, 幂等)
+    let targets = store.listLeads({ platform: platform, accountId: accountId }, { limit: 1000 });
+    if (Array.isArray(b.leadIds) && b.leadIds.length) {
+      const ids = b.leadIds.map(String);
+      targets = targets.filter(function (ld) { return ids.indexOf(String(ld.leadId)) !== -1; });
+    }
+    if (!targets.length) return json(res, 200, { ok: true, promoted: 0, total: 0, note: '该账号暂无可 promote 的线索' });
+    // 回填 contactId(②b: 按 name+accountId 匹配 Contact 精确关联收件箱) + 算已沟通
+    let promoted = 0;
+    const skipped = [];
+    for (const ld of targets) {
+      let contactId = ld.contactId || null;
+      if (!contactId) {
+        // 灌库时没回填的, 现在按 name 匹配 Contact(弱匹配兜底)
+        try {
+          const cRow = store.db.prepare('SELECT contactId FROM Contact WHERE displayName = ? LIMIT 1').get(String(ld.name || ''));
+          if (cRow) contactId = cRow.contactId;
+        } catch (_) { contactId = null; }
+      }
+      const msgCount = msgCountForContact(contactId);
+      const row = store.upsertProfile({
+        leadId: ld.leadId,
+        contactId: contactId,
+        platform: ld.platform,
+        accountId: ld.accountId || accountId,
+        name: ld.name, gender: ld.gender, age: ld.age, region: ld.region, online: ld.online,
+        avatarUrl: ld.avatarUrl, profileUrl: ld.profileUrl, selfIntro: ld.selfIntro,
+        sourceDim: ld.sourceDim,
+        communicated: msgCount > 0,
+        msgCount: msgCount,
+        extras: (function () { try { return JSON.parse(ld.extras || '{}'); } catch (_) { return {}; } })(),
+      });
+      if (row) promoted++;
+      else skipped.push(ld.leadId);
+      // 顺手回填 Lead.contactId(下次直接读, 不用再匹配)
+      if (contactId && !ld.contactId) {
+        try { store.db.prepare('UPDATE Lead SET contactId = ? WHERE leadId = ?').run(contactId, ld.leadId); } catch (_) {}
+      }
+    }
+    return json(res, 200, {
+      ok: true, promoted: promoted, total: targets.length,
+      note: '已 promote ' + promoted + ' 条进资料池（含已沟通/来源标注）。资料池页查看。',
+    });
+  }));
+
+  // GET /api/console/profiles?platform=&accountId=&crawlStatus=&communicated=&sourceDim=
+  register('GET', '/api/console/profiles', wrap(async (req, res) => {
+    if (!store || typeof store.listProfiles !== 'function') return json(res, 501, { ok: false, reason: 'store-not-ready' });
+    const qs = new URLSearchParams(String(req.url || '').split('?')[1] || '');
+    const filter = {};
+    if (qs.platform) filter.platform = qs.platform;
+    if (qs.accountId) filter.accountId = qs.accountId;
+    if (qs.crawlStatus) filter.crawlStatus = qs.crawlStatus;
+    if (qs.communicated !== undefined && qs.communicated !== '') filter.communicated = qs.communicated === '1' || qs.communicated === 'true';
+    if (qs.sourceDim) filter.sourceDim = qs.sourceDim;
+    const limit = Math.min(parseInt(qs.limit || '200', 10), 1000);
+    let rows = [];
+    try { rows = store.listProfiles(filter, { limit: limit }); } catch (e) {
+      return json(res, 500, { ok: false, reason: 'query-failed', msg: String(e && e.message || e) });
+    }
+    const profiles = (rows || []).map(function (r) {
+      let extras = {}; try { extras = JSON.parse(r.extras || '{}'); } catch (_) { extras = {}; }
+      const o = Object.assign({}, r);
+      delete o.extras;
+      o.extras = extras;
+      o.communicated = !!r.communicated;
+      return o;
+    });
+    // 聚合: 按 crawlStatus / sourceDim / communicated
+    let agg = { total: profiles.length, crawled: 0, pending: 0, communicated: 0, bySource: {} };
+    profiles.forEach(function (p) {
+      if (p.crawlStatus === 'done') agg.crawled++;
+      else if (p.crawlStatus === 'failed') agg.pending++;
+      else agg.pending++;
+      if (p.communicated) agg.communicated++;
+      agg.bySource[p.sourceDim || 'unknown'] = (agg.bySource[p.sourceDim || 'unknown'] || 0) + 1;
+    });
+    return json(res, 200, { ok: true, count: profiles.length, profiles: profiles, agg: agg });
+  }));
+
+  // POST /api/console/profiles/crawl { accountId?, profileIds?:[] } → 对选中抓资料卡(手动触发, 呼吸节拍)
+  register('POST', '/api/console/profiles/crawl', wrap(async (req, res, body) => {
+    if (!deepScrape || typeof deepScrape.fetchProfile !== 'function') return json(res, 501, { ok: false, reason: 'deepscrape-not-injected', msg: '出会深度抓取器未注入(17098 窗口未开?)' });
+    if (!store || typeof store.getProfile !== 'function') return json(res, 501, { ok: false, reason: 'store-not-ready' });
+    const b = body || {};
+    const accountId = b.accountId || '17098';
+    let targets = store.listProfiles({ accountId: accountId }, { limit: 1000 });
+    if (Array.isArray(b.profileIds) && b.profileIds.length) {
+      const ids = b.profileIds.map(String);
+      targets = targets.filter(function (p) { return ids.indexOf(String(p.profileId)) !== -1; });
+    }
+    // 只抓未完成的 + 有 profileUrl 的
+    const toCrawl = targets.filter(function (p) { return p.profileUrl && p.crawlStatus !== 'done'; });
+    if (!toCrawl.length) return json(res, 200, { ok: true, crawled: 0, total: targets.length, note: '没有可抓的(已完成或无资料卡链接)' });
+    const max = Math.min(parseInt(b.max || '5', 10), 10);
+    const batch = toCrawl.slice(0, max);
+    let done = 0;
+    for (const p of batch) {
+      try {
+        const prof = await deepScrape.fetchProfile(p.profileUrl);
+        if (prof && prof.ok !== false) {
+          const merged = {};
+          ['interestIcons', 'occupation', 'height', 'income', 'style', 'birthplace'].forEach(function (k) {
+            if (prof[k] !== undefined && prof[k] !== null) merged[k] = prof[k];
+          });
+          if (prof.interestIcons) merged.interests = prof.interestIcons.map ? prof.interestIcons.map(function (x) { return x.name || x; }) : prof.interestIcons;
+          store.markProfileCrawled(p.profileId, 'done', merged);
+          done++;
+        } else {
+          store.markProfileCrawled(p.profileId, 'failed', { crawlErr: (prof && prof.reason) || 'unknown' });
+        }
+      } catch (e) {
+        store.markProfileCrawled(p.profileId, 'failed', { crawlErr: String(e && e.message || e) });
+      }
+      // 呼吸节拍: 每个间隔 20000 + 0~20000ms 随机
+      if (batch.indexOf(p) < batch.length - 1) {
+        await new Promise(function (r) { setTimeout(r, 20000 + Math.floor(Math.random() * 20000)); });
+      }
+    }
+    return json(res, 200, { ok: true, crawled: done, total: batch.length, note: '已抓 ' + done + '/' + batch.length + ' 条资料卡(呼吸节拍, 每 20-40s 一个)' });
+  }));
+
+  // POST /api/console/profiles/refresh-comms { accountId? } → 刷新已沟通标记
+  register('POST', '/api/console/profiles/refresh-comms', wrap(async (req, res, body) => {
+    if (!store || typeof store.listProfiles !== 'function') return json(res, 501, { ok: false, reason: 'store-not-ready' });
+    const b = body || {};
+    const rows = store.listProfiles({ accountId: b.accountId || '17098', platform: b.platform || 'ichigo' }, { limit: 1000 });
+    let changed = 0;
+    (rows || []).forEach(function (p) {
+      if (p.contactId) { const r = store.refreshProfileComms(p.profileId); if (r) changed++; }
+    });
+    return json(res, 200, { ok: true, refreshed: changed, total: (rows || []).length });
+  }));
+
+
   register('POST', '/api/console/leads/explore-happy', wrap(async (req, res, body) => {
     const winLabel = '18595';
     const platform = 'happymail';

@@ -343,6 +343,7 @@ export function renderDomainPage(view) {
     case 'domain-diary': loadDiary(); break;
     case 'domain-unified': renderUnifiedList(); break;
     case 'domain-leads': loadLeads(); break;
+    case 'domain-profiles': loadProfiles(); break;
     case 'domain-persona': loadPersona(); break;
     case 'domain-toolbox': loadToolbox(); break;
     case 'domain-pool': loadAccountPool(); break;
@@ -759,6 +760,122 @@ export async function loadLeads() {
 
 // ---------- 账号人设(出会 17098 本账号资料卡) ----------
 // 抓出会 17098 本账号(ともね)的资料卡 → AccountPersona, 供 AI 生成话术时注入"人设"要素
+// ---------- 007 · 第二阶段 资料池(线索池筛选选择 → 抓取 → 资料池; 手动触发) ----------
+// 资料池: 从 Lead promote 进 Profile, 分 未抓取/已抓取, 标注 已沟通(收件箱有消息历史) + 来源(sourceDim)
+export async function loadProfiles() {
+  var el = document.getElementById('domainContent');
+  var title = document.getElementById('domainTitle');
+  if (title) title.textContent = '📇 资料池（第二阶段 · 线索池筛选后运营对象）';
+  if (!el) { console.warn('[profiles] domainContent not found'); return; }
+  el.innerHTML = '<div style="padding:20px;color:var(--muted,#888);font-size:13px">加载中…</div>';
+  var data = null;
+  try {
+    var r = await fetch('/api/console/profiles?platform=ichigo&accountId=17098&limit=500');
+    data = await r.json();
+  } catch (e) { data = { ok: false, reason: 'fetch-failed' }; }
+  if (!data || !data.ok) {
+    el.innerHTML = '<div style="padding:16px;color:var(--muted,#888);font-size:13px">资料池加载失败: ' + ((data && (data.reason || data.msg)) || '无数据') +
+      '<br><span style="font-size:11px">先从「🎯 线索池」promote 线索进资料池，或点下方「📥 从线索池 promote 全部」。</span></div>' + profileActionsHtml();
+    bindProfileActions(el, null);
+    return;
+  }
+  var prof = data.profiles || [];
+  var agg = data.agg || {};
+  var DIM_CN = { ashiato: '对方浏览', like: '对方点赞', bbs: '帖子', search: '首页检索', faces: '特征', unknown: '未知' };
+  var rows = prof.map(function (p) {
+    var crawled = p.crawlStatus === 'done';
+    var crawlTag = crawled ? '<span style="color:#2AB788;font-size:10px">已抓取</span>' : (p.crawlStatus === 'failed' ? '<span style="color:#e07b39;font-size:10px">抓取失败</span>' : '<span style="color:var(--muted,#888);font-size:10px">未抓取</span>');
+    var comTag = p.communicated ? '<span style="color:#4f8cff;font-size:10px">已沟通(' + (p.msgCount || 0) + '条)</span>' : '<span style="color:var(--muted,#888);font-size:10px">未沟通</span>';
+    var src = DIM_CN[p.sourceDim] || p.sourceDim;
+    var ex = p.extras || {};
+    var detail = '';
+    if (ex.interests) detail += '兴趣: ' + (Array.isArray(ex.interests) ? ex.interests.join('、') : ex.interests) + ' · ';
+    if (ex.occupation) detail += '职业: ' + ex.occupation + ' · ';
+    if (ex.height) detail += '身高: ' + ex.height + ' · ';
+    if (ex.income) detail += '收入: ' + ex.income + ' · ';
+    var card = '<div style="background:var(--panel2,#22252f);border-radius:8px;padding:10px 12px;margin-bottom:8px;border:1px solid var(--border,#2a3550)">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">' +
+      '<span style="font-size:14px;font-weight:600">' + (p.name || '(无名)') + ' <span style="font-weight:400;color:var(--muted);font-size:12px">' +
+        (p.age ? p.age + '岁 ' : '') + (p.region ? p.region + ' ' : '') + '</span></span>' +
+      '<span style="display:flex;gap:8px;align-items:center">' + comTag + crawlTag + '</span></div>' +
+      '<div style="font-size:11px;color:var(--muted,#888);margin-bottom:4px">来源: ' + src + (detail ? '<br>' + detail : '') + '</div>' +
+      '<div style="display:flex;gap:6px">' +
+      '<button class="pCrawl" data-id="' + p.profileId + '" style="font-size:11px;padding:3px 10px;background:var(--accent,#4f8cff);color:#fff;border:none;border-radius:4px;cursor:pointer">🔭 抓资料卡</button>' +
+      '<button class="pCms" data-id="' + p.profileId + '" style="font-size:11px;padding:3px 10px;background:var(--panel,#1a1d27);color:var(--text);border:1px solid var(--border);border-radius:4px;cursor:pointer">↻ 刷已沟通</button>' +
+      '</div></div>';
+    return card;
+  }).join('');
+  el.innerHTML =
+    '<div id="profAgg" style="font-size:11px;color:var(--muted,#888);margin-bottom:10px">共 ' + agg.total +
+      ' 条 · 已抓取 ' + agg.crawled + ' · 未抓取 ' + agg.pending + ' · 已沟通 ' + agg.communicated +
+      ' · 来源 ' + Object.keys(agg.bySource || {}).map(function (k) { return DIM_CN[k] || k + '(' + (agg.bySource[k] || 0) + ')'; }).join(' / ') + '</div>' +
+    '<div style="max-height:560px;overflow-y:auto">' + (rows || '<div style="padding:16px;color:var(--muted,#888);font-size:13px">资料池暂空。</div>') + '</div>' +
+    profileActionsHtml();
+  bindProfileActions(el, data);
+}
+
+function profileActionsHtml() {
+  return '<div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap">' +
+    '<button id="profPromote" style="background:var(--accent,#4f8cff);color:#fff;border:none;border-radius:6px;padding:8px 16px;font-size:12px;cursor:pointer">📥 从线索池 promote 全部（17098）</button>' +
+    '<button id="profCrawlAll" style="background:#8e44ad;color:#fff;border:none;border-radius:6px;padding:8px 16px;font-size:12px;cursor:pointer">🔭 批量抓未抓资料卡</button>' +
+    '<button id="profRefreshCms" style="background:var(--panel,#1a1d27);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px 16px;font-size:12px;cursor:pointer">↻ 刷新全部已沟通</button>' +
+    '<span id="profStatus" style="font-size:11px;color:var(--muted,#888);align-self:center"></span>' +
+    '</div>';
+}
+
+function bindProfileActions(el, data) {
+  var st = el.querySelector('#profStatus');
+  function setStatus(s) { if (st) st.textContent = s; }
+  var promo = el.querySelector('#profPromote');
+  if (promo) promo.onclick = function () {
+    setStatus('⏳ promote 中…');
+    fetch('/api/console/leads/promote', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accountId: '17098', platform: 'ichigo' }) })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (d.ok) { setStatus('已 promote ' + d.promoted + ' 条'); setTimeout(function () { loadProfiles(); }, 600); }
+        else setStatus('promote 失败: ' + (d.msg || d.reason));
+      }).catch(function (e) { setStatus('请求失败: ' + e.message); });
+  };
+  var crawlAll = el.querySelector('#profCrawlAll');
+  if (crawlAll) crawlAll.onclick = function () {
+    setStatus('⏳ 批量抓取中(呼吸节拍, 每 20-40s 一个, 需 17098 窗口开着)…');
+    fetch('/api/console/profiles/crawl', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accountId: '17098', max: 5 }) })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (d.ok) { setStatus('已抓 ' + d.crawled + '/' + d.total + ' 条'); setTimeout(function () { loadProfiles(); }, 600); }
+        else setStatus('抓取失败: ' + (d.msg || d.reason));
+      }).catch(function (e) { setStatus('请求失败: ' + e.message); });
+  };
+  var refCms = el.querySelector('#profRefreshCms');
+  if (refCms) refCms.onclick = function () {
+    setStatus('↻ 刷新中…');
+    fetch('/api/console/profiles/refresh-comms', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accountId: '17098' }) })
+      .then(function (r) { return r.json(); })
+      .then(function (d) { if (d.ok) { setStatus('已刷新 ' + d.refreshed + ' 条'); setTimeout(function () { loadProfiles(); }, 400); } else setStatus('失败: ' + (d.msg || d.reason)); })
+      .catch(function (e) { setStatus('请求失败: ' + e.message); });
+  };
+  // 单条按钮
+  Array.prototype.forEach.call(el.querySelectorAll('.pCrawl'), function (b) {
+    b.onclick = function () {
+      var id = b.getAttribute('data-id');
+      b.textContent = '⏳ 抓取中…'; b.disabled = true;
+      fetch('/api/console/profiles/crawl', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accountId: '17098', profileIds: [id], max: 1 }) })
+        .then(function (r) { return r.json(); })
+        .then(function (d) { b.textContent = d.ok ? '已抓取' : '失败'; b.disabled = true; setTimeout(function () { loadProfiles(); }, 800); })
+        .catch(function () { b.textContent = '请求失败'; b.disabled = true; });
+    };
+  });
+  Array.prototype.forEach.call(el.querySelectorAll('.pCms'), function (b) {
+    b.onclick = function () {
+      var id = b.getAttribute('data-id');
+      b.textContent = '↻'; b.disabled = true;
+      fetch('/api/console/profiles/refresh-comms', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accountId: '17098', profileIds: [id] }) })
+        .then(function () { setTimeout(function () { loadProfiles(); }, 400); })
+        .catch(function () { loadProfiles(); });
+    };
+  });
+}
+
 export async function loadPersona() {
   var el = document.getElementById('domainContent');
   var title = document.getElementById('domainTitle');

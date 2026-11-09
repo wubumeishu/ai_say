@@ -40,6 +40,13 @@ function openDb(dbPath) {
     }
   } catch (e) {
     console.error('[store.openDb] followupStage 列补齐失败（不阻断）:', e && e.message);
+  // 007 批次：资料池 Profile 表 + Lead.contactId 列
+  try {
+    const { up: apply007 } = require('./migrations/007_profile_pool.sql.js');
+    apply007(db);
+  } catch (e) {
+    console.error('[store.openDb] 007 资料池批次应用失败（不阻断）:', e && e.message);
+  }
   }
   return db;
 }
@@ -1072,6 +1079,107 @@ function createStore({ dbPath = path.join(__dirname, '..', '..', 'data', 'aisay.
 
   const insertLead = upsertLead;
 
+  // ================================================================ 007 · 资料池 Profile(第二阶段运营对象)
+  /** promote 线索进资料池: 复制 Lead 快照 + 算已沟通(msgCount) + 默认 crawlStatus=pending */
+  function upsertProfile(input = {}) {
+    const ts = now();
+    const leadId = String(input.leadId || '');
+    if (!leadId) throw new Error('upsertProfile 需要 leadId');
+    const profileId = input.profileId || ('P' + sha1Hex(leadId));
+    const old = db.prepare('SELECT * FROM Profile WHERE profileId = ?').get(profileId);
+    const communicated = old && old.communicated ? 1 : 0;
+    const msgCount = old ? Number(old.msgCount || 0) : 0;
+    const crawlStatus = old ? old.crawlStatus : 'pending';
+    if (old) {
+      db.prepare(
+        'UPDATE Profile SET contactId=?, platform=?, accountId=?, name=?, gender=?, age=?, region=?, online=?, avatarUrl=?, profileUrl=?, selfIntro=?, sourceDim=?, communicated=?, msgCount=?, extras=?, updatedAt=? WHERE profileId=?'
+      ).run(
+        input.contactId || old.contactId || null,
+        String(input.platform || old.platform || 'ichigo'),
+        input.accountId || old.accountId || null,
+        String(input.name || old.name || ''),
+        input.gender || old.gender || null,
+        input.age != null ? String(input.age) : old.age,
+        input.region || old.region || null,
+        input.online || old.online || null,
+        input.avatarUrl || old.avatarUrl || null,
+        input.profileUrl || old.profileUrl || null,
+        input.selfIntro || old.selfIntro || null,
+        String(input.sourceDim || old.sourceDim || 'unknown'),
+        input.communicated != null ? (input.communicated ? 1 : 0) : communicated,
+        input.msgCount != null ? Number(input.msgCount) : msgCount,
+        JSON.stringify(input.extras || old.extras ? (function () { try { return JSON.parse(old.extras || '{}'); } catch (_) { return {}; } })() : {}),
+        ts, profileId
+      );
+    } else {
+      db.prepare(
+        'INSERT INTO Profile (profileId, leadId, contactId, platform, accountId, name, gender, age, region, online, avatarUrl, profileUrl, selfIntro, sourceDim, crawlStatus, communicated, msgCount, extras, pooledAt, updatedAt) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+      ).run(
+        profileId, leadId, input.contactId || null,
+        String(input.platform || 'ichigo'), input.accountId || null,
+        String(input.name || ''), input.gender || null, input.age != null ? String(input.age) : null,
+        input.region || null, input.online || null, input.avatarUrl || null, input.profileUrl || null,
+        input.selfIntro || null, String(input.sourceDim || 'unknown'), crawlStatus,
+        input.communicated ? 1 : 0, Number(input.msgCount || 0), JSON.stringify(input.extras || {}), ts, ts
+      );
+    }
+    return db.prepare('SELECT * FROM Profile WHERE profileId = ?').get(profileId);
+  }
+
+  /** 标记资料池抓取状态(done/failed) + 写回抓到的资料字段(extras 合并) */
+  function markProfileCrawled(profileId, status, mergedExtras) {
+    const row = db.prepare('SELECT * FROM Profile WHERE profileId = ?').get(profileId);
+    if (!row) return null;
+    let extras = {};
+    try { extras = JSON.parse(row.extras || '{}'); } catch (_) { extras = {}; }
+    if (mergedExtras && typeof mergedExtras === 'object') Object.assign(extras, mergedExtras);
+    extras.crawledAt = now();
+    db.prepare('UPDATE Profile SET crawlStatus=?, extras=?, updatedAt=? WHERE profileId=?').run(
+      String(status || 'done'), JSON.stringify(extras), now(), profileId
+    );
+    return db.prepare('SELECT * FROM Profile WHERE profileId = ?').get(profileId);
+  }
+
+  /** 刷新资料池"已沟通"标记: 按 contactId 查 Conversation/Message 有记录即 communicated=1 + msgCount */
+  function refreshProfileComms(profileId) {
+    const row = db.prepare('SELECT * FROM Profile WHERE profileId = ?').get(profileId);
+    if (!row || !row.contactId) return row;
+    let msgCount = 0;
+    try {
+      const c = db.prepare('SELECT COUNT(*) AS c FROM Message WHERE contactId = ?').get(row.contactId);
+      msgCount = c ? Number(c.c || 0) : 0;
+    } catch (_) { msgCount = 0; }
+    const communicated = msgCount > 0 ? 1 : 0;
+    db.prepare('UPDATE Profile SET communicated=?, msgCount=?, updatedAt=? WHERE profileId=?').run(
+      communicated, msgCount, now(), profileId
+    );
+    return db.prepare('SELECT * FROM Profile WHERE profileId = ?').get(profileId);
+  }
+
+  /** 资料池列表: 按 platform/crawlStatus/filter, 解析 extras */
+  function listProfiles(filter = {}, opts = {}) {
+    const where = [];
+    const params = [];
+    if (filter.platform) { where.push('platform = ?'); params.push(String(filter.platform)); }
+    if (filter.accountId) { where.push('accountId = ?'); params.push(String(filter.accountId)); }
+    if (filter.crawlStatus) { where.push('crawlStatus = ?'); params.push(String(filter.crawlStatus)); }
+    if (filter.communicated != null) { where.push('communicated = ?'); params.push(filter.communicated ? 1 : 0); }
+    if (filter.sourceDim) { where.push('sourceDim = ?'); params.push(String(filter.sourceDim)); }
+    const limit = Math.max(1, Math.min(Number(opts.limit) || 200, 1000));
+    const whereSql = where.length ? (' WHERE ' + where.join(' AND ')) : '';
+    try {
+      return db.prepare('SELECT * FROM Profile' + whereSql + ' ORDER BY updatedAt DESC LIMIT ?').all(...params, limit);
+    } catch (e) {
+      console.error('[store.listProfiles] 查询失败:', e && e.message);
+      return [];
+    }
+  }
+
+  function getProfile(profileId) {
+    return db.prepare('SELECT * FROM Profile WHERE profileId = ?').get(profileId) || null;
+  }
+
+
   // ================================================================ 006 · 卡片流 SendQueue + OperationLog
   /** SendQueue · 后台串行发送队列(20s±10s 浮动调度)。强副作用留痕, 铁律 0.2。 */
   function enqueueSend(q) {
@@ -1156,6 +1264,8 @@ return {
     leadBySourceDim,
     upsertLead,
     insertLead,
+    // 007 · 资料池 Profile(第二阶段)
+    upsertProfile, markProfileCrawled, refreshProfileComms, listProfiles, getProfile,
     // 006 · 卡片流 SendQueue + OperationLog
     enqueueSend,
     listSendQueue,
