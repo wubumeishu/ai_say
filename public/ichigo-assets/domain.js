@@ -768,9 +768,15 @@ export async function loadProfiles() {
   if (title) title.textContent = '📇 资料池（第二阶段 · 线索池筛选后运营对象）';
   if (!el) { console.warn('[profiles] domainContent not found'); return; }
   el.innerHTML = '<div style="padding:20px;color:var(--muted,#888);font-size:13px">加载中…</div>';
+  var filter = window.__profFilter || { platform: 'ichigo', accountId: '17098', sourceDim: '', communicated: '', crawlStatus: '' };
+  window.__profFilter = filter;
   var data = null;
   try {
-    var r = await fetch('/api/console/profiles?platform=ichigo&accountId=17098&limit=500');
+    var qs = 'platform=' + encodeURIComponent(filter.platform) + '&accountId=' + encodeURIComponent(filter.accountId) + '&limit=500';
+    if (filter.sourceDim) qs += '&sourceDim=' + encodeURIComponent(filter.sourceDim);
+    if (filter.communicated !== '') qs += '&communicated=' + (filter.communicated === '1' ? '1' : '0');
+    if (filter.crawlStatus) qs += '&crawlStatus=' + encodeURIComponent(filter.crawlStatus);
+    var r = await fetch('/api/console/profiles?' + qs);
     data = await r.json();
   } catch (e) { data = { ok: false, reason: 'fetch-failed' }; }
   if (!data || !data.ok) {
@@ -853,7 +859,19 @@ export async function loadProfiles() {
       '</div></div>';
     return '<div class="pfCard" style="background:var(--card,#fff);border-radius:8px;padding:8px 10px;margin-bottom:6px;border:1px solid var(--border,#2a3550)">' + head + body + '</div>';
   }).join('');
-  el.innerHTML =
+  var _DIM_O = { ashiato: '对方浏览', like: '对方点赞', bbs: '帖子', search: '首页检索', faces: '特征', unknown: '未知' };
+  var sel = function(id, val, opts) { var h = '<select id="' + id + '" style="font-size:12px;padding:3px 6px">' + opts.map(function(o) { return '<option value="' + o[0] + '"' + (o[0] === val ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>'; return h; };
+  var filterBarHtml = '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">' +
+    '<span style="font-size:11px;color:var(--muted,#888)">筛选:</span>' +
+    sel('pfFPlat', filter.platform, [['ichigo','出会'],['happymail','快乐'],['','全部平台']]) +
+    sel('pfFAcc', filter.accountId, [['17098','会出 17098'],['18595','快乐 18595'],['','全部窗口']]) +
+    sel('pfFDim', filter.sourceDim, [['','全部来源'],['ashiato','对方浏览'],['like','对方点赞'],['bbs','帖子'],['search','首页检索'],['faces','特征']]) +
+    sel('pfFCms', filter.communicated, [['','全部状态'],['1','已沟通'],['0','未沟通']]) +
+    sel('pfFCrawl', filter.crawlStatus, [['','全部抓取态'],['pending','未抓取'],['done','已抓取'],['failed','抓取失败']]) +
+    '<button id="pfFApply" style="font-size:12px;padding:3px 12px;background:var(--accent,#4a9eff);color:#fff;border:none;border-radius:4px;cursor:pointer">应用</button>' +
+    '<button id="pfFReset" style="font-size:12px;padding:3px 12px;background:var(--card,#fff);color:var(--muted,#888);border:1px solid var(--border);border-radius:4px;cursor:pointer">重置</button>' +
+    '</div>';
+  el.innerHTML = filterBarHtml +
     '<div id="profAgg" style="font-size:11px;color:var(--muted,#888);margin-bottom:10px">共 ' + (agg.total || prof.length) +
       ' 条 · 已抓取 ' + (agg.crawled || 0) + ' · 未抓取 ' + (agg.pending || 0) + ' · 已沟通 ' + (agg.communicated || 0) +
       ' · 来源 ' + Object.keys(agg.bySource || {}).map(function (k) { return (DIM_CN[k] || k) + ' ' + (agg.bySource[k] || 0); }).join(' / ') +
@@ -873,6 +891,18 @@ export async function loadProfiles() {
     };
   });
   bindProfileActions(el, data);
+  // 筛选条绑定
+  var fApply = el.querySelector('#pfFApply');
+  if (fApply) fApply.onclick = function() {
+    var g = function(id) { var s = el.querySelector('#' + id); return s ? s.value : ''; };
+    window.__profFilter = { platform: g('pfFPlat'), accountId: g('pfFAcc'), sourceDim: g('pfFDim'), communicated: g('pfFCms'), crawlStatus: g('pfFCrawl') };
+    loadProfiles();
+  };
+  var fReset = el.querySelector('#pfFReset');
+  if (fReset) fReset.onclick = function() {
+    window.__profFilter = { platform: 'ichigo', accountId: '17098', sourceDim: '', communicated: '', crawlStatus: '' };
+    loadProfiles();
+  };
 }
 
 function profileActionsHtml() {

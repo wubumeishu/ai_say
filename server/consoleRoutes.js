@@ -4023,6 +4023,7 @@ if (action === 'blacklist' && deepScrape && typeof deepScrape.blockContact === '
     if (qs.crawlStatus) filter.crawlStatus = qs.crawlStatus;
     if (qs.communicated !== undefined && qs.communicated !== '') filter.communicated = qs.communicated === '1' || qs.communicated === 'true';
     if (qs.sourceDim) filter.sourceDim = qs.sourceDim;
+    if (qs.sourceDim) filter.sourceDim = qs.sourceDim;
     const limit = Math.min(parseInt(qs.limit || '200', 10), 1000);
     let rows = [];
     try { rows = store.listProfiles(filter, { limit: limit }); } catch (e) {
