@@ -36,7 +36,7 @@
 }
 [data-theme="light"]{
   --bg:#f4f6f9;--bg2:#ffffff;--card:#ffffff;--card2:#f2f5f9;
-  --border:#e1e6ed;--text:#1f2733;--muted:#7b8794;--accent:#1a73e8;
+  --border:#e1e6ed;--text:#1f2733;--muted:#566070;--accent:#1a73e8;
   --hot:#e53935;--warm:#f57c00;--cool:#2e7d32;--pending:#f9a825;
   --on-accent:#fff;
   --ok-fg:#2e7d32;--ok-bg:#e8f5e9;--ok-border:#c8e6c9;
@@ -76,11 +76,11 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 .layout{display:grid;grid-template-columns:160px 220px 1fr 280px 252px 1fr;height:calc(100vh - 48px);overflow:hidden}
 /* Column 1: Left nav */
 .col-nav{background:var(--bg2);border-right:1px solid var(--border);overflow-y:auto}
-.col-nav .nav-item{padding:10px 14px;font-size:13px;cursor:pointer;border-left:3px solid transparent;transition:all .15s}
+.col-nav .nav-item{padding:10px 14px;font-size:13px;cursor:pointer;border-left:3px solid transparent;transition:all .15s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .col-nav .nav-item:hover{background:var(--card)}
 .col-nav .nav-item.active{background:var(--card);border-left-color:var(--accent);color:var(--accent)}
-.col-nav .nav-item .badge{float:right;font-size:10px;background:var(--card2);padding:1px 6px;border-radius:8px;color:var(--muted)}
-.col-nav .nav-section{padding:8px 14px 4px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-top:8px}
+.col-nav .nav-item .badge{float:right;font-size:12px;background:var(--card2);padding:1px 6px;border-radius:8px;color:var(--muted)}
+.col-nav .nav-section{padding:8px 14px 4px;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-top:8px}
 /* Column 2: Customer list */
 .col-customers{background:var(--card);border-right:1px solid var(--border);overflow-y:auto}
 .cust-header{padding:10px 12px;font-size:11px;color:var(--muted);border-bottom:1px solid var(--border);display:flex;justify-content:space-between}
@@ -160,7 +160,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 /* Collapsible nav */
 .nav-group > .nav-children { overflow: hidden; }
 .nav-group:not([data-open="true"]) > .nav-children { display: none; }
-.nav-item .chev { margin-left: auto; font-size: 10px; color: var(--muted); transition: transform .2s; }
+.nav-item .chev { margin-left: auto; font-size: 12px; color: var(--muted); transition: transform .2s; }
 .nav-item.has-children { display: flex; }
 .nav-group > .nav-item.has-children { cursor: pointer; }
 .nav-group:not([data-open="true"]) > .nav-item .chev { transform: rotate(-90deg); }
@@ -571,13 +571,13 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
         <div class="nav-group" data-open="true">
           <div class="nav-item has-children" data-view="ichigo">出会<span class="chev">▾</span></div>
           <div class="nav-children">
-            <div class="nav-item" data-view="17098">17098<span id="winDot17098" class="win-dot" title="窗口状态未知" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#888;margin:0 5px;vertical-align:middle"></span><span id="winToggle17098" class="win-toggle" title="点击启动/关闭窗口" style="cursor:pointer;font-size:10px;padding:1px 6px;margin-left:6px;border:1px solid #555;border-radius:3px;background:rgba(255,255,255,.08);color:#ccc;opacity:.9">开</span><span class="badge" id="navBadge">0</span></div>
+            <div class="nav-item" data-view="17098">17098<span id="winDot17098" class="win-dot" title="窗口状态未知" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#888;margin:0 5px;vertical-align:middle"></span><span id="winToggle17098" class="win-toggle" title="点击启动/关闭窗口" style="cursor:pointer;font-size:12px;padding:1px 6px;margin-left:6px;border:1px solid #555;border-radius:3px;background:rgba(255,255,255,.08);color:#ccc;opacity:.9">开</span><span class="badge" id="navBadge">0</span></div>
           </div>
         </div>
         <div class="nav-group" data-open="true">
           <div class="nav-item has-children" data-view="kairaku">快乐<span class="chev">▾</span></div>
           <div class="nav-children">
-            <div class="nav-item" data-view="18595">18595<span id="winDot18595" class="win-dot" title="窗口状态未知" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#888;margin:0 5px;vertical-align:middle"></span><span id="winToggle18595" class="win-toggle" title="点击启动/关闭窗口" style="cursor:pointer;font-size:10px;padding:1px 6px;margin-left:6px;border:1px solid #555;border-radius:3px;background:rgba(255,255,255,.08);color:#ccc;opacity:.9">开</span><span class="badge" id="navBadgeKairaku">0</span></div>
+            <div class="nav-item" data-view="18595">18595<span id="winDot18595" class="win-dot" title="窗口状态未知" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#888;margin:0 5px;vertical-align:middle"></span><span id="winToggle18595" class="win-toggle" title="点击启动/关闭窗口" style="cursor:pointer;font-size:12px;padding:1px 6px;margin-left:6px;border:1px solid #555;border-radius:3px;background:rgba(255,255,255,.08);color:#ccc;opacity:.9">开</span><span class="badge" id="navBadgeKairaku">0</span></div>
           </div>
         </div>
       </div>
@@ -908,14 +908,14 @@ document.addEventListener('DOMContentLoaded', function() { initMain(); });
     var dot = document.getElementById('winDot' + winKey);
     var tog = document.getElementById('winToggle' + winKey);
     if (dot) {
-      dot.style.background = busy ? '#f39c12' : (open ? '#2ecc71' : '#888');
-      dot.style.boxShadow = (open && !busy) ? '0 0 5px #2ecc71' : 'none';
+      dot.style.background = busy ? '#f39c12' : (open ? '#1a8b4a' : '#6b7280');
+      dot.style.boxShadow = (open && !busy) ? '0 0 5px #1a8b4a' : 'none';
       dot.title = busy ? '操作中…' : (open ? '窗口运行中' : '窗口未启动');
     }
     if (tog) {
       tog.textContent = busy ? '…' : (open ? '关' : '开');
-      tog.style.borderColor = busy ? '#f39c12' : (open ? '#e74c3c' : '#2ecc71');
-      tog.style.color = busy ? '#f39c12' : (open ? '#e74c3c' : '#2ecc71');
+      tog.style.borderColor = busy ? '#b7791f' : (open ? '#c0392b' : '#1a8b4a');
+      tog.style.color = busy ? '#b7791f' : (open ? '#c0392b' : '#1a8b4a');
       tog.title = busy ? '操作中…' : (open ? '点击关闭窗口 ' + winKey : '点击启动窗口 ' + winKey);
       tog.style.opacity = busy ? '.5' : '1';
     }
