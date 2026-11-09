@@ -17,8 +17,12 @@ var EVAL_TIMEOUT_MS = 20000;
 
 function loadIconMap(rootDir) {
   var p = path.join(rootDir, 'docs', 'aisay', 'affinity-icons.json');
-  try { return JSON.parse(fs.readFileSync(p, 'utf8')).leisure || {}; }
-  catch (_) { return {}; }
+  try {
+    var j = JSON.parse(fs.readFileSync(p, 'utf8'));
+    if (j.jp) return { jp: j.jp, zh: j.zh || {} };
+    return { jp: j.leisure || {}, zh: j.leisureZh || {} };
+  }
+  catch (_) { return { jp: {}, zh: {} }; }
 }
 
 function safeDirName(name) {
