@@ -203,6 +203,13 @@ export function switchView(view) {
       })
       .catch(function(e) { if (cl) cl.innerHTML = kDegraded('快乐数据加载失败：' + (e && e.message || e)); });
   } else if (view === '17098' || view === 'ichigo') {
+    // 恢复出会五列(客户/消息/画像/账号/AI) + 隐藏卡片流/全域 overlay(防 z-index:100 盖住中间列)
+    cols.messages.style.display = '';
+    cols.analysis.style.display = '';
+    if (cols.account) cols.account.style.display = '';
+    cols.ai.style.display = '';
+    var _cpOn = document.getElementById('cardPage'); if (_cpOn) _cpOn.style.display = 'none';
+    var _dpOn = document.getElementById('domainPage'); if (_dpOn) _dpOn.style.display = 'none';
     try {
       var cl = document.getElementById('customerList');
       var ml = document.getElementById('msgList');

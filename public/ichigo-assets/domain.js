@@ -775,51 +775,97 @@ export async function loadProfiles() {
   } catch (e) { data = { ok: false, reason: 'fetch-failed' }; }
   if (!data || !data.ok) {
     el.innerHTML = '<div style="padding:16px;color:var(--muted,#888);font-size:13px">资料池加载失败: ' + ((data && (data.reason || data.msg)) || '无数据') +
-      '<br><span style="font-size:11px">先从「🎯 线索池」promote 线索进资料池，或点下方「📥 从线索池 promote 全部」。</span></div>' + profileActionsHtml();
+      '<br><span style="font-size:11px">先从「🎯 线索池」promote 进资料池，或点下方「📥 从线索池 promote 全部」。</span></div>' + profileActionsHtml();
     bindProfileActions(el, null);
     return;
   }
   var prof = data.profiles || [];
   var agg = data.agg || {};
-  var DIM_CN = { ashiato: '对方浏览', like: '对方点赞', bbs: '帖子', search: '首页检索', faces: '特征', unknown: '未知' };
-  var rows = prof.map(function (p) {
-    var crawled = p.crawlStatus === 'done';
-    var crawlTag = crawled ? '<span style="color:#2AB788;font-size:10px">已抓取</span>' : (p.crawlStatus === 'failed' ? '<span style="color:#e07b39;font-size:10px">抓取失败</span>' : '<span style="color:var(--muted,#888);font-size:10px">未抓取</span>');
-    var comTag = p.communicated ? '<span style="color:#4f8cff;font-size:10px">已沟通(' + (p.msgCount || 0) + '条)</span>' : '<span style="color:var(--muted,#888);font-size:10px">未沟通</span>';
-    var src = DIM_CN[p.sourceDim] || p.sourceDim;
+  var DIM_CN = { ashiato: '对方浏览', like: '对方点赞', bbs: '帖子', search: '首页检索', faces: '特征', unknown: '未知来源' };
+  function srcTag(dim) {
+    var c = { ashiato: '#4f8cff', like: '#2AB788', bbs: '#e6a23c', search: '#8e44ad', faces: '#f39c12', unknown: '#5a6472' };
+    return '<span style="font-size:10px;padding:1px 8px;border-radius:8px;background:' + (c[dim] || c.unknown) + '22;color:' + (c[dim] || c.unknown) + ';border:1px solid ' + (c[dim] || c.unknown) + '55">' + (DIM_CN[dim] || dim) + '</span>';
+  }
+  function crawlDot(st) {
+    if (st === 'done') return '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#2AB788;margin-right:4px"></span>';
+    if (st === 'failed') return '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#e07b39;margin-right:4px"></span>';
+    return '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#5a6472;margin-right:4px"></span>';
+  }
+  function crawlLabel(st) {
+    if (st === 'done') return '<span style="color:#2AB788;font-size:11px">已抓取</span>';
+    if (st === 'failed') return '<span style="color:#e07b39;font-size:11px">抓取失败</span>';
+    return '<span style="color:var(--muted,#888);font-size:11px">未抓取</span>';
+  }
+  function commsTag(p) {
+    return p.communicated
+      ? '<span style="font-size:10px;padding:1px 8px;border-radius:8px;background:#4f8cff22;color:#4f8cff;border:1px solid #4f8cff55">已沟通 · ' + (p.msgCount || 0) + '条</span>'
+      : '<span style="font-size:10px;padding:1px 8px;border-radius:8px;background:#5a647222;color:#5a6472;border:1px solid #5a647244">未沟通</span>';
+  }
+  // 抓取资料字段(展开区显示)
+  function detailRows(p) {
     var ex = p.extras || {};
-    var detail = '';
-    if (ex.interests) detail += '兴趣: ' + (Array.isArray(ex.interests) ? ex.interests.join('、') : ex.interests) + ' · ';
-    if (ex.occupation) detail += '职业: ' + ex.occupation + ' · ';
-    if (ex.height) detail += '身高: ' + ex.height + ' · ';
-    if (ex.income) detail += '收入: ' + ex.income + ' · ';
-    var card = '<div style="background:var(--panel2,#22252f);border-radius:8px;padding:10px 12px;margin-bottom:8px;border:1px solid var(--border,#2a3550)">' +
-      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">' +
-      '<span style="font-size:14px;font-weight:600">' + (p.name || '(无名)') + ' <span style="font-weight:400;color:var(--muted);font-size:12px">' +
-        (p.age ? p.age + '岁 ' : '') + (p.region ? p.region + ' ' : '') + '</span></span>' +
-      '<span style="display:flex;gap:8px;align-items:center">' + comTag + crawlTag + '</span></div>' +
-      '<div style="font-size:11px;color:var(--muted,#888);margin-bottom:4px">来源: ' + src + (detail ? '<br>' + detail : '') + '</div>' +
-      '<div style="display:flex;gap:6px">' +
-      '<button class="pCrawl" data-id="' + p.profileId + '" style="font-size:11px;padding:3px 10px;background:var(--accent,#4f8cff);color:#fff;border:none;border-radius:4px;cursor:pointer">🔭 抓资料卡</button>' +
+    var rows = [];
+    function row(label, val) { if (val && String(val).trim()) rows.push('<div style="display:flex;gap:10px;padding:3px 0;font-size:12px;line-height:1.5"><span style="width:72px;flex-shrink:0;color:var(--muted,#888);font-size:11px">' + label + '</span><span style="color:var(--text)">' + String(val) + '</span></div>'); }
+    row('兴趣', ex.interests ? (Array.isArray(ex.interests) ? ex.interests.join('、') : ex.interests) : '');
+    row('职业', ex.occupation);
+    row('身高', ex.height);
+    row('收入', ex.income);
+    row('风格', ex.style);
+    row('出身地', ex.birthplace);
+    row('自我介绍', p.selfIntro || ex.selfIntro);
+    return rows.length
+      ? rows.join('')
+      : '<div style="font-size:11px;color:var(--muted,#888);padding:4px 0">' + (p.crawlStatus === 'done' ? '已抓取但无资料字段（客户资料卡未填）' : '点下方「🔭 抓资料卡」抓取后显示') + '</div>';
+  }
+  var rows = prof.map(function (p) {
+    var avatar = p.avatarUrl ? '<img src="' + p.avatarUrl + '" style="width:34px;height:34px;border-radius:50%;object-fit:cover;border:1px solid var(--border,#2a3550)" alt="">' : '<span style="width:34px;height:34px;border-radius:50%;background:var(--panel,#1a1d27);display:inline-flex;align-items:center;justify-content:center;font-size:16px">👤</span>';
+    var head = '<div class="pfHead" data-pf="' + p.profileId + '" style="cursor:pointer;display:flex;align-items:center;gap:10px">' +
+      avatar +
+      '<div style="flex:1;min-width:0">' +
+        '<div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + crawlDot(p.crawlStatus) + (p.name || '(无名)') +
+          ' <span style="font-weight:400;color:var(--muted,#888);font-size:11px">' + (p.age ? p.age + '岁 ' : '') + (p.online ? p.online + ' ' : '') + '</span></div>' +
+        '<div style="display:flex;gap:6px;align-items:center;margin-top:3px;flex-wrap:wrap">' + srcTag(p.sourceDim) + commsTag(p) + '<span style="display:inline-flex;align-items:center">' + crawlLabel(p.crawlStatus) + '</span></div>' +
+      '</div>' +
+      '<span class="chev" data-chev="' + p.profileId + '" style="font-size:12px;color:var(--muted,#888);transition:transform .2s">▾</span>' +
+      '</div>';
+    var body = '<div class="pfBody" data-pfbody="' + p.profileId + '" style="display:none;margin-top:8px;padding-top:8px;border-top:1px solid var(--border,#2a3550);flex-direction:column;gap:8px">' +
+      '<div style="font-size:11px;color:var(--muted,#888)">' + (p.region ? '地区: ' + p.region : '地区: —') + '</div>' +
+      '<div style="display:flex;flex-direction:column;gap:0">' + detailRows(p) + '</div>' +
+      (ex.crawledAt ? '<div style="font-size:10px;color:var(--muted,#888)">抓取于 ' + ex.crawledAt + '</div>' : '') +
+      '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:2px">' +
+      '<button class="pCrawl" data-id="' + p.profileId + '" style="font-size:11px;padding:3px 10px;background:var(--accent,#4f8cff);color:#fff;border:none;border-radius:4px;cursor:pointer">🔭 抓/重抓资料卡</button>' +
       '<button class="pCms" data-id="' + p.profileId + '" style="font-size:11px;padding:3px 10px;background:var(--panel,#1a1d27);color:var(--text);border:1px solid var(--border);border-radius:4px;cursor:pointer">↻ 刷已沟通</button>' +
       '</div></div>';
-    return card;
+    return '<div class="pfCard" style="background:var(--panel2,#22252f);border-radius:8px;padding:10px 12px;margin-bottom:8px;border:1px solid var(--border,#2a3550)">' + head + body + '</div>';
   }).join('');
   el.innerHTML =
-    '<div id="profAgg" style="font-size:11px;color:var(--muted,#888);margin-bottom:10px">共 ' + agg.total +
-      ' 条 · 已抓取 ' + agg.crawled + ' · 未抓取 ' + agg.pending + ' · 已沟通 ' + agg.communicated +
-      ' · 来源 ' + Object.keys(agg.bySource || {}).map(function (k) { return DIM_CN[k] || k + '(' + (agg.bySource[k] || 0) + ')'; }).join(' / ') + '</div>' +
+    '<div id="profAgg" style="font-size:11px;color:var(--muted,#888);margin-bottom:10px">共 ' + (agg.total || prof.length) +
+      ' 条 · 已抓取 ' + (agg.crawled || 0) + ' · 未抓取 ' + (agg.pending || 0) + ' · 已沟通 ' + (agg.communicated || 0) +
+      ' · 来源 ' + Object.keys(agg.bySource || {}).map(function (k) { return (DIM_CN[k] || k) + ' ' + (agg.bySource[k] || 0); }).join(' / ') +
+      ' <span style="margin-left:8px">（点卡片展开看完整资料）</span></div>' +
     '<div style="max-height:560px;overflow-y:auto">' + (rows || '<div style="padding:16px;color:var(--muted,#888);font-size:13px">资料池暂空。</div>') + '</div>' +
     profileActionsHtml();
+  // 展开/折叠: 点 .pfHead 切换 .pfBody
+  Array.prototype.forEach.call(el.querySelectorAll('.pfHead'), function (h) {
+    h.onclick = function () {
+      var pid = h.getAttribute('data-pf');
+      var b = el.querySelector('.pfBody[data-pfbody="' + pid + '"]');
+      if (!b) return;
+      var open = b.style.display !== 'none';
+      b.style.display = open ? 'none' : 'flex';
+      var cv = el.querySelector('.chev[data-chev="' + pid + '"]');
+      if (cv) cv.style.transform = open ? 'rotate(-90deg)' : '';
+    };
+  });
   bindProfileActions(el, data);
 }
 
 function profileActionsHtml() {
-  return '<div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap">' +
+  return '<div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap;align-items:center">' +
     '<button id="profPromote" style="background:var(--accent,#4f8cff);color:#fff;border:none;border-radius:6px;padding:8px 16px;font-size:12px;cursor:pointer">📥 从线索池 promote 全部（17098）</button>' +
     '<button id="profCrawlAll" style="background:#8e44ad;color:#fff;border:none;border-radius:6px;padding:8px 16px;font-size:12px;cursor:pointer">🔭 批量抓未抓资料卡</button>' +
     '<button id="profRefreshCms" style="background:var(--panel,#1a1d27);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px 16px;font-size:12px;cursor:pointer">↻ 刷新全部已沟通</button>' +
-    '<span id="profStatus" style="font-size:11px;color:var(--muted,#888);align-self:center"></span>' +
+    '<span id="profStatus" style="font-size:11px;color:var(--muted,#888)"></span>' +
     '</div>';
 }
 
@@ -832,7 +878,7 @@ function bindProfileActions(el, data) {
     fetch('/api/console/leads/promote', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accountId: '17098', platform: 'ichigo' }) })
       .then(function (r) { return r.json(); })
       .then(function (d) {
-        if (d.ok) { setStatus('已 promote ' + d.promoted + ' 条'); setTimeout(function () { loadProfiles(); }, 600); }
+        if (d.ok) { setStatus('已 promote ' + d.promoted + ' 条' + (d.autoCrawling ? '，' + d.autoCrawling + ' 条已沟通未抓后台抓取中' : '')); setTimeout(function () { loadProfiles(); }, 600); }
         else setStatus('promote 失败: ' + (d.msg || d.reason));
       }).catch(function (e) { setStatus('请求失败: ' + e.message); });
   };
@@ -854,21 +900,20 @@ function bindProfileActions(el, data) {
       .then(function (d) { if (d.ok) { setStatus('已刷新 ' + d.refreshed + ' 条'); setTimeout(function () { loadProfiles(); }, 400); } else setStatus('失败: ' + (d.msg || d.reason)); })
       .catch(function (e) { setStatus('请求失败: ' + e.message); });
   };
-  // 单条按钮
   Array.prototype.forEach.call(el.querySelectorAll('.pCrawl'), function (b) {
     b.onclick = function () {
       var id = b.getAttribute('data-id');
       b.textContent = '⏳ 抓取中…'; b.disabled = true;
       fetch('/api/console/profiles/crawl', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accountId: '17098', profileIds: [id], max: 1 }) })
         .then(function (r) { return r.json(); })
-        .then(function (d) { b.textContent = d.ok ? '已抓取' : '失败'; b.disabled = true; setTimeout(function () { loadProfiles(); }, 800); })
+        .then(function (d) { b.textContent = d.ok ? '✓ 已抓' : '失败'; b.disabled = true; setTimeout(function () { loadProfiles(); }, 800); })
         .catch(function () { b.textContent = '请求失败'; b.disabled = true; });
     };
   });
   Array.prototype.forEach.call(el.querySelectorAll('.pCms'), function (b) {
     b.onclick = function () {
-      var id = b.getAttribute('data-id');
       b.textContent = '↻'; b.disabled = true;
+      var id = b.getAttribute('data-id');
       fetch('/api/console/profiles/refresh-comms', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accountId: '17098', profileIds: [id] }) })
         .then(function () { setTimeout(function () { loadProfiles(); }, 400); })
         .catch(function () { loadProfiles(); });
