@@ -3826,10 +3826,12 @@ if (action === 'blacklist' && deepScrape && typeof deepScrape.blockContact === '
                 leadId: leadIdFor('bbs', post, null),
                 L: {
                   name: post.name || '', age: post.age != null ? String(post.age) : null,
-                  region: post.home || null, online: null,
-                  avatarUrl: null, profileUrl: post.profileHref || null,
+                  region: post.home || null, online: post.onlineIcon ? ('online-icon' + post.onlineIcon) : null,
+                  avatarUrl: post.avatarUrl || null,
+                  profileUrl: (function (h) { h = String(h || ''); if (!h) return null; if (h.charAt(0) === '/') h = 'https://sp.194964.com' + h; return h; })(post.profileHref),
                   selfIntro: post.title || null,
-                  extras: { bbs_views: post.views || 0, bbs_date: post.date || '', bbs_cat: post.cat || '', bbs_page: p },
+                  extras: { bbs_views: post.views || 0, bbs_date: post.date || '', bbs_cat: post.cat || '', bbs_page: p, bbs_detailHref: (function (h) { h = String(post.detailHref || ''); if (!h) return null; if (h.charAt(0) === '/') h = 'https://sp.194964.com' + h; return h; }) },
+                  
                 },
               });
             }
@@ -3977,6 +3979,37 @@ if (action === 'blacklist' && deepScrape && typeof deepScrape.blockContact === '
 
   // ============================================================================
   // 快乐平台 · 线索池侦测灌库（18595 窗口 · 客源 4 路 DOM 抓取）
+  // POST /api/console/leads/clean-orphan { accountId?, platform? }
+  // → 删"缺资料卡链接"(profileUrl 空)的线索 + 级联删资料池对应 Profile(线索池删 → 资料池随删, 用户 2026-11-10 裁定)
+  register('POST', '/api/console/leads/clean-orphan', wrap(async (req, res, body) => {
+    if (!store || !store.db) return json(res, 501, { ok: false, reason: 'store-not-ready' });
+    const b = body || {};
+    const accountId = b.accountId || '17098';
+    const platform = b.platform || 'ichigo';
+    const db = store.db;
+    // ① 找缺链接的 leadId
+    var orphans = db.prepare(
+      "SELECT leadId FROM Lead WHERE accountId=? AND platform=? AND (profileUrl IS NULL OR profileUrl='') ORDER BY updatedAt DESC LIMIT 5000"
+    ).all(accountId, platform);
+    var ids = (orphans || []).map(function (r) { return String(r.leadId); });
+    var delLead = 0, delProfile = 0;
+    if (ids.length) {
+      var qm = ids.map(function () { return '?'; }).join(',');
+      // ② 先删资料池(级联: 线索删了, 资料池对应删)
+      delProfile = db.prepare('DELETE FROM Profile WHERE leadId IN (' + qm + ')').run.apply(null, ids).changes;
+      // ③ 删线索
+      delLead = db.prepare('DELETE FROM Lead WHERE leadId IN (' + qm + ')').run.apply(null, ids).changes;
+    }
+    // ④ 统计
+    var leadLeft = db.prepare('SELECT COUNT(*) c FROM Lead WHERE accountId=? AND platform=?').get(accountId, platform).c;
+    var profLeft = db.prepare('SELECT COUNT(*) c FROM Profile WHERE accountId=? AND platform=?').get(accountId, platform).c;
+    return json(res, 200, {
+      ok: true, deletedLead: delLead, deletedProfile: delProfile,
+      leadLeft: leadLeft, profileLeft: profLeft,
+      note: '已删缺链接线索 ' + delLead + ' 条 + 资料池级联删 ' + delProfile + ' 条; 现 线索 ' + leadLeft + ' / 资料池 ' + profLeft,
+    });
+  }));
+
   // POST /api/console/leads/explore-happy
   //   body: { dims?: ['like'|'search'|'bbs'|'ashiato']（默认 all）}
   //   → happyScanner.scanSource 导航 4 客源页读已渲染 DOM → upsertLead 灌 Lead

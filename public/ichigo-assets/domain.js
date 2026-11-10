@@ -754,6 +754,25 @@ export async function loadLeads() {
     return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
   fetchAndRender().catch(function(e) { console.error('[leads] fetch error:', e); });
+  // 🧹 清理缺链接线索(级联删资料池) —— 强副作用, 确认后才执行
+  var cleanBtn = document.getElementById('leadCleanOrphan');
+  if (cleanBtn) cleanBtn.onclick = async function () {
+    var st = document.getElementById('leadExploreStatus');
+    if (st) st.textContent = '⚠ 将删除无资料卡链接的线索(级联删资料池), 3 秒内再点一次确认…';
+    cleanBtn.dataset.arm = '1'; cleanBtn.style.background = '#c0392b'; cleanBtn.textContent = '⚠ 再点一次确认删除';
+    setTimeout(function () { cleanBtn.dataset.arm = ''; cleanBtn.style.background = '#8e44ad'; cleanBtn.textContent = '🧹 清理缺链接线索'; if (st) st.textContent = ''; }, 3000);
+    if (cleanBtn.dataset.arm !== '1') return;  // 未二次确认
+    cleanBtn.dataset.arm = '';
+    if (st) st.textContent = '清理中…';
+    try {
+      var plat = (document.getElementById('leadExplorePlatform') || {}).value || '';
+      var body = { accountId: '17098', platform: plat === 'happymail' ? 'happymail' : 'ichigo' };
+      var r = await fetch('/api/console/leads/clean-orphan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(function (x) { return x.json(); });
+      if (r.ok) { st.textContent = r.note || ('已删 ' + r.deletedLead + ' 线索 / ' + r.deletedProfile + ' 资料池'); setTimeout(function () { loadLeads(); }, 500); }
+      else st.textContent = '清理失败: ' + (r.msg || r.reason);
+    } catch (e) { if (st) st.textContent = '清理失败: ' + e; }
+  };
+
 }
 
 

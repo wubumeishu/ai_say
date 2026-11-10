@@ -51,6 +51,8 @@ function fakeParser() {
           return { getAttribute: function(n) { return n === 'href' ? '/bbs/show_bbs_detail.html?q=DELTOK' : ''; } };
         if (sel.indexOf('.recruit-list-thumb a') !== -1)
           return { getAttribute: function(n) { return n === 'href' ? '/sns/snsprofile/show_profile.html?q=PROFTOK' : ''; } };
+        if (sel.indexOf('.recruit-list-thumb img') !== -1)
+          return { getAttribute: function(n) { return n === 'src' ? '//images.194964.com/snsprofr/test.jpg' : ''; } };
         return null;
       }
     };

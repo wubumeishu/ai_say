@@ -86,6 +86,14 @@
         p.photoCount = photoEl ? String(photoEl.textContent || '').trim().replace(/\s+/g, '') : '';
         p.detailHref = linkEl ? (linkEl.getAttribute('href') || '') : '';
         p.profileHref = imgEl ? (imgEl.getAttribute('href') || '') : '';
+        if (p.profileHref && p.profileHref.charAt(0) === '/') p.profileHref = 'https://sp.194964.com' + p.profileHref;  // 补全域名(资料卡链接相对路径)
+        if (p.detailHref && p.detailHref.charAt(0) === '/') p.detailHref = 'https://sp.194964.com' + p.detailHref;
+        // 头像(.recruit-list-thumb img, //images.194964.com 相对协议 → https)
+        var thumbImg = (card && card.querySelector) ? card.querySelector('.recruit-list-thumb img') : null;
+        if (thumbImg) { var _av = thumbImg.getAttribute('src') || ''; if (_av.indexOf('//') === 0) _av = 'https:' + _av; p.avatarUrl = _av; }
+        // 在线点颜色(.recruit-list-age 内 .online-iconN 的 N 档)
+        var onEl = (ageEl && ageEl.querySelector) ? ageEl.querySelector('.online-icon') : null;
+        if (onEl) { var onM = String(onEl.className || '').match(/online-icon(\d)/); if (onM) p.onlineIcon = onM[1]; }
         p.hasPhoto = p.photoCount.indexOf('x') !== -1 || p.photoCount.indexOf('枚') !== -1;
         posts.push(p);
       });
