@@ -4183,7 +4183,60 @@ store.markProfileCrawled(it.profileId, 'done', merged);
   }));
 
   // POST /api/console/profiles/crawl { accountId?, profileIds?:[] } → 对选中抓资料卡(手动触发, 呼吸节拍)
-  register('POST', '/api/console/profiles/crawl', wrap(async (req, res, body) => {
+    // 资料卡后台抓取任务(呼吸节拍, 避免前端长时间等待)
+  var crawlJobs = new Map();
+  function startCrawlJob(accountId, toCrawl, force) {
+    var jobId = 'cj_' + Date.now().toString(36) + '_' + Math.floor(Math.random() * 1e6);
+    var job = { jobId: jobId, accountId: accountId, status: 'running', total: toCrawl.length, done: 0, failed: 0, startedAt: new Date().toISOString() };
+    crawlJobs.set(jobId, job);
+    // 后台呼吸抓取(不阻塞请求)
+    (async function() {
+      for (var idx = 0; idx < toCrawl.length; idx++) {
+        var p = toCrawl[idx];
+        try {
+          var prof = await deepScrape.fetchProfile(p.profileUrl);
+          if (prof && prof.ok !== false) {
+            var merged = {};
+            if (prof.fields && typeof prof.fields === 'object') {
+              Object.keys(prof.fields).forEach(function (fk) { var fv = prof.fields[fk]; if (fv !== undefined && fv !== null && fv !== '') merged[fk] = fv; });
+              merged.fields = prof.fields;
+            }
+            if (prof.byGroup && typeof prof.byGroup === 'object') merged.byGroup = prof.byGroup;
+            if (prof.interestIcons) {
+              merged.interestIcons = prof.interestIcons;
+              merged.interests = prof.interestIcons.map ? prof.interestIcons.map(function (x) { return (x && x.label) || (typeof x === 'string' ? x : (x && x.name) || String(x)); }).filter(Boolean) : prof.interestIcons;
+            }
+            if (prof.onlineText) merged.onlineText = prof.onlineText;
+            if (prof.region || prof.pref || prof.city) {
+              merged.regionFull = prof.region || ([prof.pref, prof.city].filter(Boolean).join(' '));
+              if (prof.pref) merged.pref = prof.pref;
+              if (prof.city) merged.city = prof.city;
+            }
+            if (prof.nickname) merged.nickname = prof.nickname;
+            if (prof.ageNum != null) merged.ageNum = prof.ageNum;
+            if (prof.avatarUrl) merged.avatarUrl = prof.avatarUrl;
+            if (prof.bbsPosts && prof.bbsPosts.length) merged.bbsPosts = prof.bbsPosts.map(function (b) { return { genre: b.genre, content: b.content, time: b.time, viewCount: b.viewCount }; }).slice(0, 10);
+            store.markProfileCrawled(p.profileId, 'done', merged);
+            job.done++;
+          } else {
+            store.markProfileCrawled(p.profileId, 'failed', { crawlErr: (prof && prof.reason) || 'unknown' });
+            job.failed++;
+          }
+        } catch (e) {
+          store.markProfileCrawled(p.profileId, 'failed', { crawlErr: String(e && e.message || e) });
+          job.failed++;
+        }
+        if (idx < toCrawl.length - 1) await new Promise(function (r) { setTimeout(r, 20000 + Math.floor(Math.random() * 20000)); });
+      }
+      job.status = 'done';
+      job.finishedAt = new Date().toISOString();
+      // 保留最近 20 个 job(防内存泄漏)
+      if (crawlJobs.size > 20) { var arr = Array.from(crawlJobs.values()).sort(function(a,b){return (a.startedAt<b.startedAt?-1:1);}); crawlJobs.delete(arr[0].jobId); }
+    })();
+    return job;
+  }
+
+register('POST', '/api/console/profiles/crawl', wrap(async (req, res, body) => {
     if (!deepScrape || typeof deepScrape.fetchProfile !== 'function') return json(res, 501, { ok: false, reason: 'deepscrape-not-injected', msg: '出会深度抓取器未注入(17098 窗口未开?)' });
     if (!store || typeof store.getProfile !== 'function') return json(res, 501, { ok: false, reason: 'store-not-ready' });
     const b = body || {};
@@ -4198,6 +4251,15 @@ store.markProfileCrawled(it.profileId, 'done', merged);
     const toCrawl = b.force === true || b.force === '1' || b.force === 'true'
       ? targets.filter(function (p) { return p.profileUrl; })
       : targets.filter(function (p) { return p.profileUrl && p.crawlStatus !== 'done'; });
+
+    // 多批/全量(>1 条) → 后台呼吸抓取, 立即返回 jobId(前端轮询 /crawl-status), 避免长时间等待
+    if (toCrawl.length > 1) {
+      var job = startCrawlJob(accountId, toCrawl, b.force);
+      return json(res, 200, {
+        ok: true, background: true, jobId: job.jobId, total: job.total,
+        note: '已启动后台呼吸抓取 ' + job.total + ' 条(每 20-40s 一个), 轮询 /api/console/profiles/crawl-status?jobId=' + job.jobId + ' 看进度',
+      });
+    }
     if (!toCrawl.length) return json(res, 200, { ok: true, crawled: 0, total: targets.length, note: b.force ? '指定资料无 profileUrl(无资料卡链接), 无法抓' : '没有可抓的(已完成或无资料卡链接)' });
     const max = Math.min(parseInt(b.max || '5', 10), 10);
     const batch = toCrawl.slice(0, max);
@@ -4245,6 +4307,22 @@ store.markProfileCrawled(it.profileId, 'done', merged);
       }
     }
     return json(res, 200, { ok: true, crawled: done, total: batch.length, note: '已抓 ' + done + '/' + batch.length + ' 条资料卡(呼吸节拍, 每 20-40s 一个)' });
+  }));
+
+
+  // GET /api/console/profiles/crawl-status?jobId= → 后台抓取任务进度
+  register('GET', '/api/console/profiles/crawl-status', wrap(async (req, res) => {
+    const qs = new URLSearchParams(String(req.url || '').split('?')[1] || '');
+    const jobId = qs.get('jobId') || '';
+    const job = jobId ? (crawlJobs.get(jobId) || null) : null;
+    if (!job) {
+      // 没指定 job 或 job 已清 → 返回最近一个
+      var last = null;
+      crawlJobs.forEach(function(v) { if (!last || v.startedAt > last.startedAt) last = v; });
+      if (!last) return json(res, 200, { ok: false, reason: 'no-job', msg: '无后台抓取任务' });
+      return json(res, 200, Object.assign({ ok: true }, last, { running: last.status === 'running' }));
+    }
+    return json(res, 200, Object.assign({ ok: true }, job, { running: job.status === 'running' }));
   }));
 
   // GET /api/console/profiles/inbox-live?platform=&accountId=&force=1

@@ -766,6 +766,9 @@ export async function loadLeads() {
 export async function loadProfiles(opt) {
   opt = opt || {};
   var el = document.getElementById('domainContent');
+  window.__profPage = window.__profPage || 1;
+  window.__profPageSize = window.__profPageSize || 25;
+  if (opt.pageReset) window.__profPage = 1;
   var title = document.getElementById('domainTitle');
   if (title) title.textContent = '📇 资料池（第二阶段 · 线索池筛选后运营对象）';
   if (!el) { console.warn('[profiles] domainContent not found'); return; }
@@ -929,13 +932,55 @@ export async function loadProfiles(opt) {
     '<button id="pfFApply" style="font-size:12px;padding:3px 12px;background:var(--accent,#4a9eff);color:#fff;border:none;border-radius:4px;cursor:pointer">应用</button>' +
     '<button id="pfFReset" style="font-size:12px;padding:3px 12px;background:var(--card,#fff);color:var(--muted,#888);border:1px solid var(--border);border-radius:4px;cursor:pointer">重置</button>' +
     '</div>';
+  // 分页: 前端切片(数据全量已拉回), 一行5列, 右下角可选每页数量 + 翻页
+  var PZ = window.__profPageSize || 25;
+  var PG = Math.max(1, Math.min(window.__profPage || 1, Math.ceil(prof.length / PZ) || 1));
+  var start = (PG - 1) * PZ;
+  var pageRows = prof.slice(start, start + PZ);
+  var cardsHtml = pageRows.map(function (p) {
+    var ex = p.extras || {};
+    var avatar = p.avatarUrl ? '<img src="' + p.avatarUrl + '" style="width:30px;height:30px;border-radius:50%;object-fit:cover;border:1px solid var(--border,#2a3550)" alt="">' : '<span style="width:30px;height:30px;border-radius:50%;background:var(--card2,#f2f5f9);display:inline-flex;align-items:center;justify-content:center;font-size:14px">👤</span>';
+    var head = '<div class="pfHead" data-pf="' + p.profileId + '" style="cursor:pointer;display:flex;align-items:center;gap:8px">' +
+      avatar +
+      '<div style="flex:1;min-width:0">' +
+        '<div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + crawlDot(p.crawlStatus) + (p.name || '(无名)') +
+          ' <span style="font-weight:400;color:var(--muted,#888);font-size:11px">' + (function(){var _a=parseAge(p.age||'');return _a ? _a+'岁 ' : '';})() + (p.region ? p.region + ' ' : '') + onlineBadge(p.online) + '</span></div>' +
+        '<div style="display:flex;gap:4px;align-items:center;margin-top:3px;flex-wrap:wrap">' + srcTag(p.sourceDim) + commsTag(p) + '<span style="display:inline-flex;align-items:center">' + crawlLabel(p.crawlStatus) + '</span></div>' +
+      '</div>' +
+      '<span class="chev" data-chev="' + p.profileId + '" style="font-size:12px;color:var(--muted,#888);transition:transform .2s">▾</span>' +
+      '</div>';
+    var body = '<div class="pfBody" data-pfbody="' + p.profileId + '" style="display:none;margin-top:8px;padding-top:8px;border-top:1px solid var(--border,#2a3550);flex-direction:column;gap:6px">' +
+      '<div style="font-size:11px;color:var(--muted,#888)">' + (p.region ? '地区: ' + p.region : '地区: —') + '</div>' +
+      '<div style="display:flex;flex-direction:column;gap:0">' + detailRows(p) + '</div>' +
+      (ex.crawledAt ? '<div style="font-size:10px;color:var(--muted,#888)">抓取于 ' + ex.crawledAt + '</div>' : '') +
+      '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:2px">' +
+      '<button class="pCrawl" data-id="' + p.profileId + '" style="font-size:11px;padding:3px 10px;background:var(--accent,#4f8cff);color:#fff;border:none;border-radius:4px;cursor:pointer">🔭 抓/重抓</button>' +
+      '<button class="pCms" data-id="' + p.profileId + '" style="font-size:11px;padding:3px 10px;background:var(--card,#fff);color:var(--text);border:1px solid var(--border);border-radius:4px;cursor:pointer">↻ 刷已沟通</button>' +
+      '</div></div>';
+    return '<div class="pfCard" style="background:var(--card,#fff);border-radius:8px;padding:8px 10px;margin-bottom:6px;border:1px solid var(--border,#2a3550)">' + head + body + '</div>';
+  }).join('');
+  // 右下角分页条: 每页数量可选(25/50/100) + 页码
+  var totalPages = Math.max(1, Math.ceil(prof.length / PZ));
+  var pagerHtml = '<div id="profPager" style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;gap:8px;flex-wrap:wrap">' +
+    '<span style="font-size:11px;color:var(--muted,#888)">第 ' + PG + ' / ' + totalPages + ' 页 · 共 ' + prof.length + ' 条' +
+    (start ? ' · 本页 ' + (start + 1) + '-' + Math.min(start + PZ, prof.length) : '') + '</span>' +
+    '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">' +
+    '<button id="pfPrev" style="font-size:12px;padding:3px 10px;background:var(--card,#fff);color:var(--text);border:1px solid var(--border);border-radius:4px;cursor:pointer' + (PG <= 1 ? ';opacity:.4;pointer-events:none' : '') + '">‹ 上一页</button>' +
+    '<button id="pfNext" style="font-size:12px;padding:3px 10px;background:var(--card,#fff);color:var(--text);border:1px solid var(--border);border-radius:4px;cursor:pointer' + (PG >= totalPages ? ';opacity:.4;pointer-events:none' : '') + '">下一页 ›</button>' +
+    '<select id="pfPageSize" style="font-size:12px;padding:3px 6px">' + [25, 50, 100].map(function (n) { return '<option value="' + n + '"' + (n === PZ ? ' selected' : '') + '>' + n + ' 条/页</option>'; }).join('') + '</select>' +
+    '</div></div>';
   el.innerHTML = filterBarHtml +
     '<div id="profAgg" style="font-size:11px;color:var(--muted,#888);margin-bottom:10px">共 ' + (agg.total || prof.length) +
       ' 条 · 已抓取 ' + (agg.crawled || 0) + ' · 未抓取 ' + (agg.pending || 0) + ' · 已沟通 ' + (agg.communicated || 0) +
       ' · 来源 ' + Object.keys(agg.bySource || {}).map(function (k) { return (DIM_CN[k] || k) + ' ' + (agg.bySource[k] || 0); }).join(' / ') +
-      ' <span style="margin-left:8px">（点卡片展开看完整资料）</span></div>' +
-    '<div style="max-height:640px;overflow-y:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:8px">' + (rows || '<div style="padding:16px;color:var(--muted,#888);font-size:13px">资料池暂空。</div>') + '</div>' +
+      '</div>' +
+    '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px">' + (cardsHtml || '<div style="padding:16px;color:var(--muted,#888);font-size:13px">资料池暂空。</div>') + '</div>' +
+    pagerHtml +
     profileActionsHtml();
+  // 分页绑定
+  var pfPrev = el.querySelector('#pfPrev'); if (pfPrev) pfPrev.onclick = function () { window.__profPage = Math.max(1, PG - 1); loadProfiles({ skipSync: true, pageReset: false }); };
+  var pfNext = el.querySelector('#pfNext'); if (pfNext) pfNext.onclick = function () { window.__profPage = Math.min(totalPages, PG + 1); loadProfiles({ skipSync: true }); };
+  var pfPz = el.querySelector('#pfPageSize'); if (pfPz) pfPz.onchange = function () { window.__profPageSize = parseInt(pfPz.value, 10) || 25; window.__profPage = 1; loadProfiles({ skipSync: true }); };
   // 展开/折叠: 点 .pfHead 切换 .pfBody
   Array.prototype.forEach.call(el.querySelectorAll('.pfHead'), function (h) {
     h.onclick = function () {
@@ -954,12 +999,12 @@ export async function loadProfiles(opt) {
   if (fApply) fApply.onclick = function() {
     var g = function(id) { var s = el.querySelector('#' + id); return s ? s.value : ''; };
     window.__profFilter = { platform: g('pfFPlat'), accountId: g('pfFAcc'), sourceDim: g('pfFDim'), communicated: g('pfFCms'), crawlStatus: g('pfFCrawl') };
-    loadProfiles({ skipSync: true });
+    window.__profPage = 1; loadProfiles({ skipSync: true, pageReset: true });
   };
   var fReset = el.querySelector('#pfFReset');
   if (fReset) fReset.onclick = function() {
     window.__profFilter = { platform: 'ichigo', accountId: '17098', sourceDim: '', communicated: '', crawlStatus: '' };
-    loadProfiles({ skipSync: true });
+    window.__profPage = 1; loadProfiles({ skipSync: true, pageReset: true });
   };
 }
 
@@ -992,8 +1037,16 @@ function bindProfileActions(el, data) {
     fetch('/api/console/profiles/crawl', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accountId: '17098', max: 5, force: true }) })
       .then(function (r) { return r.json(); })
       .then(function (d) {
-        if (d.ok) { setStatus('已抓 ' + d.crawled + '/' + d.total + ' 条'); setTimeout(function () { loadProfiles(); }, 600); }
-        else setStatus('抓取失败: ' + (d.msg || d.reason));
+        if (d.ok) {
+          if (d.background && d.jobId) {
+            setStatus('⏳ 后台呼吸抓取 ' + d.total + ' 条(每 20-40s 一个), 自动刷新进度…');
+            pollCrawlJob(d.jobId, function (j) {
+              if (j && j.status === 'done') { setStatus('✓ 完成: 成功 ' + j.done + ' / 失败 ' + j.failed); setTimeout(function () { loadProfiles({ skipSync: true }); }, 400); }
+            });
+          } else {
+            setStatus('已抓 ' + d.crawled + '/' + d.total + ' 条'); setTimeout(function () { loadProfiles({ skipSync: true }); }, 600);
+          }
+        } else setStatus('抓取失败: ' + (d.msg || d.reason));
       }).catch(function (e) { setStatus('请求失败: ' + e.message); });
   };
   var refCms = el.querySelector('#profRefreshCms');
@@ -1004,6 +1057,13 @@ function bindProfileActions(el, data) {
       .then(function (d) { if (d.ok) { setStatus('已刷新 ' + d.refreshed + ' 条'); setTimeout(function () { loadProfiles(); }, 400); } else setStatus('失败: ' + (d.msg || d.reason)); })
       .catch(function (e) { setStatus('请求失败: ' + e.message); });
   
+  function pollCrawlJob(jobId, onDone, _n) {
+    _n = _n || 0;
+    fetch('/api/console/profiles/crawl-status?jobId=' + encodeURIComponent(jobId)).then(function (r) { return r.json(); }).then(function (j) {
+      if (j && j.status === 'running') { setTimeout(function () { pollCrawlJob(jobId, onDone, _n + 1); }, 3000); }
+      else if (onDone) onDone(j);
+    }).catch(function () { /* 轮询失败静默, 不阻断 */ });
+  }
   var relive = el.querySelector('#profInboxLive');
   if (relive) relive.onclick = async function () {
     setStatus('正在重爬收件箱页(强制 CDP)…');
