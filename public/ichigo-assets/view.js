@@ -103,6 +103,7 @@ export function switchView(view) {
     if (cfRoot) {
       cfRoot.innerHTML = '<div class="cf-main"><div style="text-align:center;padding:60px;color:var(--muted,#8b8fa3);font-size:13px">⏳ 卡片流加载中…（拉取候选）</div></div>';
     }
+    var _cfRetry = 0;
     (function tryCf(n) {
       var cf = window.__cardflow;
       if (cf) {
@@ -110,8 +111,30 @@ export function switchView(view) {
         cf.loadLeads();
         return;
       }
+      // 页面整合脚本已标记加载失败 → 直接显示原因(不再干等 8s)
+      if (window.__cardflowError) {
+        if (cfRoot) cfRoot.innerHTML = '<div class="cf-main"><div style="text-align:center;padding:60px;color:#ef4444;font-size:13px">卡片流模块加载失败: ' + window.__cardflowError + '</div></div>';
+        return;
+      }
       if (n <= 0) {
-        if (cfRoot) cfRoot.innerHTML = '<div class="cf-main"><div style="text-align:center;padding:60px;color:#e07b39;font-size:13px">卡片流模块未加载（cardflow.js 未注入 window.__cardflow）。请强刷（Ctrl+Shift+R）。</div></div>';
+        // 8s 内 __cardflow 没挂上 → 试一次浏览器侧自救: 重新动态 import(清顽固缓存场景)
+        if (_cfRetry === 0) {
+          _cfRetry = 1;
+          try {
+            import('/ichigo-assets/cardflow.js?t=' + Date.now()).then(function(m) {
+              window.__cardflow = m;
+              if (m.startQueueTick) m.startQueueTick();
+              if (m.loadLeads) m.loadLeads();
+              if (cfRoot) cfRoot.innerHTML = '';
+            }).catch(function(err) {
+              if (cfRoot) cfRoot.innerHTML = '<div class="cf-main"><div style="text-align:center;padding:60px;color:#ef4444;font-size:13px">卡片流模块加载失败: ' + String((err && err.message) || err) + '<br><span style="color:var(--muted,#8b8fa3);font-size:12px">仍失败请 Ctrl+Shift+R 强刷, 或检查 /ichigo-assets/cardflow.js 是否 200</span></div></div>';
+            });
+          } catch (_) {
+            if (cfRoot) cfRoot.innerHTML = '<div class="cf-main"><div style="text-align:center;padding:60px;color:#e07b39;font-size:13px">卡片流模块未加载（cardflow.js 未注入 window.__cardflow）。请强刷（Ctrl+Shift+R）。</div></div>';
+          }
+        } else {
+          if (cfRoot) cfRoot.innerHTML = '<div class="cf-main"><div style="text-align:center;padding:60px;color:#e07b39;font-size:13px">卡片流模块未加载（cardflow.js 未注入 window.__cardflow）。请强刷（Ctrl+Shift+R）。</div></div>';
+        }
         return;
       }
       setTimeout(function() { tryCf(n - 1); }, 500);
