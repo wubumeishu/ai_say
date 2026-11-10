@@ -3062,6 +3062,28 @@ if (action === 'blacklist' && deepScrape && typeof deepScrape.blockContact === '
             platform: 'ichigo', noRevoke: true, fromInbox: true,
           }, extra || {}));
         };
+        (profileRows || []).forEach(function(pr) {
+          var extra = {
+            contactId: pr.contactId || null,
+            sourceHref: null,
+            age: pr.age != null ? String(pr.age) : '',
+            city: pr.region || '',
+            selfIntro: '',
+            interests: [],
+            avatarUrls: [],
+            fromProfilePool: true,
+          };
+          try {
+            var ex = pr.extras ? JSON.parse(pr.extras) : {};
+            extra.sourceHref = ex.profileUrl || ex.profileHref || null;
+            if (ex.avatarUrl) extra.avatarUrls = [ex.avatarUrl];
+            if (Array.isArray(ex.interests)) extra.interests = ex.interests;
+            else if (Array.isArray(ex.interestIcons)) extra.interests = ex.interestIcons.map(function(x){return (x&&x.label)||'';}).filter(Boolean);
+            if (ex.selfIntro) extra.selfIntro = ex.selfIntro;
+            if (ex.regionFull) extra.city = ex.regionFull;
+          } catch (_) {}
+          pick(pr.name, 'profile', extra);
+        });
         (recentRows || []).forEach(function(r) {
           // 补上下文: 资料卡链接 + 该会话最近 5 条消息(assistant 生成话术的上下文), 不用 CDP 实时抓
           var ctxExtra = { contactId: r.contactId || null, conversationId: r.convId || null, lastTime: r.lastAt || '', notReplied: true };
@@ -3112,28 +3134,7 @@ if (action === 'blacklist' && deepScrape && typeof deepScrape.blockContact === '
             ).all();
           } catch (_) { profileRows = []; }
         }
-        (profileRows || []).forEach(function(pr) {
-          var extra = {
-            contactId: pr.contactId || null,
-            sourceHref: null,
-            age: pr.age != null ? String(pr.age) : '',
-            city: pr.region || '',
-            selfIntro: '',
-            interests: [],
-            avatarUrls: [],
-            fromProfilePool: true,
-          };
-          try {
-            var ex = pr.extras ? JSON.parse(pr.extras) : {};
-            extra.sourceHref = ex.profileUrl || ex.profileHref || null;
-            if (ex.avatarUrl) extra.avatarUrls = [ex.avatarUrl];
-            if (Array.isArray(ex.interests)) extra.interests = ex.interests;
-            else if (Array.isArray(ex.interestIcons)) extra.interests = ex.interestIcons.map(function(x){return (x&&x.label)||'';}).filter(Boolean);
-            if (ex.selfIntro) extra.selfIntro = ex.selfIntro;
-            if (ex.regionFull) extra.city = ex.regionFull;
-          } catch (_) {}
-          pick(pr.name, 'profile', extra);
-        });
+        
         leadCount = cards.length;
       } catch (e) { leadErr = String((e && e.message) || e); }
     }
