@@ -323,6 +323,50 @@ function mountConsoleRoutes(app, deps = {}) {
       return null;
     }
   }
+  // 收件箱客户同步 helper: 按"当前页实际客户"(前端传入优先, 否则缓存 liveSet) 进资料池
+  // 用户 2026-11-10 裁定: ① 双向消息=已沟通 ② 按页面实际内容, 测试(AA_test)/已删客户不进 ③ 支持重爬+维护
+  function syncInboxProfiles(platform, accountId, inboxContacts) {
+    const EXCLUDE = { AA_test: 1 }; // 测试数据剔除
+    // 数据来源: 优先前端传入的"当前页实际客户"(最准, 4 人); 否则 ichigoCache 缓存
+    let src = Array.isArray(inboxContacts) && inboxContacts.length ? inboxContacts : null;
+    if (!src && ichigoCache && typeof ichigoCache.getContacts === 'function') {
+      // 默认取"最近 7 天活跃"的(近似当前页可见客户; 页面按活跃展示, 已删/归档自然不在)
+      var sevenDaysAgo = Date.now() - 7 * 86400000;
+      src = (ichigoCache.getContacts() || []).filter(function (c) {
+        if (!c || !c.contactId || c.archived) return false;
+        // 近 7 天有 lastSeen 的 = 当前页可见(平台按活跃展示收件箱)
+        var ls = c.lastSeen ? new Date(c.lastSeen).getTime() : 0;
+        return ls >= sevenDaysAgo;
+      });
+    }
+    src = src || [];
+    let synced = 0;
+    src.forEach(function (ct) {
+      if (!ct.contactId) return;
+      if (EXCLUDE[ct.name]) return;
+      try {
+        var mCount = Array.isArray(ct.messages) ? ct.messages.length : 0;
+        var r = store.upsertProfile({
+          leadId: null,
+          profileId: 'PINB' + require('crypto').createHash('sha1').update('inbox/' + ct.contactId).digest('hex').slice(0, 16),
+          contactId: String(ct.contactId),
+          platform: platform,
+          accountId: accountId,
+          name: ct.name || ct.displayName || '',
+          age: ct.age || null, region: ct.region || null, online: ct.onlineTier || null,
+          avatarUrl: ct.avatarUrl || null, profileUrl: ct.profileUrl || null,
+          sourceDim: 'inbox',
+          communicated: mCount > 0,
+          msgCount: mCount,
+          extras: { fromInbox: 1, inboxUnread: ct.unread || 0, inboxLastMsgTime: ct.lastMsgTime || ct.lastSeen || null, inboxLastMsg: ct.lastMsg || '' },
+        });
+        if (r) synced++;
+      } catch (_) { /* 单条失败不阻断 */ }
+    });
+    return { synced: synced, note: '收件箱同步 ' + synced + ' 客户(当前页实际)' };
+  }
+
+
 
 register('GET', '/api/console/customers', wrap(async (req, res) => {
     if (!db) return json(res, 501, { ok: false, msg: 'store.db 未注入' });
@@ -4129,6 +4173,56 @@ if (action === 'blacklist' && deepScrape && typeof deepScrape.blockContact === '
     return json(res, 200, { ok: true, crawled: done, total: batch.length, note: '已抓 ' + done + '/' + batch.length + ' 条资料卡(呼吸节拍, 每 20-40s 一个)' });
   }));
 
+  // GET /api/console/profiles/inbox-live?platform=&accountId=&force=1
+  // → 强制重爬收件箱(页面实际内容), 返回当前真实客户(平台收件箱全量), 清掉"已删除/测试"客户
+  //   维护机制: 结构指纹 inboxVer(收件箱 DOM 关键节点数), 抓取失败/客户名全空 → pageChanged=true 提示重爬
+  register('GET', '/api/console/profiles/inbox-live', wrap(async (req, res) => {
+    if (!deepScrape || typeof deepScrape.mailboxOnly !== 'function') {
+      return json(res, 501, { ok: false, reason: 'deepscrape-not-injected', msg: '出会深度抓取器未注入(17098 窗口未开?)' });
+    }
+    const b = (req.query || {});
+    const force = b.force === '1' || b.force === 'true';
+    // force 时强制 CDP 重爬(拿页面最新内容); 否则用缓存(快)
+    let scan;
+    if (force) {
+      scan = await deepScrape.mailboxOnly();
+    } else {
+      // 非 force: 读 ichigoCache 当前收件箱(平台最近一次成功爬取的全量)
+      scan = { ok: true, from: 'cache', contacts: (ichigoCache ? ichigoCache.getContacts() : []) };
+    }
+    if (!scan || scan.ok === false) {
+      // 抓取失败 → 降级缓存 + 告警(页面可能已更新/窗口关闭)
+      const cached = ichigoCache ? ichigoCache.getContacts() : [];
+      return json(res, 200, {
+        ok: false, reason: scan.reason || 'inbox-scrape-failed', msg: scan.msg,
+        contacts: cached, from: 'cache-fallback', pageChanged: true,
+        note: '收件箱重爬失败——平台页面可能已更新或窗口关闭, 请用当前缓存 ' + cached.length + ' 条, 或检查窗口后重爬',
+      });
+    }
+    // 结构指纹: 收件箱关键客户数(维护机制——页面小更新时客户结构会变化)
+    var contacts = (scan.contacts || []).map(function (c) {
+      var mCount = Array.isArray(c.messages) ? c.messages.length : 0;
+      // 已沟通 = 有消息历史(双向: 我发的 self / 对方发的 peer 都算)
+      var peerMsgs = Array.isArray(c.messages) ? c.messages.filter(function (m) { return m && (m.role === 'peer' || m.role === 'them' || m.role === 'inbound' || m.role === 'incoming'); }).length : 0;
+      var selfMsgs = Array.isArray(c.messages) ? c.messages.filter(function (m) { return m && (m.role === 'self' || m.role === 'me' || m.role === 'outbound' || m.role === 'sent'); }).length : 0;
+      return {
+        contactId: c.contactId, name: c.name || c.displayName, age: c.age, region: c.region,
+        online: c.onlineTier, avatarUrl: c.avatarUrl, profileUrl: c.profileUrl,
+        msgCount: mCount, communicated: mCount > 0, // 双向: 有任何消息历史就算已沟通
+        peerMsgs: peerMsgs, selfMsgs: selfMsgs, unread: c.unread || 0,
+        lastMsgTime: c.lastMsgTime || c.lastSeen,
+      };
+    });
+    // 维护: 客户名全空 = 页面 DOM 变了(抓取表达式没匹配上) → 提示重爬/更新表达式
+    var allEmpty = contacts.length && contacts.every(function (c) { return !c.name && !c.msgCount; });
+    return json(res, 200, {
+      ok: true, from: scan.from, count: contacts.length, contacts: contacts,
+      inboxVer: 'v' + (scan.from === 'cache' ? 'cache' : 'live') + '-' + contacts.length,
+      pageChanged: allEmpty,
+      note: allEmpty ? '⚠ 收件箱客户名全空——平台页面可能已更新, 请重爬或更新 ichigoMailboxExpr.js 选择器' : '收件箱 ' + contacts.length + ' 客户(页面实际内容)',
+    });
+  }));
+
   // POST /api/console/profiles/sync { accountId?, platform? } → 同步"线索池 + 收件箱客户"进资料池(幂等)
   //   用户裁定(2026-11-10): 资料池 = 线索池(Lead) ∪ 收件箱客户(Conversation/Contact), 一定 >= 线索池数
   //   覆盖: ① 全部 Lead(未进 Profile 的新增/漏同步) ② 收件箱客户(contactId 在 Conversation/Contact, 未在 Profile)
@@ -4155,48 +4249,19 @@ if (action === 'blacklist' && deepScrape && typeof deepScrape.blockContact === '
         } catch (_) { /* 单条失败不阻断 */ }
       });
     } catch (e) { /* 整体失败继续收件箱同步 */ }
-    // ② 收件箱客户: 真正有 Conversation(会话)的 Contact → 进资料池(来源=收件箱)
-    //    "已沟通" = 该 contact 的会话(Conversation.contactId)在 Message 表有记录(我发或对方发都算)
-    //    关联链: Message.conversationId → Conversation.conversationId → Contact.contactId(Message 表无 contactId 列)
+    // ② 收件箱客户: 按"当前收件箱页实际客户"同步 —— 前端传入 b.inboxContacts(会话管理页真实 4 人) 最准;
+    //    没传则读 ichigoCache 当前 liveSet(非归档); 剔除测试 AA_test; 双向消息历史=已沟通, 已删客户不在列表里自然不进
+    var inboxNote = '';
     try {
-      const convs = store.db.prepare(
-        'SELECT cv.contactId, COUNT(m.messageId) AS msgCount FROM Conversation cv ' +
-        'LEFT JOIN Message m ON m.conversationId = cv.conversationId ' +
-        'WHERE cv.contactId IS NOT NULL GROUP BY cv.contactId'
-      ).all();
-      const msgByContact = {};
-      convs.forEach(function (r) { msgByContact[r.contactId] = Number(r.msgCount || 0); });
-      const contacts = store.db.prepare(
-        'SELECT c.contactId AS contactId, c.displayName AS name, cv.unread, cv.lastActiveAt, cv.historyUrl, cv.avatarUrl ' +
-        'FROM Contact c INNER JOIN Conversation cv ON cv.contactId = c.contactId ' +
-        'ORDER BY c.updatedAt DESC LIMIT 5000'
-      ).all();
-      (Array.isArray(contacts) ? contacts : []).forEach(function (ct) {
-        if (!ct.contactId) return;
-        try {
-          var mc = msgByContact[ct.contactId] || 0;
-          const r = store.upsertProfile({
-            leadId: null,
-            profileId: 'PINB' + require('crypto').createHash('sha1').update('inbox/' + ct.contactId).digest('hex').slice(0, 16),
-            contactId: String(ct.contactId),
-            platform: platform,
-            accountId: accountId,
-            name: ct.name || '',
-            avatarUrl: ct.avatarUrl || null,
-            profileUrl: ct.historyUrl || null,
-            sourceDim: 'inbox',
-            communicated: mc > 0,
-            msgCount: mc,
-            extras: { fromInbox: 1, inboxUnread: ct.unread || 0, inboxLastActive: ct.lastActiveAt || null },
-          });
-          if (r) syncedInbox++;
-        } catch (_) { /* 单条失败不阻断 */ }
-      });
+      const inboxSrc = Array.isArray(b.inboxContacts) && b.inboxContacts.length ? b.inboxContacts : null;
+      const resInbox = syncInboxProfiles(platform, accountId, inboxSrc);
+      syncedInbox = resInbox.synced;
+      inboxNote = resInbox.note;
     } catch (e) { /* 收件箱同步失败不影响线索池结果 */ }
     const total = store.listProfiles({ platform: platform, accountId: accountId }, { limit: 5000 }).length;
     return json(res, 200, {
       ok: true, syncedLead: syncedLead, syncedInbox: syncedInbox, total: total,
-      note: '资料池已同步: 线索池 ' + syncedLead + ' 条 + 收件箱客户 ' + syncedInbox + ' 条, 现共 ' + total + ' 条',
+      note: '资料池已同步: 线索池 ' + syncedLead + ' 条 + 收件箱客户 ' + syncedInbox + ' 条, 现共 ' + total + ' 条' + (inboxNote ? '; ' + inboxNote : ''),
     });
   }));
 

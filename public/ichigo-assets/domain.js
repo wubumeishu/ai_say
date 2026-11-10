@@ -914,6 +914,7 @@ function profileActionsHtml() {
     '<button id="profPromote" style="background:var(--accent,#4f8cff);color:#fff;border:none;border-radius:6px;padding:8px 16px;font-size:12px;cursor:pointer">📥 从线索池 promote 全部（17098）</button>' +
     '<button id="profCrawlAll" style="background:#8e44ad;color:#fff;border:none;border-radius:6px;padding:8px 16px;font-size:12px;cursor:pointer">🔭 批量抓未抓资料卡</button>' +
     '<button id="profRefreshCms" style="background:var(--panel,#1a1d27);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px 16px;font-size:12px;cursor:pointer">↻ 刷新全部已沟通</button>' +
+    '<button id="profInboxLive" style="background:#16a085;color:#fff;border:none;border-radius:6px;padding:8px 16px;font-size:12px;cursor:pointer">🔄 按收件箱页重爬刷新</button>' +
     '<span id="profStatus" style="font-size:11px;color:var(--muted,#888)"></span>' +
     '</div>';
 }
@@ -948,7 +949,22 @@ function bindProfileActions(el, data) {
       .then(function (r) { return r.json(); })
       .then(function (d) { if (d.ok) { setStatus('已刷新 ' + d.refreshed + ' 条'); setTimeout(function () { loadProfiles(); }, 400); } else setStatus('失败: ' + (d.msg || d.reason)); })
       .catch(function (e) { setStatus('请求失败: ' + e.message); });
-  };
+  
+  var relive = el.querySelector('#profInboxLive');
+  if (relive) relive.onclick = async function () {
+    setStatus('正在重爬收件箱页(强制 CDP)…');
+    try {
+      var live = await fetch('/api/console/profiles/inbox-live?force=1').then(function (r) { return r.json(); });
+      var contacts = (live && Array.isArray(live.contacts)) ? live.contacts : [];
+      var acc = (window.__profFilter && window.__profFilter.accountId) || '17098';
+      var plat = (window.__profFilter && window.__profFilter.platform) || 'ichigo';
+      var slim = contacts.map(function (c) { return { contactId: c.contactId, name: c.name, age: c.age, region: c.region, onlineTier: c.online, avatarUrl: c.avatarUrl, profileUrl: c.profileUrl, unread: c.unread, lastMsg: c.lastMsgTime, lastSeen: c.lastMsgTime, messages: c.messages }; });
+      var sr = await fetch('/api/console/profiles/sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accountId: acc, platform: plat, inboxContacts: slim }) }).then(function (r) { return r.json(); });
+      if (live.pageChanged) setStatus('⚠ ' + (live.note || '页面可能已更新, 选择器需维护') + '; 已用缓存 ' + (sr.note || ''));
+      else setStatus('已按收件箱页重爬 ' + live.count + ' 客户 → ' + (sr.note || '完成'));
+      setTimeout(function () { loadProfiles(); }, 400);
+    } catch (e) { setStatus('重爬失败: ' + e); }
+  };};
   Array.prototype.forEach.call(el.querySelectorAll('.pCrawl'), function (b) {
     b.onclick = function () {
       var id = b.getAttribute('data-id');
