@@ -4016,15 +4016,20 @@ if (action === 'blacklist' && deepScrape && typeof deepScrape.blockContact === '
   // GET /api/console/profiles?platform=&accountId=&crawlStatus=&communicated=&sourceDim=
   register('GET', '/api/console/profiles', wrap(async (req, res) => {
     if (!store || typeof store.listProfiles !== 'function') return json(res, 501, { ok: false, reason: 'store-not-ready' });
-    const qs = new URLSearchParams(String(req.url || '').split('?')[1] || '');
+    const rawQs = String(req.url || '').split('?')[1] || '';
+    const qs = new URLSearchParams(rawQs);
     const filter = {};
-    if (qs.platform) filter.platform = qs.platform;
-    if (qs.accountId) filter.accountId = qs.accountId;
-    if (qs.crawlStatus) filter.crawlStatus = qs.crawlStatus;
-    if (qs.communicated !== undefined && qs.communicated !== '') filter.communicated = qs.communicated === '1' || qs.communicated === 'true';
-    if (qs.sourceDim) filter.sourceDim = qs.sourceDim;
-    if (qs.sourceDim) filter.sourceDim = qs.sourceDim;
-    const limit = Math.min(parseInt(qs.limit || '200', 10), 1000);
+    const fPlatform = qs.get('platform');
+    const fAccountId = qs.get('accountId');
+    const fCrawl = qs.get('crawlStatus');
+    const fComms = qs.get('communicated');
+    const fDim = qs.get('sourceDim');
+    if (fPlatform) filter.platform = fPlatform;
+    if (fAccountId) filter.accountId = fAccountId;
+    if (fCrawl) filter.crawlStatus = fCrawl;
+    if (fComms !== null && fComms !== '') filter.communicated = (fComms === '1' || fComms === 'true');
+    if (fDim) filter.sourceDim = fDim;
+    const limit = Math.min(parseInt(qs.get('limit') || '1000', 10), 5000);
     let rows = [];
     try { rows = store.listProfiles(filter, { limit: limit }); } catch (e) {
       return json(res, 500, { ok: false, reason: 'query-failed', msg: String(e && e.message || e) });
