@@ -1,5 +1,9 @@
 (async function() {
   var url = __URL__;
+  // 相对路径补全域名(灌库存的是 /sns/snsprofile/show_profile.html?q=…)。
+  // 必须在当前页(spn.194964.com)上下文 fetch, 否则跨域 404/抓空 → 资料不完整
+  if (url && String(url).charAt(0) === '/') url = 'https://sp.194964.com' + url;
+  if (url && String(url).indexOf('://') === -1) url = 'https://sp.194964.com/' + url;
   var ACCOUNT = __ACCOUNT__;   // true = 账号自己的资料页（结构略有不同）
   function clean(s) {
     return String(s || '').replace(/\r/g, '').replace(/[ \t\u3000]+/g, ' ').replace(/\n{2,}/g, '\n').replace(/^\s+|\s+$/g, '');

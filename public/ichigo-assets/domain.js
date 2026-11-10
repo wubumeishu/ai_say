@@ -874,7 +874,7 @@ export async function loadProfiles() {
     }
     // 兴趣(全量 label)
     var _int = '';
-    if (ex.interests && ex.interests.length) _int = Array.isArray(ex.interests) ? ex.interests.join('、') : ex.interests;
+    if (ex.interests && ex.interests.length) _int = Array.isArray(ex.interests) ? ex.interests.map(function (x) { return (x && typeof x === 'object') ? (x.label || x.name || '') : (x ? String(x) : ''); }).filter(Boolean).join('、') : ex.interests;
     if (!_int && ex.interestIcons && ex.interestIcons.length) _int = ex.interestIcons.map(function (x) { return (x && x.label) || ''; }).filter(Boolean).join('、');
     if (_int) {
       var icN = (ex.interestIcons || ex.interests || []).length;
