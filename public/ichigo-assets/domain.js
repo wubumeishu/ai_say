@@ -947,7 +947,7 @@ function profileActionsHtml() {
   return '<div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap;align-items:center">' +
     '<button id="profPromote" style="background:var(--accent,#4f8cff);color:#fff;border:none;border-radius:6px;padding:8px 16px;font-size:12px;cursor:pointer">📥 从线索池 promote 全部（17098）</button>' +
     '<button id="profCrawlAll" style="background:#8e44ad;color:#fff;border:none;border-radius:6px;padding:8px 16px;font-size:12px;cursor:pointer">🔭 批量抓未抓资料卡</button>' +
-    '<button id="profRefreshCms" style="background:var(--panel,#1a1d27);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px 16px;font-size:12px;cursor:pointer">↻ 刷新全部已沟通</button>' +
+    '<button id="profRefreshCms" style="background:var(--card2,#f2f5f9);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px 16px;font-size:12px;cursor:pointer">↻ 刷新全部已沟通</button>' +
     '<button id="profInboxLive" style="background:#16a085;color:#fff;border:none;border-radius:6px;padding:8px 16px;font-size:12px;cursor:pointer">🔄 按收件箱页重爬刷新</button>' +
     '<span id="profStatus" style="font-size:11px;color:var(--muted,#888)"></span>' +
     '</div>';
