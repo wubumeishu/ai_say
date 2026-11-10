@@ -4194,8 +4194,11 @@ store.markProfileCrawled(it.profileId, 'done', merged);
       targets = targets.filter(function (p) { return ids.indexOf(String(p.profileId)) !== -1; });
     }
     // 只抓未完成的 + 有 profileUrl 的
-    const toCrawl = targets.filter(function (p) { return p.profileUrl && p.crawlStatus !== 'done'; });
-    if (!toCrawl.length) return json(res, 200, { ok: true, crawled: 0, total: targets.length, note: '没有可抓的(已完成或无资料卡链接)' });
+    // force=true(重抓): 即使 done 也重抓(资料卡可能更新/上次抓不完整); 默认只抓未完成
+    const toCrawl = b.force === true || b.force === '1' || b.force === 'true'
+      ? targets.filter(function (p) { return p.profileUrl; })
+      : targets.filter(function (p) { return p.profileUrl && p.crawlStatus !== 'done'; });
+    if (!toCrawl.length) return json(res, 200, { ok: true, crawled: 0, total: targets.length, note: b.force ? '指定资料无 profileUrl(无资料卡链接), 无法抓' : '没有可抓的(已完成或无资料卡链接)' });
     const max = Math.min(parseInt(b.max || '5', 10), 10);
     const batch = toCrawl.slice(0, max);
     let done = 0;
@@ -4305,7 +4308,7 @@ store.markProfileCrawled(it.profileId, 'done', merged);
     let syncedLead = 0, syncedInbox = 0;
     // ① 线索池全量 → 同步进资料池(autoSyncProfile 幂等: 已存在则刷新快照)
     try {
-      const leads = store.listLeads({ platform: platform, accountId: accountId }, { limit: 5000 });
+      const leads = store.listLeads({ platform: platform, accountId: accountId }, { limit: 3000 });
       (Array.isArray(leads) ? leads : []).forEach(function (ld) {
         try {
           const ex = ld.extras ? (function () { try { return JSON.parse(ld.extras); } catch (_) { return {}; } })() : {};

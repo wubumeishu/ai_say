@@ -763,7 +763,8 @@ export async function loadLeads() {
 // 抓出会 17098 本账号(ともね)的资料卡 → AccountPersona, 供 AI 生成话术时注入"人设"要素
 // ---------- 007 · 第二阶段 资料池(线索池筛选选择 → 抓取 → 资料池; 手动触发) ----------
 // 资料池: 从 Lead promote 进 Profile, 分 未抓取/已抓取, 标注 已沟通(收件箱有消息历史) + 来源(sourceDim)
-export async function loadProfiles() {
+export async function loadProfiles(opt) {
+  opt = opt || {};
   var el = document.getElementById('domainContent');
   var title = document.getElementById('domainTitle');
   if (title) title.textContent = '📇 资料池（第二阶段 · 线索池筛选后运营对象）';
@@ -771,10 +772,12 @@ export async function loadProfiles() {
   el.innerHTML = '<div style="padding:20px;color:var(--muted,#888);font-size:13px">加载中…</div>';
   var filter = window.__profFilter || { platform: 'ichigo', accountId: '17098', sourceDim: '', communicated: '', crawlStatus: '' };
   window.__profFilter = filter;
-  // 进资料池自动同步: 线索池(Lead) + 收件箱客户 → 资料池(幂等), 保证资料池恒为超集
-  try {
-    await fetch('/api/console/profiles/sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accountId: filter.accountId || '17098', platform: filter.platform || 'ichigo' }) }).then(function (r) { return r.json(); }).catch(function () { return {}; });
-  } catch (_) { /* 同步失败不阻断, 仍显示已有资料池 */ }
+  // 进资料池自动同步(幂等); 筛选应用/重置时跳过(快), 只有首次进页/「🔄重爬」才全量 sync
+  if (!opt || !opt.skipSync) {
+    try {
+      await fetch('/api/console/profiles/sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accountId: filter.accountId || '17098', platform: filter.platform || 'ichigo' }) }).then(function (r) { return r.json(); }).catch(function () { return {}; });
+    } catch (_) { /* 同步失败不阻断 */ }
+  }
   var data = null;
   try {
     var qs = 'platform=' + encodeURIComponent(filter.platform) + '&accountId=' + encodeURIComponent(filter.accountId) + '&limit=500';
@@ -951,12 +954,12 @@ export async function loadProfiles() {
   if (fApply) fApply.onclick = function() {
     var g = function(id) { var s = el.querySelector('#' + id); return s ? s.value : ''; };
     window.__profFilter = { platform: g('pfFPlat'), accountId: g('pfFAcc'), sourceDim: g('pfFDim'), communicated: g('pfFCms'), crawlStatus: g('pfFCrawl') };
-    loadProfiles();
+    loadProfiles({ skipSync: true });
   };
   var fReset = el.querySelector('#pfFReset');
   if (fReset) fReset.onclick = function() {
     window.__profFilter = { platform: 'ichigo', accountId: '17098', sourceDim: '', communicated: '', crawlStatus: '' };
-    loadProfiles();
+    loadProfiles({ skipSync: true });
   };
 }
 
@@ -986,7 +989,7 @@ function bindProfileActions(el, data) {
   var crawlAll = el.querySelector('#profCrawlAll');
   if (crawlAll) crawlAll.onclick = function () {
     setStatus('⏳ 批量抓取中(呼吸节拍, 每 20-40s 一个, 需 17098 窗口开着)…');
-    fetch('/api/console/profiles/crawl', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accountId: '17098', max: 5 }) })
+    fetch('/api/console/profiles/crawl', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accountId: '17098', max: 5, force: true }) })
       .then(function (r) { return r.json(); })
       .then(function (d) {
         if (d.ok) { setStatus('已抓 ' + d.crawled + '/' + d.total + ' 条'); setTimeout(function () { loadProfiles(); }, 600); }
@@ -1020,7 +1023,7 @@ function bindProfileActions(el, data) {
     b.onclick = function () {
       var id = b.getAttribute('data-id');
       b.textContent = '⏳ 抓取中…'; b.disabled = true;
-      fetch('/api/console/profiles/crawl', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accountId: '17098', profileIds: [id], max: 1 }) })
+      fetch('/api/console/profiles/crawl', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accountId: '17098', profileIds: [id], max: 1, force: true }) })
         .then(function (r) { return r.json(); })
         .then(function (d) { b.textContent = d.ok ? '✓ 已抓' : '失败'; b.disabled = true; setTimeout(function () { loadProfiles(); }, 800); })
         .catch(function () { b.textContent = '请求失败'; b.disabled = true; });
