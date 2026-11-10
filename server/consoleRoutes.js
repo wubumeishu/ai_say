@@ -4129,6 +4129,67 @@ if (action === 'blacklist' && deepScrape && typeof deepScrape.blockContact === '
     return json(res, 200, { ok: true, crawled: done, total: batch.length, note: '已抓 ' + done + '/' + batch.length + ' 条资料卡(呼吸节拍, 每 20-40s 一个)' });
   }));
 
+  // POST /api/console/profiles/sync { accountId?, platform? } → 同步"线索池 + 收件箱客户"进资料池(幂等)
+  //   用户裁定(2026-11-10): 资料池 = 线索池(Lead) ∪ 收件箱客户(Conversation/Contact), 一定 >= 线索池数
+  //   覆盖: ① 全部 Lead(未进 Profile 的新增/漏同步) ② 收件箱客户(contactId 在 Conversation/Contact, 未在 Profile)
+  register('POST', '/api/console/profiles/sync', wrap(async (req, res, body) => {
+    if (!store || typeof store.listLeads !== 'function') return json(res, 501, { ok: false, reason: 'store-not-ready' });
+    const b = body || {};
+    const accountId = b.accountId || '17098';
+    const platform = b.platform || 'ichigo';
+    let syncedLead = 0, syncedInbox = 0;
+    // ① 线索池全量 → 同步进资料池(autoSyncProfile 幂等: 已存在则刷新快照)
+    try {
+      const leads = store.listLeads({ platform: platform, accountId: accountId }, { limit: 5000 });
+      (Array.isArray(leads) ? leads : []).forEach(function (ld) {
+        try {
+          const ex = ld.extras ? (function () { try { return JSON.parse(ld.extras); } catch (_) { return {}; } })() : {};
+          autoSyncProfile(ld, {
+            leadId: ld.leadId, platform: platform, accountId: accountId,
+            name: ld.name, gender: ld.gender, age: ld.age, region: ld.region,
+            online: ld.online, avatarUrl: ld.avatarUrl, profileUrl: ld.profileUrl,
+            selfIntro: ld.selfIntro, sourceDim: ld.sourceDim,
+            contactId: ld.contactId || null, extras: ex,
+          });
+          syncedLead++;
+        } catch (_) { /* 单条失败不阻断 */ }
+      });
+    } catch (e) { /* 整体失败继续收件箱同步 */ }
+    // ② 收件箱客户(Conversation 有消息历史的 contact) → 进资料池(来源=收件箱, 已沟通=true)
+    try {
+      const contacts = store.db.prepare(
+        "SELECT c.contactId AS contactId, c.displayName AS name, cv.unread, cv.lastActiveAt, cv.historyUrl, cv.avatarUrl " +
+        "FROM Contact c LEFT JOIN Conversation cv ON cv.contactId = c.contactId " +
+        "WHERE c.contactId IS NOT NULL ORDER BY c.updatedAt DESC LIMIT 5000"
+      ).all();
+      (Array.isArray(contacts) ? contacts : []).forEach(function (ct) {
+        if (!ct.contactId) return;
+        try {
+          const r = store.upsertProfile({
+            leadId: null, // 收件箱客户无对应 leadId, 用 contactId 做稳定键
+            profileId: 'P' + require('crypto').createHash('sha1').update('inbox/' + ct.contactId).digest('hex').slice(0, 16),
+            contactId: String(ct.contactId),
+            platform: platform,
+            accountId: accountId,
+            name: ct.name || '',
+            avatarUrl: ct.avatarUrl || null,
+            profileUrl: ct.historyUrl || null,
+            sourceDim: 'inbox', // 来源=收件箱(区分线索池来源)
+            communicated: true, // 收件箱客户 = 有消息历史 = 已沟通
+            msgCount: null,
+            extras: { fromInbox: 1, inboxUnread: ct.unread || 0, inboxLastActive: ct.lastActiveAt || null },
+          });
+          if (r) syncedInbox++;
+        } catch (_) { /* 单条失败不阻断 */ }
+      });
+    } catch (e) { /* 收件箱同步失败不影响线索池结果 */ }
+    const total = store.listProfiles({ platform: platform, accountId: accountId }, { limit: 5000 }).length;
+    return json(res, 200, {
+      ok: true, syncedLead: syncedLead, syncedInbox: syncedInbox, total: total,
+      note: '资料池已同步: 线索池 ' + syncedLead + ' 条 + 收件箱客户 ' + syncedInbox + ' 条, 现共 ' + total + ' 条',
+    });
+  }));
+
   // POST /api/console/profiles/refresh-comms { accountId? } → 刷新已沟通标记
   register('POST', '/api/console/profiles/refresh-comms', wrap(async (req, res, body) => {
     if (!store || typeof store.listProfiles !== 'function') return json(res, 501, { ok: false, reason: 'store-not-ready' });

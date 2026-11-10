@@ -1084,8 +1084,9 @@ function createStore({ dbPath = path.join(__dirname, '..', '..', 'data', 'aisay.
   function upsertProfile(input = {}) {
     const ts = now();
     const leadId = String(input.leadId || '');
-    if (!leadId) throw new Error('upsertProfile 需要 leadId');
-    const profileId = input.profileId || ('P' + sha1Hex(leadId));
+    // 收件箱客户(无 Lead 对应)允许显式 profileId 兜底, 不再强制 leadId
+    const profileId = input.profileId || (leadId ? ('P' + sha1Hex(leadId)) : null);
+    if (!profileId) throw new Error('upsertProfile 需要 leadId 或 profileId');
     const old = db.prepare('SELECT * FROM Profile WHERE profileId = ?').get(profileId);
     const communicated = old && old.communicated ? 1 : 0;
     const msgCount = old ? Number(old.msgCount || 0) : 0;
@@ -1165,7 +1166,7 @@ function createStore({ dbPath = path.join(__dirname, '..', '..', 'data', 'aisay.
     if (filter.crawlStatus) { where.push('crawlStatus = ?'); params.push(String(filter.crawlStatus)); }
     if (filter.communicated != null) { where.push('communicated = ?'); params.push(filter.communicated ? 1 : 0); }
     if (filter.sourceDim) { where.push('sourceDim = ?'); params.push(String(filter.sourceDim)); }
-    const limit = Math.max(1, Math.min(Number(opts.limit) || 200, 1000));
+    const limit = Math.max(1, Math.min(Number(opts.limit) || 1000, 5000));
     const whereSql = where.length ? (' WHERE ' + where.join(' AND ')) : '';
     try {
       return db.prepare('SELECT * FROM Profile' + whereSql + ' ORDER BY updatedAt DESC LIMIT ?').all(...params, limit);

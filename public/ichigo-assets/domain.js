@@ -770,6 +770,10 @@ export async function loadProfiles() {
   el.innerHTML = '<div style="padding:20px;color:var(--muted,#888);font-size:13px">加载中…</div>';
   var filter = window.__profFilter || { platform: 'ichigo', accountId: '17098', sourceDim: '', communicated: '', crawlStatus: '' };
   window.__profFilter = filter;
+  // 进资料池自动同步: 线索池(Lead) + 收件箱客户 → 资料池(幂等), 保证资料池恒为超集
+  try {
+    await fetch('/api/console/profiles/sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accountId: filter.accountId || '17098', platform: filter.platform || 'ichigo' }) }).then(function (r) { return r.json(); }).catch(function () { return {}; });
+  } catch (_) { /* 同步失败不阻断, 仍显示已有资料池 */ }
   var data = null;
   try {
     var qs = 'platform=' + encodeURIComponent(filter.platform) + '&accountId=' + encodeURIComponent(filter.accountId) + '&limit=500';
@@ -787,9 +791,9 @@ export async function loadProfiles() {
   }
   var prof = data.profiles || [];
   var agg = data.agg || {};
-  var DIM_CN = { ashiato: '对方浏览', like: '对方点赞', bbs: '帖子', search: '首页检索', faces: '特征', unknown: '未知来源' };
+  var DIM_CN = { ashiato: '对方浏览', like: '对方点赞', bbs: '帖子', search: '首页检索', faces: '特征', inbox: '收件箱', unknown: '未知来源' };
   function srcTag(dim) {
-    var c = { ashiato: '#4f8cff', like: '#2AB788', bbs: '#e6a23c', search: '#8e44ad', faces: '#f39c12', unknown: '#5a6472' };
+    var c = { ashiato: '#4f8cff', like: '#2AB788', bbs: '#e6a23c', search: '#8e44ad', faces: '#f39c12', inbox: '#16a085', unknown: '#5a6472' };
     return '<span style="font-size:10px;padding:1px 8px;border-radius:8px;background:' + (c[dim] || c.unknown) + '22;color:' + (c[dim] || c.unknown) + ';border:1px solid ' + (c[dim] || c.unknown) + '55">' + (DIM_CN[dim] || dim) + '</span>';
   }
   function crawlDot(st) {
@@ -865,7 +869,7 @@ export async function loadProfiles() {
     '<span style="font-size:11px;color:var(--muted,#888)">筛选:</span>' +
     sel('pfFPlat', filter.platform, [['ichigo','出会'],['happymail','快乐'],['','全部平台']]) +
     sel('pfFAcc', filter.accountId, [['17098','会出 17098'],['18595','快乐 18595'],['','全部窗口']]) +
-    sel('pfFDim', filter.sourceDim, [['','全部来源'],['ashiato','对方浏览'],['like','对方点赞'],['bbs','帖子'],['search','首页检索'],['faces','特征']]) +
+    sel('pfFDim', filter.sourceDim, [['','全部来源'],['ashiato','对方浏览'],['like','对方点赞'],['bbs','帖子'],['search','首页检索'],['faces','特征'],['inbox','收件箱']]) +
     sel('pfFCms', filter.communicated, [['','全部状态'],['1','已沟通'],['0','未沟通']]) +
     sel('pfFCrawl', filter.crawlStatus, [['','全部抓取态'],['pending','未抓取'],['done','已抓取'],['failed','抓取失败']]) +
     '<button id="pfFApply" style="font-size:12px;padding:3px 12px;background:var(--accent,#4a9eff);color:#fff;border:none;border-radius:4px;cursor:pointer">应用</button>' +
