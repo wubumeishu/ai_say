@@ -3102,6 +3102,38 @@ if (action === 'blacklist' && deepScrape && typeof deepScrape.blockContact === '
           interests: (ld.extras && Array.isArray(ld.extras.interests)) ? ld.extras.interests : [],
           avatarUrls: ld.avatarUrl ? [ld.avatarUrl] : [],
         }));
+        // ③ 资料池已抓取资料卡的客户(用户 2026-11-11 裁定: 挪进卡片流)
+        let profileRows = [];
+        if (store && store.db) {
+          try {
+            profileRows = store.db.prepare(
+              "SELECT profileId, name, age, region, contactId, sourceDim, extras FROM Profile " +
+              "WHERE crawlStatus = 'done' AND name IS NOT NULL AND name != '' AND platform = 'ichigo' LIMIT 100"
+            ).all();
+          } catch (_) { profileRows = []; }
+        }
+        (profileRows || []).forEach(function(pr) {
+          var extra = {
+            contactId: pr.contactId || null,
+            sourceHref: null,
+            age: pr.age != null ? String(pr.age) : '',
+            city: pr.region || '',
+            selfIntro: '',
+            interests: [],
+            avatarUrls: [],
+            fromProfilePool: true,
+          };
+          try {
+            var ex = pr.extras ? JSON.parse(pr.extras) : {};
+            extra.sourceHref = ex.profileUrl || ex.profileHref || null;
+            if (ex.avatarUrl) extra.avatarUrls = [ex.avatarUrl];
+            if (Array.isArray(ex.interests)) extra.interests = ex.interests;
+            else if (Array.isArray(ex.interestIcons)) extra.interests = ex.interestIcons.map(function(x){return (x&&x.label)||'';}).filter(Boolean);
+            if (ex.selfIntro) extra.selfIntro = ex.selfIntro;
+            if (ex.regionFull) extra.city = ex.regionFull;
+          } catch (_) {}
+          pick(pr.name, 'profile', extra);
+        });
         leadCount = cards.length;
       } catch (e) { leadErr = String((e && e.message) || e); }
     }

@@ -57,11 +57,12 @@ export function autoGenerateCurrent() {
 export function refineCrawl() {
   var l = leads[currentIdx];
   if (!l) return;
-  // 收集: 当前卡 + 后续几张带 sourceHref/资料卡的
-  var items = leads.filter(function(x) { return x.sourceHref || (x.customer && x.customer.avatarUrls); }).slice(0, 5).map(function(x) {
-    return { leadId: x.id, name: x.customer && x.customer.name, memberId: x.memberId, url: x.sourceHref || (x.customer && x.customer.avatarUrls) || null, age: x.customer && x.customer.age, region: x.customer && x.customer.city };
+  // 收集: 当前卡 + 后续几张(优先带 sourceHref/资料卡的, 没的传 name 让后端反查 Lead 池 profileUrl)
+  var items = leads.slice(0, 5).map(function(x) {
+    return { leadId: x.id, name: x.customer && x.customer.name, memberId: x.memberId, url: x.sourceHref || null, age: x.customer && x.customer.age, region: x.customer && x.customer.city };
   });
-  items = items.filter(function(x) { return x.url; });
+  // 有 url 的优先, 没 url 的留 name 让后端反查(全部保留, 后端自己判断可爬的)
+  items.sort(function(a, b) { return (b.url ? 1 : 0) - (a.url ? 1 : 0); });
   if (!items.length) {
     // 无资料卡链接(收件箱模式候选没 sourceHref)→ 提示需先有资料卡
     alert('当前候选没有资料卡链接（收件箱模式候选不带 sourceHref）。\n请先在「线索池」精确定位客户的资料卡链接，或开 17098 窗口让卡片流带 sourceHref。');
@@ -123,29 +124,37 @@ export async function generateTalks(l, intent, adjustNote) {
   l.ai = null;
   render();
   try {
+    var cust = l.customer || {};
     var r = await fetch('/api/console/card/regenerate', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        conversationId: l.id, contactId: l.memberId || l.id,
+        conversationId: l.conversationId || l.id,
+        contactId: l.memberId || l.conversationId || l.id,
         platform: l.platform, accountId: l.platform === 'happymail' ? '18595' : '17098',
         intent: intent || 'reply', adjustNote: adjustNote || '',
-        history: (l.chatHistory || []).slice(-12).map(function(m) { return { from: m.who === 'me' ? 'me' : 'peer', text: m.text, at: m.time }; })
+        customer: { name: cust.name, age: cust.age, city: cust.city, interests: cust.interests || [], selfIntro: cust.selfIntro || '' },
+        history: (l.chatHistory || []).slice(-12).map(function(m) { return { from: (m.who === 'me' || m.dir === 'send') ? 'me' : 'peer', text: m.textJp || m.text || '', at: m.at || m.time }; })
       })
     });
     var d = await r.json();
-    if (d.ok && d.ai && d.ai.replies && Array.isArray(d.ai.replies)) {
+    // assistant.chat 返回: { ok, analysis, strategy, replies:[{type,content,translation}], degraded }
+    if (d.ok && d.ai && Array.isArray(d.ai.replies) && d.ai.replies.length) {
       l.ai = {
-        analysis: (d.ai.analysis || '').slice(0, 300),
-        strategy: (d.ai.strategy || '').slice(0, 300),
+        analysis: d.ai.analysis || '（模型未返回分析）',
+        strategy: d.ai.strategy || '（模型未返回策略）',
         recommendedKey: 'A',
+        degraded: !!d.ai.degraded,
         talks: d.ai.replies.slice(0, 4).map(function(rp, i) {
           var key = ['A', 'B', 'C', 'D'][i] || 'A';
-          return { key: key, intent: rp.type || 'reply', textJp: rp.content, textZh: (rp.zh || ''), conf: 0.7 + i * 0.05 };
+          return { key: key, intent: rp.type || 'reply', textJp: rp.content || '', textZh: rp.translation || '', conf: null };
         })
       };
-    } else if (d.ok && d.ai) { l.ai = d.ai; }
+    } else if (d.ok && d.ai && d.ai.replies) {
+      // 有 ai 但 replies 空(降级模板)
+      l.ai = d.ai;
+    }
   } catch (e) { /* 降级 */ }
-  if (!l.ai || !l.ai.talks) l.ai = buildPlaceholderAi(l);
+  if (!l.ai || !Array.isArray(l.ai.talks)) l.ai = buildPlaceholderAi(l);
   render();
 }
 
@@ -207,7 +216,7 @@ function renderLeft(l) {
   return '<div class="cf-plate"><h4>平台 / 撤回性</h4>'
     + '<span class="cf-badge ' + l.platform + '">' + (isHappy ? '快乐 happymail' : '出会 ichigo') + '</span>'
     + '<span class="cf-badge ' + (l.noRevoke ? 'no-rev' : 'rev') + '">' + (l.noRevoke ? '⚠ 出会·不可撤回' : '✓ 快乐·可撤回') + '</span>'
-    + '<div style="font-size:10px;color:var(--muted,#8b8fa3);margin-top:5px">来源: ' + (l.source || '—') + '</div></div>'
+    + '<div style="font-size:10px;color:var(--muted,#8b8fa3);margin-top:5px">来源: ' + (l.fromProfilePool ? '<span style="color:#2AB788">📇 已抓资料(资料池)</span>' : (l.source || '—')) + '</div></div>'
     + '<div class="cf-plate"><h4>客户</h4><div style="display:flex;gap:10px;align-items:center">' + avatar
     + '<div><div style="font-size:15px;font-weight:700">' + l.customer.name + '</div><div style="font-size:11px;color:var(--muted,#8b8fa3);margin-top:3px">'
     + (l.customer.age ? l.customer.age + ' · ' : '') + (l.customer.city || '') + '</div></div></div>'

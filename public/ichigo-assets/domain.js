@@ -974,7 +974,7 @@ export async function loadProfiles(opt) {
       ' 条 · 已抓取 ' + (agg.crawled || 0) + ' · 未抓取 ' + (agg.pending || 0) + ' · 已沟通 ' + (agg.communicated || 0) +
       ' · 来源 ' + Object.keys(agg.bySource || {}).map(function (k) { return (DIM_CN[k] || k) + ' ' + (agg.bySource[k] || 0); }).join(' / ') +
       '</div>' +
-    '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px">' + (cardsHtml || '<div style="padding:16px;color:var(--muted,#888);font-size:13px">资料池暂空。</div>') + '</div>' +
+    '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:8px">' + (cardsHtml || '<div style="padding:16px;color:var(--muted,#888);font-size:13px">资料池暂空。</div>') + '</div>' +
     pagerHtml +
     profileActionsHtml();
   // 分页绑定
