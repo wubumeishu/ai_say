@@ -814,32 +814,65 @@ export async function loadProfiles() {
   // 抓取资料字段(展开区显示)
   function detailRows(p) {
     var ex = p.extras || {};
-    var rows = [];
-    function row(label, val) { if (val && String(val).trim()) rows.push('<div style="display:flex;gap:10px;padding:2px 0;font-size:12px;line-height:1.4"><span style="width:56px;flex-shrink:0;color:var(--muted,#888);font-size:11px">' + label + '</span><span style="color:var(--text)">' + String(val) + '</span></div>'); }
-    // 兴趣: interestIcons(enriched {icon,label}) 或 interests 文本
+    // 资料卡全量字段: 后端 /profiles/crawl 存 fields(key拍平) + byGroup(分组) + 兴趣 + 在线 + 现居地区 + BBS
+    // 分组(和平台资料卡一致): 基本情報 / 見た目 / 大人の交際 / 生活 / 希望(お相手に望むこと) / 兴趣(N)
+    var F = ex.fields || {};
+    var BG = ex.byGroup || {};
+    var GZH = {
+      birthplace: '出身地', children: '子供', occupation: '職業', income: '年収',
+      bloodType: '血液型', zodiac: '星座', carrier: 'キャリア',
+      height: '身長', style: 'スタイル',
+      dateWant: 'デートでしたいこと', meetingIntent: '出会うまでの希望',
+      smoking: 'タバコ', drinking: 'お酒', car: '車',
+      prefAge: '希望年齢', prefHeight: '希望身長', prefStyle: '希望スタイル', prefLooks: '希望の見た目・性格'
+    };
+    var GROUPS = ['基本情報', '見た目', '大人の交際', '生活', 'お相手に望むこと'];
+    var html = '';
+    function valOf(key) { return F[key] != null ? F[key] : (ex[key] || ''); }
+    // 分组块
+    GROUPS.forEach(function (g) {
+      var items = BG[g];
+      if (!items || !items.length) return;
+      var lines = items.map(function (it) {
+        var label = GZH[it.key] || it.label || it.key;
+        var v = valOf(it.key);
+        if (!v || !String(v).trim()) return '';
+        return '<div style="display:flex;gap:10px;padding:2px 0;font-size:12px;line-height:1.5"><span style="width:92px;flex-shrink:0;color:var(--muted,#888);font-size:11px">' + label + '</span><span style="color:var(--text)">' + String(v) + '</span></div>';
+      }).filter(Boolean);
+      if (!lines.length) return;
+      html += '<div style="margin-top:6px"><div style="font-size:11px;font-weight:600;color:var(--accent,#4f8cff);margin-bottom:2px">' + g + '</div>' + lines.join('') + '</div>';
+    });
+    // 现居地区(拆分的 県 市)
+    if (ex.pref || ex.city || ex.regionFull) {
+      html += '<div style="display:flex;gap:10px;padding:2px 0;font-size:12px"><span style="width:92px;flex-shrink:0;color:var(--muted,#888);font-size:11px">現居</span><span style="color:var(--text)">' + (ex.regionFull || ([ex.pref, ex.city].filter(Boolean).join(' '))) + '</span></div>';
+    }
+    // 在线
+    if (ex.onlineText) {
+      html += '<div style="display:flex;gap:10px;padding:2px 0;font-size:12px"><span style="width:92px;flex-shrink:0;color:var(--muted,#888);font-size:11px">在线</span><span style="color:var(--text)">' + ex.onlineText + '</span></div>';
+    }
+    // 年龄
+    if (ex.ageNum != null) {
+      html += '<div style="display:flex;gap:10px;padding:2px 0;font-size:12px"><span style="width:92px;flex-shrink:0;color:var(--muted,#888);font-size:11px">年龄</span><span style="color:var(--text)">' + ex.ageNum + '岁</span></div>';
+    }
+    // 兴趣(全量 label)
     var _int = '';
-    if (ex.interests && (Array.isArray(ex.interests) ? ex.interests.length : String(ex.interests).trim())) _int = Array.isArray(ex.interests) ? ex.interests.join('、') : ex.interests;
+    if (ex.interests && ex.interests.length) _int = Array.isArray(ex.interests) ? ex.interests.join('、') : ex.interests;
     if (!_int && ex.interestIcons && ex.interestIcons.length) _int = ex.interestIcons.map(function (x) { return (x && x.label) || ''; }).filter(Boolean).join('、');
-    row('兴趣', _int);
-    row('职业', ex.occupation || p.occupation);
-    row('身高', ex.height || p.height);
-    row('收入', ex.income || p.income);
-    row('风格', ex.style || p.style);
-    row('出身', ex.birthplace || p.birthplace);
-    row('地区', p.region);
-    row('血型', ex.bloodType || p.bloodType);
-    row('类型', ex.type || p.type);
-    row('交際', ex.status || p.status);
-    row('星座', ex.zodiac || p.zodiac);
-    row('吸烟', ex.smoking || p.smoking);
-    row('饮酒', ex.drinking || p.drinking);
-    row('子女', ex.children || p.children);
-    row('性别', p.gender);
-    row('生日', ex.birth || p.birth);
-    row('自我介绍', p.selfIntro || ex.selfIntro);
-    return rows.length
-      ? rows.join('')
-      : '<div style="font-size:11px;color:var(--muted,#888);padding:4px 0">' + (p.crawlStatus === 'done' ? '已抓取但无资料字段（客户资料卡未填）' : '点下方「🔭 抓资料卡」抓取后显示') + '</div>';
+    if (_int) {
+      var icN = (ex.interestIcons || ex.interests || []).length;
+      html += '<div style="margin-top:6px"><div style="font-size:11px;font-weight:600;color:var(--accent,#4f8cff);margin-bottom:2px">兴趣（' + icN + '）</div><div style="font-size:12px;line-height:1.5;color:var(--text)">' + _int + '</div></div>';
+    }
+    // BBS 招募帖(抓到的前 3)
+    if (ex.bbsPosts && ex.bbsPosts.length) {
+      html += '<div style="margin-top:6px"><div style="font-size:11px;font-weight:600;color:var(--accent,#4f8cff);margin-bottom:2px">招募帖</div>' + ex.bbsPosts.slice(0, 3).map(function (b) {
+        return '<div style="font-size:12px;color:var(--text);padding:2px 0">' + (b.genre ? '【' + b.genre + '】' : '') + String(b.content || '').slice(0, 60) + '</div>';
+      }).join('') + '</div>';
+    }
+    // 自我介绍(兜底)
+    if (p.selfIntro || ex.selfIntro) {
+      html += '<div style="margin-top:6px"><div style="font-size:11px;font-weight:600;color:var(--accent,#4f8cff);margin-bottom:2px">自我介绍</div><div style="font-size:12px;line-height:1.5;color:var(--text)">' + (p.selfIntro || ex.selfIntro) + '</div></div>';
+    }
+    return html || '<div style="font-size:11px;color:var(--muted,#888);padding:4px 0">' + (p.crawlStatus === 'done' ? '已抓取但无资料字段（客户资料卡未填）' : '点下方「🔭 抓资料卡」抓取后显示') + '</div>';
   }
   var rows = prof.map(function (p) {
     var ex = p.extras || {};

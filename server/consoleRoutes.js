@@ -4065,11 +4065,29 @@ if (action === 'blacklist' && deepScrape && typeof deepScrape.blockContact === '
             const prof = await deepScrape.fetchProfile(it.url);
             if (prof && prof.ok !== false) {
               const merged = {};
-              ['interestIcons', 'occupation', 'height', 'income', 'style', 'birthplace', 'gender', 'age', 'bloodType', 'type', 'status', 'zodiac', 'smoking', 'drinking', 'children', 'birth', 'selfIntro', 'region'].forEach(function (kk) {
-                if (prof[kk] !== undefined && prof[kk] !== null && prof[kk] !== '') merged[kk] = prof[kk];
-              });
-              if (prof.interestIcons) merged.interests = Array.isArray(prof.interestIcons) ? prof.interestIcons.map(function (x) { return (x && x.label) || (typeof x === 'string' ? x : (x && x.name) || String(x)); }) : prof.interestIcons;
-              store.markProfileCrawled(it.profileId, 'done', merged);
+              // 全量字段拍平 + 分组 + 兴趣 + 在线 + 现居地区 + BBS(和 /profiles/crawl 一致)
+              if (prof.fields && typeof prof.fields === 'object') {
+                Object.keys(prof.fields).forEach(function (fk) {
+                  var fv = prof.fields[fk];
+                  if (fv !== undefined && fv !== null && fv !== '') merged[fk] = fv;
+                });
+              }
+              if (prof.byGroup && typeof prof.byGroup === 'object') merged.byGroup = prof.byGroup;
+              if (prof.interestIcons) {
+                merged.interestIcons = prof.interestIcons;
+                merged.interests = prof.interestIcons.map ? prof.interestIcons.map(function (x) { return (x && x.label) || (typeof x === 'string' ? x : (x && x.name) || String(x)); }).filter(Boolean) : prof.interestIcons;
+              }
+              if (prof.onlineText) merged.onlineText = prof.onlineText;
+              if (prof.region || prof.pref || prof.city) {
+                merged.regionFull = prof.region || ([prof.pref, prof.city].filter(Boolean).join(' '));
+                if (prof.pref) merged.pref = prof.pref;
+                if (prof.city) merged.city = prof.city;
+              }
+              if (prof.nickname) merged.nickname = prof.nickname;
+              if (prof.ageNum != null) merged.ageNum = prof.ageNum;
+              if (prof.avatarUrl) merged.avatarUrl = prof.avatarUrl;
+              if (prof.bbsPosts && prof.bbsPosts.length) merged.bbsPosts = prof.bbsPosts.map(function (b) { return { genre: b.genre, content: b.content, time: b.time, viewCount: b.viewCount }; }).slice(0, 10);
+store.markProfileCrawled(it.profileId, 'done', merged);
             } else {
               store.markProfileCrawled(it.profileId, 'failed', { crawlErr: (prof && prof.reason) || 'unknown' });
             }
@@ -4153,10 +4171,29 @@ if (action === 'blacklist' && deepScrape && typeof deepScrape.blockContact === '
         const prof = await deepScrape.fetchProfile(p.profileUrl);
         if (prof && prof.ok !== false) {
           const merged = {};
-          ['interestIcons', 'occupation', 'height', 'income', 'style', 'birthplace', 'gender', 'age', 'bloodType', 'type', 'status', 'zodiac', 'smoking', 'drinking', 'children', 'birth', 'selfIntro', 'region'].forEach(function (k) {
-            if (prof[k] !== undefined && prof[k] !== null) merged[k] = prof[k];
-          });
-          if (prof.interestIcons) merged.interests = prof.interestIcons.map ? prof.interestIcons.map(function (x) { return (x && x.label) || (typeof x === 'string' ? x : (x && x.name) || String(x)); }) : prof.interestIcons;
+          // 全量字段拍平(fields.key → 值) —— 资料卡深度信息(基本情報/見た目/大人の交際/生活/希望)
+          if (prof.fields && typeof prof.fields === 'object') {
+            Object.keys(prof.fields).forEach(function (fk) {
+              var fv = prof.fields[fk];
+              if (fv !== undefined && fv !== null && fv !== '') merged[fk] = fv;
+            });
+          }
+          // 分组(byGroup) + 兴趣(enriched label) + 在线 + 现居地区 + 头像 + BBS + 昵称
+          if (prof.byGroup && typeof prof.byGroup === 'object') merged.byGroup = prof.byGroup;
+          if (prof.interestIcons) {
+            merged.interestIcons = prof.interestIcons;
+            merged.interests = prof.interestIcons.map ? prof.interestIcons.map(function (x) { return (x && x.label) || (typeof x === 'string' ? x : (x && x.name) || String(x)); }).filter(Boolean) : prof.interestIcons;
+          }
+          if (prof.onlineText) merged.onlineText = prof.onlineText;
+          if (prof.region || prof.pref || prof.city) {
+            merged.regionFull = prof.region || ([prof.pref, prof.city].filter(Boolean).join(' '));
+            if (prof.pref) merged.pref = prof.pref;
+            if (prof.city) merged.city = prof.city;
+          }
+          if (prof.nickname) merged.nickname = prof.nickname;
+          if (prof.ageNum != null) merged.ageNum = prof.ageNum;
+          if (prof.avatarUrl) merged.avatarUrl = prof.avatarUrl;
+          if (prof.bbsPosts && prof.bbsPosts.length) merged.bbsPosts = prof.bbsPosts.map(function (b) { return { genre: b.genre, content: b.content, time: b.time, viewCount: b.viewCount }; }).slice(0, 10);
           store.markProfileCrawled(p.profileId, 'done', merged);
           done++;
         } else {
