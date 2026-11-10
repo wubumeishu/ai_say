@@ -13,12 +13,8 @@ echo   Ctrl+C / close window = stop
 echo ======================================
 
 rem ---- stop old 8300 instance + pm2 guard (avoid port clash / double run) ----
-if exist "node_modules\.bin\pm2.cmd" (
-  call node_modules\.bin\pm2.cmd stop ai-say >nul 2>&1
-)
-for /f "tokens=5" %%a in '(netstat -ano ^| findstr :8300 ^| findstr LISTENING)' do (
-  taskkill /F /PID %%a >nul 2>&1
-)
+if exist "node_modules\.bin\pm2.cmd" call node_modules\.bin\pm2.cmd stop ai-say >nul 2>&1
+node kill8300.js
 timeout /t 1 >nul
 
 rem ---- start hot-reload guard (foreground, logs visible, Ctrl+C to stop) ----
