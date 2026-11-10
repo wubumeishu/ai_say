@@ -3051,8 +3051,8 @@ if (action === 'blacklist' && deepScrape && typeof deepScrape.blockContact === '
           if (!k || seen.has(k)) return;
           seen.add(k);
           cards.push(Object.assign({
-            id: (tag === 'lead' ? 'LD-' : 'IN-') + k.slice(0, 8),
-            cat: tag, source: tag === 'lead' ? '互动线索' : '最近活跃',
+            id: (tag === 'lead' ? 'LD-' : (tag === 'profile' ? 'PF-' : 'IN-')) + k.slice(0, 8),
+            cat: tag, source: tag === 'lead' ? '互动线索' : (tag === 'profile' ? '已抓资料(资料池)' : '最近活跃'),
             name: k, age: '', city: '',
             onlineIcon: null, onlineLabel: '',
             memberId: null, contactId: null, sourceHref: null,

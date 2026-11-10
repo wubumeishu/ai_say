@@ -1103,8 +1103,6 @@ function bindProfileActions(el, data) {
       var pid = b.getAttribute('data-id');
       try {
         // 记录该客户为"卡片流置顶"(localStorage, cardflow 读), 然后切卡片流视图
-        var key = 'aisay:cf-boost:' + pid;
-        localStorage.setItem(key, JSON.stringify({ at: new Date().toISOString() }));
         window.__cfFilter = 'profile';  // 切到卡片流时默认"已抓资料"筛选
         // 切卡片流视图(cardPage)
         var cp = document.getElementById('cardPage');
