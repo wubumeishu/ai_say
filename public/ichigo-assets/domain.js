@@ -823,7 +823,7 @@ export async function loadProfiles() {
   function onlineBadge(v) {
     var s = String(v == null ? '' : v).trim();
     if (!s) return '';
-    var map = { 'online-icon1': ['🟢','在线'], recent: ['🟢','在线'], 'online-icon2': ['🟡','近期'], 'online-icon3': ['🟡','近期'], long: ['🟡','不常在线'], 'online-icon4': ['⚪','离线'], away: ['⚪','离线'] };
+    var map = { 'online-icon1': ['🟢','在线'], recent: ['🟢','在线'], 'online-icon2': ['🟡','较近期'], 'online-icon3': ['🟠','稍久未在线'], long: ['🟠','不常在线'], 'online-icon4': ['⚪','长期未在线'], away: ['⚪','离线'] };
     var hit = map[s];
     if (!hit) return '';
     return '<span style="margin-left:6px" title="' + s + '">'+ hit[0] + ' <span style="color:var(--muted,#888);font-size:11px">'+ hit[1] + '</span></span>';
@@ -845,14 +845,15 @@ export async function loadProfiles() {
     };
     var GROUPS = ['基本情報', '見た目', '大人の交際', '生活', 'お相手に望むこと'];
     var html = '';
-    function valOf(key) { return F[key] != null ? F[key] : (ex[key] || ''); }
+    function valOf(key, fallback) { var v = (typeof F === 'object' && F && F[key] != null) ? F[key] : (ex[key] || ''); if (!v && fallback) v = fallback; if (!v) v = ''; return v; }
     // 分组块
     GROUPS.forEach(function (g) {
       var items = BG[g];
+      if (!items || !items.length) { var gk = Object.keys(BG).filter(function (x) { return x.indexOf(g) !== -1 || g.indexOf(x.replace(/について$/, '')) !== -1; })[0]; if (gk && gk !== g) items = BG[gk]; }
       if (!items || !items.length) return;
       var lines = items.map(function (it) {
         var label = GZH[it.key] || it.label || it.key;
-        var v = valOf(it.key);
+        var v = valOf(it.key, it.value);
         if (!v || !String(v).trim()) return '';
         return '<div style="display:flex;gap:10px;padding:2px 0;font-size:12px;line-height:1.5"><span style="width:92px;flex-shrink:0;color:var(--muted,#888);font-size:11px">' + label + '</span><span style="color:var(--text)">' + String(v) + '</span></div>';
       }).filter(Boolean);

@@ -70,10 +70,10 @@
       var line = lines[j];
       // 分区标题
       var isSec = false;
-      for (var k = 0; k < SECTIONS.length; k++) { if (line === SECTIONS[k]) { curSection = SECTIONS[k]; isSec = true; break; } }
+      for (var k = 0; k < SECTIONS.length; k++) { if (line.indexOf(SECTIONS[k]) !== -1 || (SECTIONS[k].indexOf(line) !== -1 && line.length > 2)) { curSection = SECTIONS[k]; isSec = true; break; } }
       if (isSec) continue;
       // 字段
-      var meta = LABELS[line];
+      var meta = LABELS[line] || LABELS[line.trim()];
       // 同名标签在「お相手に望むこと」分区里语义不同（是"希望对方的…"）
       if (/お相手/.test(curSection)) {
         if (line === '年齢') meta = { key: 'prefAge', label: '希望年齢', group: 'お相手に望むこと' };

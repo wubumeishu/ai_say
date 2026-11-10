@@ -4208,8 +4208,9 @@ store.markProfileCrawled(it.profileId, 'done', merged);
           if (prof.fields && typeof prof.fields === 'object') {
             Object.keys(prof.fields).forEach(function (fk) {
               var fv = prof.fields[fk];
-              if (fv !== undefined && fv !== null && fv !== '') merged[fk] = fv;
+              if (fv !== undefined && fv !== null && fv !== '') { merged[fk] = fv; }
             });
+            merged.fields = prof.fields;  // 嵌套一份供前端 ex.fields 读(兼容 detailRows 的 F)
           }
           // 分组(byGroup) + 兴趣(enriched label) + 在线 + 现居地区 + 头像 + BBS + 昵称
           if (prof.byGroup && typeof prof.byGroup === 'object') merged.byGroup = prof.byGroup;
