@@ -886,7 +886,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 
 <script type="module">
 /// 第 8 刀收口 · 入口：initMain() 编排全部事件绑定 + 初始化（无经典脚本、无 window 桥）
-import { initMain } from './ichigo-assets/main.js';
+import { initMain } from '/ichigo-assets/main.js';
 document.addEventListener('DOMContentLoaded', function() { initMain(); });
 </script>
 
@@ -969,7 +969,7 @@ document.addEventListener('DOMContentLoaded', function() { initMain(); });
 <script type="module">
 // 卡片流整合: 把 cardflow.js 的函数挂到 window.__cardflow(view.js 通过它切视图)
 (function() {
-  import('./ichigo-assets/cardflow.js').then(function(cf) {
+  import('/ichigo-assets/cardflow.js').then(function(cf) {
     window.__cardflow = cf;
     // 拉黑/微调 overlay 按钮绑定
     var bc = document.getElementById('cfBlockCancel');
@@ -980,6 +980,13 @@ document.addEventListener('DOMContentLoaded', function() { initMain(); });
     if (bco) bco.onclick = function() { cf.confirmBlock(); };
     if (ac) ac.onclick = function() { cf.cancelAdjust(); };
     if (ago) ago.onclick = function() { cf.doAdjust(); };
+  }).catch(function(err) {
+    // 卡片流模块加载失败(404/网络/语法) → 显式标记 + 把 cardPage 直接画成带原因的错误提示, 不再让 view.js 干轮 8s
+    window.__cardflowError = String((err && err.message) || err);
+    var cp = document.getElementById('cardPage');
+    if (cp) {
+      cp.innerHTML = '<div class="cf-main"><div style="text-align:center;padding:50px;color:#ef4444;font-size:13px">卡片流模块加载失败: ' + window.__cardflowError + '<br><span style="color:var(--muted,#8b8fa3);font-size:12px">按 Ctrl+Shift+R 强刷(清浏览器缓存), 仍失败则检查 /ichigo-assets/cardflow.js 是否 200</span></div></div>';
+    }
   });
 })();
 </script>
