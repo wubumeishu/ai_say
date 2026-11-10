@@ -25,9 +25,9 @@ export async function loadAshiato() {
       var ageCity = f.age ? (f.age + (f.city ? '/' + f.city : '')) : '';
       return '<div style="padding:8px 12px;border-bottom:1px solid var(--border,#333);display:flex;justify-content:space-between">'
         + '<span>' + (f.name || '匿名') + ' ' + ageCity + online + src + time + '</span>'
-        + '<span style="font-size:11px;color:var(--muted,#888)">' + (f.footmarkId ? 'ID:' + f.footmarkId : '') + '</span></div>';
+        + '<span style="font-size:12px;color:var(--muted,#888)">' + (f.footmarkId ? 'ID:' + f.footmarkId : '') + '</span></div>';
     }).join('');
-    el.innerHTML = visitInfo + rows + '<div style="margin-top:12px;font-size:11px;color:var(--muted,#888)">共 ' + d.footmarks.length + ' 条</div>';
+    el.innerHTML = visitInfo + rows + '<div style="margin-top:12px;font-size:12px;color:var(--muted,#888)">共 ' + d.footmarks.length + ' 条</div>';
   } catch (e) { renderError(el, { msg: String(e) }); }
 }
 
@@ -47,7 +47,7 @@ export async function loadFaces() {
     var cards = d.members.map(function(m) {
       return '<div style="padding:8px 12px;border-bottom:1px solid var(--border,#333);display:flex;justify-content:space-between">'
         + '<span>' + (m.name || '匿名') + (m.age ? ' (' + m.age + ')' : '') + ' <span style="color:var(--muted,#888)">' + [m.pref, m.city].filter(Boolean).join(' / ') + '</span></span>'
-        + '<span style="font-size:11px;color:var(--muted,#888)">ID:' + (m.memberId || '?') + '</span></div>';
+        + '<span style="font-size:12px;color:var(--muted,#888)">ID:' + (m.memberId || '?') + '</span></div>';
     }).join('');
     el.innerHTML = '<div style="margin-bottom:8px;font-size:12px;color:var(--muted,#888)">共 ' + d.count + ' 位会员</div>' + cards;
   } catch (e) { renderError(el, { msg: String(e) }); }
@@ -117,7 +117,7 @@ export async function loadIgnore() {
     var rows = d.ignoredMemberIds.map(function(id) {
       return '<div style="padding:8px 12px;border-bottom:1px solid var(--border,#333);display:flex;justify-content:space-between">'
         + '<span>ID: ' + id + '</span>'
-        + '<button class="batch-btn batch-ghost" style="font-size:11px;padding:4px 10px" data-unignore="' + id + '">解除</button></div>';
+        + '<button class="batch-btn batch-ghost" style="font-size:12px;padding:4px 10px" data-unignore="' + id + '">解除</button></div>';
     }).join('');
     el.innerHTML = '<div style="margin-bottom:8px;font-size:12px;color:var(--muted,#888)">共 ' + d.count + ' 条</div>' + rows;
     el.querySelectorAll('[data-unignore]').forEach(function(btn) {
@@ -152,7 +152,7 @@ export async function loadCalendar() {
       var area = e.area ? ' ' + e.area : '';
       return '<div style="padding:8px 12px;border-bottom:1px solid var(--border,#333);display:flex;justify-content:space-between">'
         + '<span>' + dayStr + area + '</span>'
-        + (e.hasRelease ? '<button class="batch-btn batch-ghost" style="font-size:11px;padding:4px 10px" data-release>解除</button>' : '')
+        + (e.hasRelease ? '<button class="batch-btn batch-ghost" style="font-size:12px;padding:4px 10px" data-release>解除</button>' : '')
         + '</div>';
     }).join('');
     el.innerHTML = prefInfo + (rows || '<div style="color:var(--muted,#888);font-size:12px">当前无已登记</div>')
@@ -320,8 +320,8 @@ export async function renderUnifiedList() {
       var name = c.name || c.memberId || '?';
       var meta = [c.age ? c.age + '歳' : '', c.city, c.source ? '来源:' + c.source : '', c.time ? c.time : ''].filter(Boolean).join(' · ');
       return '<div style="padding:8px 12px;border-bottom:1px solid var(--border,#333);display:flex;justify-content:space-between">'
-        + '<span>' + name + (meta ? ' <span style="color:var(--muted,#888);font-size:11px">' + meta + '</span>' : '') + '</span>'
-        + '<span style="font-size:11px;color:var(--muted,#888)">P' + c.catPriority + ' ' + cat + ' · ' + tier + '</span></div>';
+        + '<span>' + name + (meta ? ' <span style="color:var(--muted,#888);font-size:12px">' + meta + '</span>' : '') + '</span>'
+        + '<span style="font-size:12px;color:var(--muted,#888)">P' + c.catPriority + ' ' + cat + ' · ' + tier + '</span></div>';
     }).join('');
     el.innerHTML = '<div style="margin-bottom:8px;font-size:12px;color:var(--muted,#888)">共 ' + d.total + ' 条 · 按 引流类别×在线档 排序</div>' + rows;
   } catch (e) {
@@ -369,7 +369,7 @@ export async function loadToolbox() {
     var rows = (d.memos || []).slice(0, 20).map(function(m) {
       return '<div style="font-size:12px;padding:3px 0;border-bottom:1px solid var(--border,#333)">' +
         (m.pinned ? '📌' : '') + ' <b>' + String(m.title || '').slice(0, 30) + '</b> ' + String(m.body || '').slice(0, 50) +
-        ' <span style="color:var(--muted,#888);font-size:10px">[' + m.kind + ']' + (m.dueAt ? ' ⏰' + String(m.dueAt).slice(5, 16) : '') + '</span></div>';
+        ' <span style="color:var(--muted,#888);font-size:12px">[' + m.kind + ']' + (m.dueAt ? ' ⏰' + String(m.dueAt).slice(5, 16) : '') + '</span></div>';
     }).join('');
     box.innerHTML = '<div class="section-title" style="font-size:12px">📝 备忘录（' + (d.count || 0) + '）</div>' + (rows || '<div class="empty">暂无</div>');
   }).catch(function() {});
@@ -389,7 +389,7 @@ export async function loadToolbox() {
     if (!d.ok) { box.innerHTML = '<div class="empty">模板库不可用</div>'; return; }
     var rows = (d.phrases || []).slice(0, 12).map(function(ph) {
       return '<div style="font-size:12px;padding:4px 0;border-bottom:1px solid var(--border,#333)">' +
-        '<span style="color:var(--accent,#e64340);font-size:10px">[' + (ph.scene || '-') + '·' + (ph.lang || '-') + '] ' + (ph.usageCount || 0) + '用</span> ' +
+        '<span style="color:var(--accent,#e64340);font-size:12px">[' + (ph.scene || '-') + '·' + (ph.lang || '-') + '] ' + (ph.usageCount || 0) + '用</span> ' +
         String(ph.content || '').slice(0, 60) + '…</div>';
     }).join('');
     box.innerHTML = '<div class="section-title" style="font-size:12px">🗂 模板库（' + (d.count || 0) + '）</div>' + (rows || '<div class="empty">暂无（POST /api/console/phrase-library 添加）</div>');
@@ -488,24 +488,24 @@ export async function loadLeads() {
     '    <option value="search">检索</option>',
     '  </select>',
     '  <button id="leadExploreBtn" style="font-size:12px;padding:3px 10px;cursor:pointer;background:#1e5aa8;color:#fff;border:none;border-radius:3px">🔭 侦测灌库</button>',
-    '  <span id="leadExploreStatus" style="font-size:11px;color:var(--muted,#888)"></span>',
+    '  <span id="leadExploreStatus" style="font-size:12px;color:var(--muted,#888)"></span>',
     '</div>',
-    '<div id="leadAgg" style="font-size:11px;color:var(--muted,#888);margin-bottom:8px"></div>',
+    '<div id="leadAgg" style="font-size:12px;color:var(--muted,#888);margin-bottom:8px"></div>',
     '<div id="leadList" style="max-height:600px;overflow-y:auto"></div>',
     '<div id="leadTaskBoard" style="margin-top:12px;padding:10px;border:1px solid var(--border,#2a3550);border-radius:6px">',
     '  <div style="font-size:13px;font-weight:600;margin-bottom:6px">📋 任务编排（呼吸引擎 · 节拍调度）',
-    '    <span style="font-weight:400;color:var(--muted,#888);font-size:11px;margin-left:8px">引擎只调度节拍，副作用由 SOP 执行器驱动（铁律：不自动发消息）</span>',
+    '    <span style="font-weight:400;color:var(--muted,#888);font-size:12px;margin-left:8px">引擎只调度节拍，副作用由 SOP 执行器驱动（铁律：不自动发消息）</span>',
     '  </div>',
     '  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">',
-    '    <button id="leadBoardSeed" style="font-size:11px;padding:3px 8px;cursor:pointer;background:#3a4a6b;color:#fff;border:none;border-radius:3px">🌱 播种呼吸规则</button>',
-    '    <button id="leadBoardEnqueue" style="font-size:11px;padding:3px 8px;cursor:pointer;background:#1e5aa8;color:#fff;border:none;border-radius:3px">➕ 入队示例任务(30s)</button>',
-    '    <button id="leadBoardStart" style="font-size:11px;padding:3px 8px;cursor:pointer;background:#2ecc71;color:#fff;border:none;border-radius:3px">▶ 启动引擎</button>',
-    '    <button id="leadBoardStop" style="font-size:11px;padding:3px 8px;cursor:pointer;background:#888;color:#fff;border:none;border-radius:3px">⏸ 停止引擎</button>',
-    '    <button id="leadBoardRefresh" style="font-size:11px;padding:3px 8px;cursor:pointer;background:#3a4a6b;color:#fff;border:none;border-radius:3px">🔄 刷新看板</button>',
+    '    <button id="leadBoardSeed" style="font-size:12px;padding:3px 8px;cursor:pointer;background:#3a4a6b;color:#fff;border:none;border-radius:3px">🌱 播种呼吸规则</button>',
+    '    <button id="leadBoardEnqueue" style="font-size:12px;padding:3px 8px;cursor:pointer;background:#1e5aa8;color:#fff;border:none;border-radius:3px">➕ 入队示例任务(30s)</button>',
+    '    <button id="leadBoardStart" style="font-size:12px;padding:3px 8px;cursor:pointer;background:#2ecc71;color:#fff;border:none;border-radius:3px">▶ 启动引擎</button>',
+    '    <button id="leadBoardStop" style="font-size:12px;padding:3px 8px;cursor:pointer;background:#888;color:#fff;border:none;border-radius:3px">⏸ 停止引擎</button>',
+    '    <button id="leadBoardRefresh" style="font-size:12px;padding:3px 8px;cursor:pointer;background:#3a4a6b;color:#fff;border:none;border-radius:3px">🔄 刷新看板</button>',
     '  </div>',
     '  <div id="leadTaskBoardStatus" style="font-size:12px;color:var(--muted,#888)" title=""></div>',
     '</div>',
-    '<div style="margin-top:8px;font-size:11px;color:var(--muted,#888)" id="leadMeta"></div>',
+    '<div style="margin-top:8px;font-size:12px;color:var(--muted,#888)" id="leadMeta"></div>',
   ].join('');
   el.innerHTML = filterHtml;
 
@@ -651,8 +651,8 @@ export async function loadLeads() {
       var gHtml = '<div style="padding:10px 0;border-bottom:2px solid var(--border,#444);margin-bottom:8px">' +
         '<div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px">📍 ' +
         escapeHtml(platLabel) + ' - ' + escapeHtml(winLabel) +
-        ' <span style="font-size:11px;color:var(--muted,#888);font-weight:400">' + gLeads.length + ' 条</span></div>' +
-        '<div style="font-size:10px;color:var(--muted,#888);margin-bottom:4px">地区 = 客户自己填写的位置（按实际显示为准，非检索条件）</div>' +
+        ' <span style="font-size:12px;color:var(--muted,#888);font-weight:400">' + gLeads.length + ' 条</span></div>' +
+        '<div style="font-size:12px;color:var(--muted,#888);margin-bottom:4px">地区 = 客户自己填写的位置（按实际显示为准，非检索条件）</div>' +
         gLeads.map(function(l) {
           // 按来源维度显示具体时间
           var timeText = '';
@@ -697,9 +697,9 @@ export async function loadLeads() {
             '<span style="min-width:60px;font-weight:600">' + escapeHtml(l.name || '?') + '</span>' +
             '<span style="min-width:26px;color:var(--muted,#888)">' + (l.age || '') + '</span>' +
             '<span style="min-width:44px;color:var(--muted,#888)" title="客户自己填写的地区（检索条件不代表客户位置）">' + escapeHtml(l.region || '') + '</span>' +
-            '<span style="font-size:10px;color:var(--muted,#888)">' + escapeHtml(l.sourceDim || '') + '</span>' +
-            '<span style="font-size:10px;color:#4aa3ff">' + escapeHtml(timeText) + '</span>' +
-            '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted,#888);font-size:11px" data-intro-id="' + l.leadId + '">' +
+            '<span style="font-size:12px;color:var(--muted,#888)">' + escapeHtml(l.sourceDim || '') + '</span>' +
+            '<span style="font-size:12px;color:#4aa3ff">' + escapeHtml(timeText) + '</span>' +
+            '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted,#888);font-size:12px" data-intro-id="' + l.leadId + '">' +
               escapeHtml(introText || '') +
             '</span>' +
             '</div>';
@@ -792,7 +792,7 @@ export async function loadProfiles(opt) {
   } catch (e) { data = { ok: false, reason: 'fetch-failed' }; }
   if (!data || !data.ok) {
     el.innerHTML = '<div style="padding:16px;color:var(--muted,#888);font-size:13px">资料池加载失败: ' + ((data && (data.reason || data.msg)) || '无数据') +
-      '<br><span style="font-size:11px">先从「🎯 线索池」promote 进资料池，或点下方「📥 从线索池 promote 全部」。</span></div>' + profileActionsHtml();
+      '<br><span style="font-size:12px">先从「🎯 线索池」promote 进资料池，或点下方「📥 从线索池 promote 全部」。</span></div>' + profileActionsHtml();
     bindProfileActions(el, null);
     return;
   }
@@ -800,8 +800,8 @@ export async function loadProfiles(opt) {
   var agg = data.agg || {};
   var DIM_CN = { ashiato: '对方浏览', like: '对方点赞', bbs: '帖子', search: '首页检索', faces: '特征', inbox: '收件箱', unknown: '未知来源' };
   function srcTag(dim) {
-    var c = { ashiato: '#4f8cff', like: '#2AB788', bbs: '#e6a23c', search: '#8e44ad', faces: '#f39c12', inbox: '#16a085', unknown: '#5a6472' };
-    return '<span style="font-size:10px;padding:1px 8px;border-radius:8px;background:' + (c[dim] || c.unknown) + '22;color:' + (c[dim] || c.unknown) + ';border:1px solid ' + (c[dim] || c.unknown) + '55">' + (DIM_CN[dim] || dim) + '</span>';
+    var c = { ashiato: '#4f8cff', like: '#2AB788', bbs: '#e6a23c', search: '#8e44ad', faces: '#f39c12', inbox: '#0e6e57', unknown: '#5a6472' };
+    return '<span style="font-size:12px;padding:1px 8px;border-radius:8px;background:' + (c[dim] || c.unknown) + '22;color:' + (c[dim] || c.unknown) + ';border:1px solid ' + (c[dim] || c.unknown) + '55">' + (DIM_CN[dim] || dim) + '</span>';
   }
   function crawlDot(st) {
     if (st === 'done') return '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#2AB788;margin-right:4px"></span>';
@@ -809,14 +809,14 @@ export async function loadProfiles(opt) {
     return '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#5a6472;margin-right:4px"></span>';
   }
   function crawlLabel(st) {
-    if (st === 'done') return '<span style="color:#2AB788;font-size:11px">已抓取</span>';
-    if (st === 'failed') return '<span style="color:#e07b39;font-size:11px">抓取失败</span>';
-    return '<span style="color:var(--muted,#888);font-size:11px">未抓取</span>';
+    if (st === 'done') return '<span style="color:#157340;font-size:12px">已抓取</span>';
+    if (st === 'failed') return '<span style="color:#e07b39;font-size:12px">抓取失败</span>';
+    return '<span style="color:var(--muted,#888);font-size:12px">未抓取</span>';
   }
   function commsTag(p) {
     return p.communicated
-      ? '<span style="font-size:10px;padding:1px 8px;border-radius:8px;background:#4f8cff22;color:#4f8cff;border:1px solid #4f8cff55">已沟通 · ' + (p.msgCount || 0) + '条</span>'
-      : '<span style="font-size:10px;padding:1px 8px;border-radius:8px;background:#5a647222;color:#5a6472;border:1px solid #5a647244">未沟通</span>';
+      ? '<span style="font-size:12px;padding:1px 8px;border-radius:8px;background:#2559c422;color:#2559c4;border:1px solid #2559c455">已沟通 · ' + (p.msgCount || 0) + '条</span>'
+      : '<span style="font-size:12px;padding:1px 8px;border-radius:8px;background:#5a647222;color:#5a6472;border:1px solid #5a647244">未沟通</span>';
   }
   function parseAge(v) {
     var s = String(v == null ? '' : v);
@@ -832,7 +832,7 @@ export async function loadProfiles(opt) {
     var map = { 'online-icon1': ['🟢','在线'], recent: ['🟢','在线'], 'online-icon2': ['🟡','较近期'], 'online-icon3': ['🟠','稍久未在线'], long: ['🟠','不常在线'], 'online-icon4': ['⚪','长期未在线'], away: ['⚪','离线'] };
     var hit = map[s];
     if (!hit) return '';
-    return '<span style="margin-left:6px" title="' + s + '">'+ hit[0] + ' <span style="color:var(--muted,#888);font-size:11px">'+ hit[1] + '</span></span>';
+    return '<span style="margin-left:6px" title="' + s + '">'+ hit[0] + ' <span style="color:var(--muted,#888);font-size:12px">'+ hit[1] + '</span></span>';
   }
   // 抓取资料字段(展开区显示)
   function detailRows(p) {
@@ -861,22 +861,22 @@ export async function loadProfiles(opt) {
         var label = GZH[it.key] || it.label || it.key;
         var v = valOf(it.key, it.value);
         if (!v || !String(v).trim()) return '';
-        return '<div style="display:flex;gap:10px;padding:2px 0;font-size:12px;line-height:1.5"><span style="width:92px;flex-shrink:0;color:var(--muted,#888);font-size:11px">' + label + '</span><span style="color:var(--text)">' + String(v) + '</span></div>';
+        return '<div style="display:flex;gap:10px;padding:2px 0;font-size:12px;line-height:1.5"><span style="width:92px;flex-shrink:0;color:var(--muted,#888);font-size:12px">' + label + '</span><span style="color:var(--text)">' + String(v) + '</span></div>';
       }).filter(Boolean);
       if (!lines.length) return;
-      html += '<div style="margin-top:6px"><div style="font-size:11px;font-weight:600;color:var(--accent,#4f8cff);margin-bottom:2px">' + g + '</div>' + lines.join('') + '</div>';
+      html += '<div style="margin-top:6px"><div style="font-size:12px;font-weight:600;color:var(--accent,#4f8cff);margin-bottom:2px">' + g + '</div>' + lines.join('') + '</div>';
     });
     // 现居地区(拆分的 県 市)
     if (ex.pref || ex.city || ex.regionFull) {
-      html += '<div style="display:flex;gap:10px;padding:2px 0;font-size:12px"><span style="width:92px;flex-shrink:0;color:var(--muted,#888);font-size:11px">現居</span><span style="color:var(--text)">' + (ex.regionFull || ([ex.pref, ex.city].filter(Boolean).join(' '))) + '</span></div>';
+      html += '<div style="display:flex;gap:10px;padding:2px 0;font-size:12px"><span style="width:92px;flex-shrink:0;color:var(--muted,#888);font-size:12px">現居</span><span style="color:var(--text)">' + (ex.regionFull || ([ex.pref, ex.city].filter(Boolean).join(' '))) + '</span></div>';
     }
     // 在线
     if (ex.onlineText) {
-      html += '<div style="display:flex;gap:10px;padding:2px 0;font-size:12px"><span style="width:92px;flex-shrink:0;color:var(--muted,#888);font-size:11px">在线</span><span style="color:var(--text)">' + ex.onlineText + '</span></div>';
+      html += '<div style="display:flex;gap:10px;padding:2px 0;font-size:12px"><span style="width:92px;flex-shrink:0;color:var(--muted,#888);font-size:12px">在线</span><span style="color:var(--text)">' + ex.onlineText + '</span></div>';
     }
     // 年龄
     if (ex.ageNum != null) {
-      html += '<div style="display:flex;gap:10px;padding:2px 0;font-size:12px"><span style="width:92px;flex-shrink:0;color:var(--muted,#888);font-size:11px">年龄</span><span style="color:var(--text)">' + ex.ageNum + '岁</span></div>';
+      html += '<div style="display:flex;gap:10px;padding:2px 0;font-size:12px"><span style="width:92px;flex-shrink:0;color:var(--muted,#888);font-size:12px">年龄</span><span style="color:var(--text)">' + ex.ageNum + '岁</span></div>';
     }
     // 兴趣(全量 label)
     var _int = '';
@@ -884,54 +884,54 @@ export async function loadProfiles(opt) {
     if (!_int && ex.interestIcons && ex.interestIcons.length) _int = ex.interestIcons.map(function (x) { return (x && x.label) || ''; }).filter(Boolean).join('、');
     if (_int) {
       var icN = (ex.interestIcons || ex.interests || []).length;
-      html += '<div style="margin-top:6px"><div style="font-size:11px;font-weight:600;color:var(--accent,#4f8cff);margin-bottom:2px">兴趣（' + icN + '）</div><div style="font-size:12px;line-height:1.5;color:var(--text)">' + _int + '</div></div>';
+      html += '<div style="margin-top:6px"><div style="font-size:12px;font-weight:600;color:var(--accent,#4f8cff);margin-bottom:2px">兴趣（' + icN + '）</div><div style="font-size:12px;line-height:1.5;color:var(--text)">' + _int + '</div></div>';
     }
     // BBS 招募帖(抓到的前 3)
     if (ex.bbsPosts && ex.bbsPosts.length) {
-      html += '<div style="margin-top:6px"><div style="font-size:11px;font-weight:600;color:var(--accent,#4f8cff);margin-bottom:2px">招募帖</div>' + ex.bbsPosts.slice(0, 3).map(function (b) {
+      html += '<div style="margin-top:6px"><div style="font-size:12px;font-weight:600;color:var(--accent,#4f8cff);margin-bottom:2px">招募帖</div>' + ex.bbsPosts.slice(0, 3).map(function (b) {
         return '<div style="font-size:12px;color:var(--text);padding:2px 0">' + (b.genre ? '【' + b.genre + '】' : '') + String(b.content || '').slice(0, 60) + '</div>';
       }).join('') + '</div>';
     }
     // 自我介绍(兜底)
     if (p.selfIntro || ex.selfIntro) {
-      html += '<div style="margin-top:6px"><div style="font-size:11px;font-weight:600;color:var(--accent,#4f8cff);margin-bottom:2px">自我介绍</div><div style="font-size:12px;line-height:1.5;color:var(--text)">' + (p.selfIntro || ex.selfIntro) + '</div></div>';
+      html += '<div style="margin-top:6px"><div style="font-size:12px;font-weight:600;color:var(--accent,#4f8cff);margin-bottom:2px">自我介绍</div><div style="font-size:12px;line-height:1.5;color:var(--text)">' + (p.selfIntro || ex.selfIntro) + '</div></div>';
     }
-    return html || '<div style="font-size:11px;color:var(--muted,#888);padding:4px 0">' + (p.crawlStatus === 'done' ? '已抓取但无资料字段（客户资料卡未填）' : '点下方「🔭 抓资料卡」抓取后显示') + '</div>';
+    return html || '<div style="font-size:12px;color:var(--muted,#888);padding:4px 0">' + (p.crawlStatus === 'done' ? '已抓取但无资料字段（客户资料卡未填）' : '点下方「🔭 抓资料卡」抓取后显示') + '</div>';
   }
   var rows = prof.map(function (p) {
     var ex = p.extras || {};
     var avatar = p.avatarUrl ? '<img src="' + p.avatarUrl + '" style="width:34px;height:34px;border-radius:50%;object-fit:cover;border:1px solid var(--border,#2a3550)" alt="">' : '<span style="width:34px;height:34px;border-radius:50%;background:var(--card2,#f2f5f9);display:inline-flex;align-items:center;justify-content:center;font-size:16px">👤</span>';
     var head = '<div class="pfHead" data-pf="' + p.profileId + '" style="cursor:pointer;display:flex;align-items:center;gap:10px">' +
       avatar +
-      '<div style="flex:1;min-width:0">' +
-        '<div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + crawlDot(p.crawlStatus) + (p.name || '(无名)') +
-          ' <span style="font-weight:400;color:var(--muted,#888);font-size:11px">' + (function(){var _a=parseAge(p.age||'');return _a ? _a+'岁 ' : '';})() + (p.region ? p.region + ' ' : '') + onlineBadge(p.online) + '</span></div>' +
+      '<div style="flex:1;min-width:0;overflow:hidden">' +
+        '<div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0">' + crawlDot(p.crawlStatus) + (p.name || '(无名)') +
+          ' <span style="font-weight:400;color:var(--muted,#888);font-size:12px">' + (function(){var _a=parseAge(p.age||'');return _a ? _a+'岁 ' : '';})() + (p.region ? p.region + ' ' : '') + onlineBadge(p.online) + '</span></div>' +
         '<div style="display:flex;gap:6px;align-items:center;margin-top:3px;flex-wrap:wrap">' + srcTag(p.sourceDim) + commsTag(p) + '<span style="display:inline-flex;align-items:center">' + crawlLabel(p.crawlStatus) + '</span></div>' +
       '</div>' +
       '<span class="chev" data-chev="' + p.profileId + '" style="font-size:12px;color:var(--muted,#888);transition:transform .2s">▾</span>' +
       '</div>';
     var body = '<div class="pfBody" data-pfbody="' + p.profileId + '" style="display:none;margin-top:8px;padding-top:8px;border-top:1px solid var(--border,#2a3550);flex-direction:column;gap:8px">' +
-      '<div style="font-size:11px;color:var(--muted,#888)">' + (p.region ? '地区: ' + p.region : '地区: —') + '</div>' +
+      '<div style="font-size:12px;color:var(--muted,#888)">' + (p.region ? '地区: ' + p.region : '地区: —') + '</div>' +
       '<div style="display:flex;flex-direction:column;gap:0">' + detailRows(p) + '</div>' +
-      (ex.crawledAt ? '<div style="font-size:10px;color:var(--muted,#888)">抓取于 ' + ex.crawledAt + '</div>' : '') +
+      (ex.crawledAt ? '<div style="font-size:12px;color:var(--muted,#888)">抓取于 ' + ex.crawledAt + '</div>' : '') +
       '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:2px">' +
-      '<button class="pCrawl" data-id="' + p.profileId + '" style="font-size:11px;padding:3px 10px;background:var(--accent,#4f8cff);color:#fff;border:none;border-radius:4px;cursor:pointer">🔭 抓/重抓资料卡</button>' +
-      '<button class="pCms" data-id="' + p.profileId + '" style="font-size:11px;padding:3px 10px;background:var(--card,#fff);color:var(--text);border:1px solid var(--border);border-radius:4px;cursor:pointer">↻ 刷已沟通</button>' +
-      '<button class="pCf" data-id="' + p.profileId + '" style="font-size:11px;padding:3px 10px;background:#2AB788;color:#fff;border:none;border-radius:4px;cursor:pointer">↗ 发起卡片流</button>' +
+      '<button class="pCrawl" data-id="' + p.profileId + '" style="font-size:12px;padding:3px 10px;background:var(--accent,#4f8cff);color:#fff;border:none;border-radius:4px;cursor:pointer">🔭 抓/重抓资料卡</button>' +
+      '<button class="pCms" data-id="' + p.profileId + '" style="font-size:12px;padding:3px 10px;background:var(--card,#fff);color:var(--text);border:1px solid var(--border);border-radius:4px;cursor:pointer">↻ 刷已沟通</button>' +
+      '<button class="pCf" data-id="' + p.profileId + '" style="font-size:12px;padding:3px 10px;background:#2AB788;color:#fff;border:none;border-radius:4px;cursor:pointer">↗ 发起卡片流</button>' +
       '</div></div>';
     return '<div class="pfCard" style="background:var(--card,#fff);border-radius:8px;padding:8px 10px;margin-bottom:6px;border:1px solid var(--border,#2a3550)">' + head + body + '</div>';
   }).join('');
   var _DIM_O = { ashiato: '对方浏览', like: '对方点赞', bbs: '帖子', search: '首页检索', faces: '特征', unknown: '未知' };
   var sel = function(id, val, opts) { var h = '<select id="' + id + '" style="font-size:12px;padding:3px 6px">' + opts.map(function(o) { return '<option value="' + o[0] + '"' + (o[0] === val ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>'; return h; };
   var filterBarHtml = '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">' +
-    '<span style="font-size:11px;color:var(--muted,#888)">筛选:</span>' +
+    '<span style="font-size:12px;color:var(--muted,#888)">筛选:</span>' +
     sel('pfFPlat', filter.platform, [['ichigo','出会'],['happymail','快乐'],['','全部平台']]) +
     sel('pfFAcc', filter.accountId, [['17098','会出 17098'],['18595','快乐 18595'],['','全部窗口']]) +
     sel('pfFDim', filter.sourceDim, [['','全部来源'],['ashiato','对方浏览'],['like','对方点赞'],['bbs','帖子'],['search','首页检索'],['faces','特征'],['inbox','收件箱']]) +
     sel('pfFCms', filter.communicated, [['','全部状态'],['1','已沟通'],['0','未沟通']]) +
     sel('pfFCrawl', filter.crawlStatus, [['','全部抓取态'],['pending','未抓取'],['done','已抓取'],['failed','抓取失败']]) +
-    '<button id="pfFApply" style="font-size:12px;padding:3px 12px;background:var(--accent,#4a9eff);color:#fff;border:none;border-radius:4px;cursor:pointer">应用</button>' +
-    '<button id="pfFReset" style="font-size:12px;padding:3px 12px;background:var(--card,#fff);color:var(--muted,#888);border:1px solid var(--border);border-radius:4px;cursor:pointer">重置</button>' +
+    '<button id="pfFApply" style="font-size:12px;padding:8px 14px;min-height:32px;;background:var(--accent,#4a9eff);color:#fff;border:none;border-radius:4px;cursor:pointer">应用</button>' +
+    '<button id="pfFReset" style="font-size:12px;padding:8px 14px;min-height:32px;;background:var(--card,#fff);color:var(--muted,#888);border:1px solid var(--border);border-radius:4px;cursor:pointer">重置</button>' +
     '</div>';
   // 分页: 前端切片(数据全量已拉回), 一行5列, 右下角可选每页数量 + 翻页
   var PZ = window.__profPageSize || 25;
@@ -945,25 +945,25 @@ export async function loadProfiles(opt) {
       avatar +
       '<div style="flex:1;min-width:0">' +
         '<div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + crawlDot(p.crawlStatus) + (p.name || '(无名)') +
-          ' <span style="font-weight:400;color:var(--muted,#888);font-size:11px">' + (function(){var _a=parseAge(p.age||'');return _a ? _a+'岁 ' : '';})() + (p.region ? p.region + ' ' : '') + onlineBadge(p.online) + '</span></div>' +
+          ' <span style="font-weight:400;color:var(--muted,#888);font-size:12px">' + (function(){var _a=parseAge(p.age||'');return _a ? _a+'岁 ' : '';})() + (p.region ? p.region + ' ' : '') + onlineBadge(p.online) + '</span></div>' +
         '<div style="display:flex;gap:4px;align-items:center;margin-top:3px;flex-wrap:wrap">' + srcTag(p.sourceDim) + commsTag(p) + '<span style="display:inline-flex;align-items:center">' + crawlLabel(p.crawlStatus) + '</span></div>' +
       '</div>' +
       '<span class="chev" data-chev="' + p.profileId + '" style="font-size:12px;color:var(--muted,#888);transition:transform .2s">▾</span>' +
       '</div>';
     var body = '<div class="pfBody" data-pfbody="' + p.profileId + '" style="display:none;margin-top:8px;padding-top:8px;border-top:1px solid var(--border,#2a3550);flex-direction:column;gap:6px">' +
-      '<div style="font-size:11px;color:var(--muted,#888)">' + (p.region ? '地区: ' + p.region : '地区: —') + '</div>' +
+      '<div style="font-size:12px;color:var(--muted,#888)">' + (p.region ? '地区: ' + p.region : '地区: —') + '</div>' +
       '<div style="display:flex;flex-direction:column;gap:0">' + detailRows(p) + '</div>' +
-      (ex.crawledAt ? '<div style="font-size:10px;color:var(--muted,#888)">抓取于 ' + ex.crawledAt + '</div>' : '') +
+      (ex.crawledAt ? '<div style="font-size:12px;color:var(--muted,#888)">抓取于 ' + ex.crawledAt + '</div>' : '') +
       '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:2px">' +
-      '<button class="pCrawl" data-id="' + p.profileId + '" style="font-size:11px;padding:3px 10px;background:var(--accent,#4f8cff);color:#fff;border:none;border-radius:4px;cursor:pointer">🔭 抓/重抓</button>' +
-      '<button class="pCms" data-id="' + p.profileId + '" style="font-size:11px;padding:3px 10px;background:var(--card,#fff);color:var(--text);border:1px solid var(--border);border-radius:4px;cursor:pointer">↻ 刷已沟通</button>' +
+      '<button class="pCrawl" data-id="' + p.profileId + '" style="font-size:12px;padding:3px 10px;background:var(--accent,#4f8cff);color:#fff;border:none;border-radius:4px;cursor:pointer">🔭 抓/重抓</button>' +
+      '<button class="pCms" data-id="' + p.profileId + '" style="font-size:12px;padding:3px 10px;background:var(--card,#fff);color:var(--text);border:1px solid var(--border);border-radius:4px;cursor:pointer">↻ 刷已沟通</button>' +
       '</div></div>';
     return '<div class="pfCard" style="background:var(--card,#fff);border-radius:8px;padding:8px 10px;margin-bottom:6px;border:1px solid var(--border,#2a3550)">' + head + body + '</div>';
   }).join('');
   // 右下角分页条: 每页数量可选(25/50/100) + 页码
   var totalPages = Math.max(1, Math.ceil(prof.length / PZ));
   var pagerHtml = '<div id="profPager" style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;gap:8px;flex-wrap:wrap">' +
-    '<span style="font-size:11px;color:var(--muted,#888)">第 ' + PG + ' / ' + totalPages + ' 页 · 共 ' + prof.length + ' 条' +
+    '<span style="font-size:12px;color:var(--muted,#888)">第 ' + PG + ' / ' + totalPages + ' 页 · 共 ' + prof.length + ' 条' +
     (start ? ' · 本页 ' + (start + 1) + '-' + Math.min(start + PZ, prof.length) : '') + '</span>' +
     '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">' +
     '<button id="pfPrev" style="font-size:12px;padding:3px 10px;background:var(--card,#fff);color:var(--text);border:1px solid var(--border);border-radius:4px;cursor:pointer' + (PG <= 1 ? ';opacity:.4;pointer-events:none' : '') + '">‹ 上一页</button>' +
@@ -971,7 +971,7 @@ export async function loadProfiles(opt) {
     '<select id="pfPageSize" style="font-size:12px;padding:3px 6px">' + [25, 50, 100].map(function (n) { return '<option value="' + n + '"' + (n === PZ ? ' selected' : '') + '>' + n + ' 条/页</option>'; }).join('') + '</select>' +
     '</div></div>';
   el.innerHTML = filterBarHtml +
-    '<div id="profAgg" style="font-size:11px;color:var(--muted,#888);margin-bottom:10px">共 ' + (agg.total || prof.length) +
+    '<div id="profAgg" style="font-size:12px;color:var(--muted,#888);margin-bottom:10px">共 ' + (agg.total || prof.length) +
       ' 条 · 已抓取 ' + (agg.crawled || 0) + ' · 未抓取 ' + (agg.pending || 0) + ' · 已沟通 ' + (agg.communicated || 0) +
       ' · 来源 ' + Object.keys(agg.bySource || {}).map(function (k) { return (DIM_CN[k] || k) + ' ' + (agg.bySource[k] || 0); }).join(' / ') +
       '</div>' +
@@ -1015,7 +1015,7 @@ function profileActionsHtml() {
     '<button id="profCrawlAll" style="background:#8e44ad;color:#fff;border:none;border-radius:6px;padding:8px 16px;font-size:12px;cursor:pointer">🔭 批量抓未抓资料卡</button>' +
     '<button id="profRefreshCms" style="background:var(--card2,#f2f5f9);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px 16px;font-size:12px;cursor:pointer">↻ 刷新全部已沟通</button>' +
     '<button id="profInboxLive" style="background:#16a085;color:#fff;border:none;border-radius:6px;padding:8px 16px;font-size:12px;cursor:pointer">🔄 按收件箱页重爬刷新</button>' +
-    '<span id="profStatus" style="font-size:11px;color:var(--muted,#888)"></span>' +
+    '<span id="profStatus" style="font-size:12px;color:var(--muted,#888)"></span>' +
     '</div>';
 }
 
@@ -1152,16 +1152,16 @@ export async function loadPersona() {
     var input = isLong
       ? '<textarea class="pInput" data-key="' + key + '" rows="2" style="width:100%;box-sizing:border-box;background:var(--bg,#0f1117);color:var(--text);border:1px solid var(--border,#2d3140);border-radius:5px;padding:6px;font-size:12px;margin-top:4px">' + String(val == null ? '' : (Array.isArray(val) ? val.join(', ') : val)) + '</textarea>'
       : '<input class="pInput" data-key="' + key + '" type="text" style="width:100%;box-sizing:border-box;background:var(--bg,#0f1117);color:var(--text);border:1px solid var(--border,#2d3140);border-radius:5px;padding:6px;font-size:12px;margin-top:4px" value="' + String(val == null ? '' : val).replace(/"/g, '&quot;') + '">';
-    var emptyTip = (val == null || val === '') ? '<span style="color:#e07b39;font-size:10px;margin-left:6px">（未填写）</span>' : '';
+    var emptyTip = (val == null || val === '') ? '<span style="color:#e07b39;font-size:12px;margin-left:6px">（未填写）</span>' : '';
     return '<div class="persona-field"><h5>' + f[0] + emptyTip + '</h5>' + input +
-      '<button class="pSave" data-key="' + key + '" style="margin-top:5px;background:var(--accent,#4f8cff);color:#fff;border:none;border-radius:4px;padding:3px 10px;font-size:11px;cursor:pointer">保存</button></div>';
+      '<button class="pSave" data-key="' + key + '" style="margin-top:5px;background:var(--accent,#4f8cff);color:#fff;border:none;border-radius:4px;padding:3px 10px;font-size:12px;cursor:pointer">保存</button></div>';
   }).join('');
   var interestVal = persona.interests ? (Array.isArray(persona.interests) ? persona.interests.join(' · ') : persona.interests) : '';
   var rows = '<div class="persona-grid">' + grid
-    + '<div class="persona-field" style="grid-column:1/-1"><h5>自我介绍' + ((persona.selfIntro == null || persona.selfIntro === '') ? '<span style="color:#e07b39;font-size:10px;margin-left:6px">（未填写）</span>' : '') + '</h5>'
+    + '<div class="persona-field" style="grid-column:1/-1"><h5>自我介绍' + ((persona.selfIntro == null || persona.selfIntro === '') ? '<span style="color:#e07b39;font-size:12px;margin-left:6px">（未填写）</span>' : '') + '</h5>'
     + '<textarea class="pInput" data-key="selfIntro" rows="3" style="width:100%;box-sizing:border-box;background:var(--bg,#0f1117);color:var(--text);border:1px solid var(--border,#2d3140);border-radius:5px;padding:6px;font-size:12px;margin-top:4px">' + String(persona.selfIntro == null ? '' : persona.selfIntro) + '</textarea>'
-    + '<button class="pSave" data-key="selfIntro" style="margin-top:5px;background:var(--accent,#4f8cff);color:#fff;border:none;border-radius:4px;padding:3px 10px;font-size:11px;cursor:pointer">保存</button></div>'
-    + (persona.crawledAt ? '<div style="font-size:11px;color:var(--muted);margin-top:8px">抓取于 ' + persona.crawledAt + '</div>' : '<div style="font-size:11px;color:var(--muted);margin-top:8px">（尚未抓取平台资料卡——可点「🎲 随机生成」或「🔭 抓取」）</div>')
+    + '<button class="pSave" data-key="selfIntro" style="margin-top:5px;background:var(--accent,#4f8cff);color:#fff;border:none;border-radius:4px;padding:3px 10px;font-size:12px;cursor:pointer">保存</button></div>'
+    + (persona.crawledAt ? '<div style="font-size:12px;color:var(--muted);margin-top:8px">抓取于 ' + persona.crawledAt + '</div>' : '<div style="font-size:12px;color:var(--muted);margin-top:8px">（尚未抓取平台资料卡——可点「🎲 随机生成」或「🔭 抓取」）</div>')
     + '</div>';
   el.innerHTML = rows
     + '<div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap">'
@@ -1190,7 +1190,7 @@ export async function loadPersona() {
     };
   });
   var st = document.createElement('style');
-  st.textContent = '.persona-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.persona-field{background:var(--panel2);border-radius:8px;padding:8px 12px}.persona-field h5{font-size:11px;color:var(--muted);margin-bottom:4px;font-weight:600}';
+  st.textContent = '.persona-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.persona-field{background:var(--panel2);border-radius:8px;padding:8px 12px}.persona-field h5{font-size:12px;color:var(--muted);margin-bottom:4px;font-weight:600}';
   el.appendChild(st);
 }
 
