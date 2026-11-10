@@ -812,6 +812,22 @@ export async function loadProfiles() {
       ? '<span style="font-size:10px;padding:1px 8px;border-radius:8px;background:#4f8cff22;color:#4f8cff;border:1px solid #4f8cff55">已沟通 · ' + (p.msgCount || 0) + '条</span>'
       : '<span style="font-size:10px;padding:1px 8px;border-radius:8px;background:#5a647222;color:#5a6472;border:1px solid #5a647244">未沟通</span>';
   }
+  function parseAge(v) {
+    var s = String(v == null ? '' : v);
+    var m = s.match(/(\d{1,3})\s*歳/);
+    if (m) return m[1];
+    var m2 = s.match(/^(\d{1,3})(?![県市])/);
+    if (m2) return m2[1];
+    return '';
+  }
+  function onlineBadge(v) {
+    var s = String(v == null ? '' : v).trim();
+    if (!s) return '';
+    var map = { 'online-icon1': ['🟢','在线'], recent: ['🟢','在线'], 'online-icon2': ['🟡','近期'], 'online-icon3': ['🟡','近期'], long: ['🟡','不常在线'], 'online-icon4': ['⚪','离线'], away: ['⚪','离线'] };
+    var hit = map[s];
+    if (!hit) return '';
+    return '<span style="margin-left:6px" title="' + s + '">'+ hit[0] + ' <span style="color:var(--muted,#888);font-size:11px">'+ hit[1] + '</span></span>';
+  }
   // 抓取资料字段(展开区显示)
   function detailRows(p) {
     var ex = p.extras || {};
@@ -882,7 +898,7 @@ export async function loadProfiles() {
       avatar +
       '<div style="flex:1;min-width:0">' +
         '<div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + crawlDot(p.crawlStatus) + (p.name || '(无名)') +
-          ' <span style="font-weight:400;color:var(--muted,#888);font-size:11px">' + (p.age ? p.age + '岁 ' : '') + (p.online ? p.online + ' ' : '') + '</span></div>' +
+          ' <span style="font-weight:400;color:var(--muted,#888);font-size:11px">' + (function(){var _a=parseAge(p.age||'');return _a ? _a+'岁 ' : '';})() + (p.region ? p.region + ' ' : '') + onlineBadge(p.online) + '</span></div>' +
         '<div style="display:flex;gap:6px;align-items:center;margin-top:3px;flex-wrap:wrap">' + srcTag(p.sourceDim) + commsTag(p) + '<span style="display:inline-flex;align-items:center">' + crawlLabel(p.crawlStatus) + '</span></div>' +
       '</div>' +
       '<span class="chev" data-chev="' + p.profileId + '" style="font-size:12px;color:var(--muted,#888);transition:transform .2s">▾</span>' +
