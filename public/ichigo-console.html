@@ -969,7 +969,7 @@ document.addEventListener('DOMContentLoaded', function() { initMain(); });
 <script type="module">
 // 卡片流整合: 把 cardflow.js 的函数挂到 window.__cardflow(view.js 通过它切视图)
 (function() {
-  import('/ichigo-assets/cardflow.js').then(function(cf) {
+  import('/ichigo-assets/cardflow.js?_t=' + Date.now()).then(function(cf) {
     window.__cardflow = cf;
     // 拉黑/微调 overlay 按钮绑定
     var bc = document.getElementById('cfBlockCancel');
