@@ -3854,7 +3854,7 @@ if (action === 'blacklist' && deepScrape && typeof deepScrape.blockContact === '
                 L: {
                   name: f.name || '', age: f.age != null ? String(f.age) : null,
                   region: f.city || null, online: f.onlineIcon ? ('online-icon' + f.onlineIcon) : null,
-                  avatarUrl: null, profileUrl: f.profileHref || null, selfIntro: null,
+                  avatarUrl: f.avatarUrl || null, profileUrl: f.profileHref || null, selfIntro: f.desc || null,
                   extras: { ashiato_direction: dir, memberId: f.memberId || f.footmarkId || null, foot_time: f.time || '' },
                 },
               });

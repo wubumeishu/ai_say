@@ -25,7 +25,7 @@
   var cards = Array.prototype.slice.call(doc.querySelectorAll('.type--list'));
   var footmarks = [];
   cards.forEach(function(card) {
-    var f = { footmarkId: null, name: '', age: '', city: '', source: '', time: '', onlineIcon: null, profileHref: '' };
+    var f = { footmarkId: null, name: '', age: '', city: '', source: '', time: '', onlineIcon: null, profileHref: '', avatarUrl: '', desc: '' };
     var cb = card.querySelector('input[type=checkbox][name="targetFootmarkId[]"]');
     if (cb) f.footmarkId = cb.getAttribute('value') || null;
     var nameEl = card.querySelector('.type-list-name');
@@ -50,7 +50,21 @@
       f.onlineIcon = om ? 'online-icon' + om[1] : 'online-icon';
     }
     var linkEl = card.querySelector('a.type-list-link') || card.querySelector('a[href*="show_profile"]');
-    if (linkEl) f.profileHref = linkEl.getAttribute('href') || '';
+    if (linkEl) {
+        var _ph = linkEl.getAttribute('href') || '';
+        if (_ph.charAt(0) === '/') _ph = 'https://sp.194964.com' + _ph;  // 补全域名(资料卡链接为相对路径)
+        f.profileHref = _ph;
+      }
+      // 自我介绍(.type-list-desc .desc-txt)
+      var _desc = card.querySelector('.type-list-desc .desc-txt') || card.querySelector('.type-list-desc');
+      if (_desc) f.desc = clean(_desc.innerText);
+      // 头像(.type-list-thumb img, //images.194964.com 相对协议 → 补 https)
+      var _img = card.querySelector('.type-list-thumb img') || card.querySelector('.type-list-img img');
+      if (_img) {
+        var _av = _img.getAttribute('src') || '';
+        if (_av.indexOf('//') === 0) _av = 'https:' + _av;
+        f.avatarUrl = _av;
+      }
     footmarks.push(f);
   });
 
