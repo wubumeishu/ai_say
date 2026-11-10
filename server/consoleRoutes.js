@@ -291,6 +291,39 @@ function mountConsoleRoutes(app, deps = {}) {
     return t;
   }
 
+
+  // 007 · 资料池自动同步: 线索灌库后自动 promote 进 Profile(幂等; 同 leadId 已存在则刷新快照, 否则新建 pending)
+  // 仅手动灌库入口调用, 不发消息/不抓平台(铁律 0.1); 抓取状态仍走 /profiles/crawl
+  function autoSyncProfile(leadRow, input) {
+    if (!store || typeof store.upsertProfile !== 'function') return null;
+    const leadId = (leadRow && leadRow.leadId) || input.leadId;
+    if (!leadId) return null;
+    let msgCount = 0;
+    try {
+      if (leadRow && leadRow.contactId && store.db) {
+        const c = store.db.prepare('SELECT COUNT(*) AS c FROM Message WHERE contactId = ?').get(String(leadRow.contactId));
+        msgCount = c ? Number(c.c || 0) : 0;
+      }
+    } catch (_) { msgCount = 0; }
+    try {
+      return store.upsertProfile({
+        leadId: leadId,
+        contactId: leadRow && leadRow.contactId ? String(leadRow.contactId) : null,
+        platform: input.platform,
+        accountId: input.accountId || (leadRow && leadRow.accountId) || '17098',
+        name: input.name, gender: input.gender, age: input.age, region: input.region,
+        online: input.online, avatarUrl: input.avatarUrl, profileUrl: input.profileUrl,
+        selfIntro: input.selfIntro, sourceDim: input.sourceDim,
+        communicated: msgCount > 0,
+        msgCount: msgCount,
+        extras: input.extras || (leadRow && leadRow.extras ? (function () { try { return JSON.parse(leadRow.extras); } catch (_) { return {}; } })() : {}),
+      });
+    } catch (e) {
+      try { console.warn('[autoSyncProfile] 同步资料池失败:', e && e.message); } catch (_) {}
+      return null;
+    }
+  }
+
 register('GET', '/api/console/customers', wrap(async (req, res) => {
     if (!db) return json(res, 501, { ok: false, msg: 'store.db 未注入' });
     const q = queryOf(req);
@@ -3588,7 +3621,7 @@ if (action === 'blacklist' && deepScrape && typeof deepScrape.blockContact === '
     for (const L of arr) {
       // 透传 memberId（平台唯一身份），让 upsertLead 按稳定键去重累积
       const r = store.upsertLead(L);
-      if (r && r.leadId) upserted++;
+      if (r && r.leadId) { upserted++; autoSyncProfile(r, L); }
     }
     return json(res, 200, { ok: true, upserted: upserted, total: arr.length });
   }));
@@ -3869,7 +3902,7 @@ if (action === 'blacklist' && deepScrape && typeof deepScrape.blockContact === '
           extras: L.extras,
         };
         const r = store.upsertLead(input);
-        if (r && r.leadId) upserted++;
+        if (r && r.leadId) { upserted++; autoSyncProfile(r, input); }
       }
       rawDb.exec('COMMIT');
     } catch (e) {
@@ -4269,7 +4302,7 @@ if (action === 'blacklist' && deepScrape && typeof deepScrape.blockContact === '
           extras: L.extras,
         };
         const r = store.upsertLead(input);
-        if (r && r.leadId) upserted++;
+        if (r && r.leadId) { upserted++; autoSyncProfile(r, input); }
       }
       rawDb.exec('COMMIT');
     } catch (e) {
