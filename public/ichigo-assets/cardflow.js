@@ -194,6 +194,14 @@ export function render() {
   if (!l.ai || !l.ai.talks) l.ai = buildPlaceholderAi(l);
   root.innerHTML =
     '<div class="cf-main">'
+    +   '<div class="cfFilterBar" style="display:flex;gap:6px;align-items:center;margin-bottom:10px;flex-wrap:wrap">' +
+    +     '<span style="font-size:11px;color:var(--muted,#8b8fa3)">来源:</span>' +
+    +     '<button class="cfFilt" data-f="profile" style="font-size:12px;padding:3px 10px;border-radius:4px;cursor:pointer;border:1px solid ' + (_cfFilter === 'profile' ? 'var(--accent,#4f8cff)' : 'var(--border,#2a3550)') + ';background:' + (_cfFilter === 'profile' ? 'var(--accent,#4f8cff)' : 'var(--card,#1a1d27)') + ';color:' + (_cfFilter === 'profile' ? '#fff' : 'var(--text)') + ';margin:0">📇 已抓资料</button>' +
+    +     '<button class="cfFilt" data-f="lead" style="font-size:12px;padding:3px 10px;border-radius:4px;cursor:pointer;border:1px solid ' + (_cfFilter === 'lead' ? 'var(--accent,#4f8cff)' : 'var(--border,#2a3550)') + ';background:' + (_cfFilter === 'lead' ? 'var(--accent,#4f8cff)' : 'var(--card,#1a1d27)') + ';color:' + (_cfFilter === 'lead' ? '#fff' : 'var(--text)') + ';margin:0">互动线索</button>' +
+    +     '<button class="cfFilt" data-f="active" style="font-size:12px;padding:3px 10px;border-radius:4px;cursor:pointer;border:1px solid ' + (_cfFilter === 'active' ? 'var(--accent,#4f8cff)' : 'var(--border,#2a3550)') + ';background:' + (_cfFilter === 'active' ? 'var(--accent,#4f8cff)' : 'var(--card,#1a1d27)') + ';color:' + (_cfFilter === 'active' ? '#fff' : 'var(--text)') + ';margin:0">最近活跃</button>' +
+    +     '<button class="cfFilt" data-f="all" style="font-size:12px;padding:3px 10px;border-radius:4px;cursor:pointer;border:1px solid ' + (_cfFilter === 'all' ? 'var(--accent,#4f8cff)' : 'var(--border,#2a3550)') + ';background:' + (_cfFilter === 'all' ? 'var(--accent,#4f8cff)' : 'var(--card,#1a1d27)') + ';color:' + (_cfFilter === 'all' ? '#fff' : 'var(--text)') + ';margin:0">全部</button>' +
+    +     '<span id="cfFilterNote" style="font-size:11px;color:var(--muted,#8b8fa3);margin-left:4px"></span>' +
+    +   '</div>' +
     +   '<div class="cf-grid">'
     +     '<div class="cf-col cf-left">' + renderLeft(l) + '</div>'
     +     '<div class="cf-col cf-mid">' + renderMid(l) + '</div>'
@@ -324,6 +332,11 @@ function loadQueueSnapshot() {
 }
 
 // ============ 操作 ============
+function _bindCfFilter(root) {
+  Array.prototype.forEach.call(root.querySelectorAll('.cfFilt'), function(b) {
+    b.onclick = function() { _cfFilter = b.getAttribute('data-f'); window.__cfFilter = _cfFilter; loadLeads(); };
+  });
+}
 export function selectTalk(idx, talkKey) {
   var l = leads[idx];
   if (!l || l.state === 'SENT' || l.state === 'BLOCKED') return;

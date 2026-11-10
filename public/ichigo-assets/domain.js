@@ -917,6 +917,7 @@ export async function loadProfiles(opt) {
       '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:2px">' +
       '<button class="pCrawl" data-id="' + p.profileId + '" style="font-size:11px;padding:3px 10px;background:var(--accent,#4f8cff);color:#fff;border:none;border-radius:4px;cursor:pointer">🔭 抓/重抓资料卡</button>' +
       '<button class="pCms" data-id="' + p.profileId + '" style="font-size:11px;padding:3px 10px;background:var(--card,#fff);color:var(--text);border:1px solid var(--border);border-radius:4px;cursor:pointer">↻ 刷已沟通</button>' +
+      '<button class="pCf" data-id="' + p.profileId + '" style="font-size:11px;padding:3px 10px;background:#2AB788;color:#fff;border:none;border-radius:4px;cursor:pointer">↗ 发起卡片流</button>' +
       '</div></div>';
     return '<div class="pfCard" style="background:var(--card,#fff);border-radius:8px;padding:8px 10px;margin-bottom:6px;border:1px solid var(--border,#2a3550)">' + head + body + '</div>';
   }).join('');
@@ -1096,6 +1097,27 @@ function bindProfileActions(el, data) {
       fetch('/api/console/profiles/refresh-comms', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accountId: '17098', profileIds: [id] }) })
         .then(function () { setTimeout(function () { loadProfiles(); }, 400); })
         .catch(function () { loadProfiles(); });
+  // ↗ 发起卡片流: 把该已抓资料客户置顶进卡片流(用 cardflow 的 fromProfilePool 通道), 切卡片流视图
+  Array.prototype.forEach.call(el.querySelectorAll('.pCf'), function (b) {
+    b.onclick = function () {
+      var pid = b.getAttribute('data-id');
+      try {
+        // 记录该客户为"卡片流置顶"(localStorage, cardflow 读), 然后切卡片流视图
+        var key = 'aisay:cf-boost:' + pid;
+        localStorage.setItem(key, JSON.stringify({ at: new Date().toISOString() }));
+        window.__cfFilter = 'profile';  // 切到卡片流时默认"已抓资料"筛选
+        // 切卡片流视图(cardPage)
+        var cp = document.getElementById('cardPage');
+        var dp = document.getElementById('domainPage');
+        if (cp) cp.style.display = '';
+        if (dp) dp.style.display = 'none';
+        // 重新加载卡片流(带置顶)
+        var cfmod = window.__cfmod || null;
+        if (cfmod && typeof cfmod.loadLeads === 'function') { cfmod.loadLeads(); }
+        else { location.hash = 'card'; }
+      } catch (e) { /* ignore */ }
+    };
+  });
     };
   });
 }

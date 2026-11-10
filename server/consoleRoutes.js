@@ -4419,7 +4419,15 @@ register('POST', '/api/console/profiles/crawl', wrap(async (req, res, body) => {
     // ① 线索池全量 → 同步进资料池(autoSyncProfile 幂等: 已存在则刷新快照)
     try {
       const leads = store.listLeads({ platform: platform, accountId: accountId }, { limit: 3000 });
-      (Array.isArray(leads) ? leads : []).forEach(function (ld) {
+      const leadArr = Array.isArray(leads) ? leads : [];
+      // 快路径: 查 Profile 里已有哪些 leadId, 只同步"新增"的(已有 → 快照在线索灌库时 autoSyncProfile 已建, 不重复刷)
+      var existing = {};
+      try {
+        store.db.prepare('SELECT leadId FROM Profile WHERE accountId = ? AND leadId IS NOT NULL').all(accountId)
+          .forEach(function (r) { if (r.leadId) existing[r.leadId] = 1; });
+      } catch (_) {}
+      leadArr.forEach(function (ld) {
+        if (ld.leadId && existing[ld.leadId]) return;   // 已同步过 → 跳过(快)
         try {
           const ex = ld.extras ? (function () { try { return JSON.parse(ld.extras); } catch (_) { return {}; } })() : {};
           autoSyncProfile(ld, {
@@ -4431,8 +4439,7 @@ register('POST', '/api/console/profiles/crawl', wrap(async (req, res, body) => {
           });
           syncedLead++;
         } catch (_) { /* 单条失败不阻断 */ }
-      });
-    } catch (e) { /* 整体失败继续收件箱同步 */ }
+      });    } catch (e) { /* 整体失败继续收件箱同步 */ }
     // ② 收件箱客户: 按"当前收件箱页实际客户"同步 —— 前端传入 b.inboxContacts(会话管理页真实 4 人) 最准;
     //    没传则读 ichigoCache 当前 liveSet(非归档); 剔除测试 AA_test; 双向消息历史=已沟通, 已删客户不在列表里自然不进
     var inboxNote = '';
