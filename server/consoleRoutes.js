@@ -4155,28 +4155,38 @@ if (action === 'blacklist' && deepScrape && typeof deepScrape.blockContact === '
         } catch (_) { /* 单条失败不阻断 */ }
       });
     } catch (e) { /* 整体失败继续收件箱同步 */ }
-    // ② 收件箱客户(Conversation 有消息历史的 contact) → 进资料池(来源=收件箱, 已沟通=true)
+    // ② 收件箱客户: 真正有 Conversation(会话)的 Contact → 进资料池(来源=收件箱)
+    //    "已沟通" = 该 contact 的会话(Conversation.contactId)在 Message 表有记录(我发或对方发都算)
+    //    关联链: Message.conversationId → Conversation.conversationId → Contact.contactId(Message 表无 contactId 列)
     try {
+      const convs = store.db.prepare(
+        'SELECT cv.contactId, COUNT(m.messageId) AS msgCount FROM Conversation cv ' +
+        'LEFT JOIN Message m ON m.conversationId = cv.conversationId ' +
+        'WHERE cv.contactId IS NOT NULL GROUP BY cv.contactId'
+      ).all();
+      const msgByContact = {};
+      convs.forEach(function (r) { msgByContact[r.contactId] = Number(r.msgCount || 0); });
       const contacts = store.db.prepare(
-        "SELECT c.contactId AS contactId, c.displayName AS name, cv.unread, cv.lastActiveAt, cv.historyUrl, cv.avatarUrl " +
-        "FROM Contact c LEFT JOIN Conversation cv ON cv.contactId = c.contactId " +
-        "WHERE c.contactId IS NOT NULL ORDER BY c.updatedAt DESC LIMIT 5000"
+        'SELECT c.contactId AS contactId, c.displayName AS name, cv.unread, cv.lastActiveAt, cv.historyUrl, cv.avatarUrl ' +
+        'FROM Contact c INNER JOIN Conversation cv ON cv.contactId = c.contactId ' +
+        'ORDER BY c.updatedAt DESC LIMIT 5000'
       ).all();
       (Array.isArray(contacts) ? contacts : []).forEach(function (ct) {
         if (!ct.contactId) return;
         try {
+          var mc = msgByContact[ct.contactId] || 0;
           const r = store.upsertProfile({
-            leadId: null, // 收件箱客户无对应 leadId, 用 contactId 做稳定键
-            profileId: 'P' + require('crypto').createHash('sha1').update('inbox/' + ct.contactId).digest('hex').slice(0, 16),
+            leadId: null,
+            profileId: 'PINB' + require('crypto').createHash('sha1').update('inbox/' + ct.contactId).digest('hex').slice(0, 16),
             contactId: String(ct.contactId),
             platform: platform,
             accountId: accountId,
             name: ct.name || '',
             avatarUrl: ct.avatarUrl || null,
             profileUrl: ct.historyUrl || null,
-            sourceDim: 'inbox', // 来源=收件箱(区分线索池来源)
-            communicated: true, // 收件箱客户 = 有消息历史 = 已沟通
-            msgCount: null,
+            sourceDim: 'inbox',
+            communicated: mc > 0,
+            msgCount: mc,
             extras: { fromInbox: 1, inboxUnread: ct.unread || 0, inboxLastActive: ct.lastActiveAt || null },
           });
           if (r) syncedInbox++;
