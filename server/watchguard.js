@@ -26,7 +26,7 @@ function log(...a) {
 }
 
 function startChild() {
-  log('启动服务子进程: node server/index.js');
+  log("starting service child: node server/index.js");
   child = spawn(process.execPath, [ENTRY], {
     cwd: ROOT,
     env: process.env,
@@ -36,15 +36,15 @@ function startChild() {
   child.stderr.on('data', d => process.stderr.write('[server] ' + d));
   child.on('exit', (code, signal) => {
     child = null;
-    if (stopping) { log('服务停止(stopping), 守护退出'); process.exit(0); }
+    if (stopping) { log("service stopped (stopping), guard exiting"); process.exit(0); }
     // 崩溃 → 自动拉起(带退避)
     crashStreak++;
     if (crashStreak > MAX_CRASH_RESTARTS) {
-      log('连续崩溃 ' + crashStreak + ' 次 > ' + MAX_CRASH_RESTARTS + ', 停手交人工排查');
+      log("crash streak " + crashStreak + " > " + MAX_CRASH_RESTARTS + ", stopping guard for manual check");
       process.exit(1);
     }
     const backoff = BACKOFF_BASE_MS * Math.pow(1.5, crashStreak - 1);
-    log('子进程退出(code=' + code + ', signal=' + signal + '), ' + Math.round(backoff) + 'ms 后自动重启(第 ' + crashStreak + ' 次)');
+    log("child exited (code=" + code + ", signal=" + signal + "), auto-restart in " + Math.round(backoff) + "ms (crash #" + crashStreak + ")");
     setTimeout(startChild, Math.min(backoff, 30000));
   });
   // 正常 startChild(非崩溃)重置连续崩溃计数
@@ -59,7 +59,7 @@ function watchAll() {
         // 只关心 .js/.json 变动(忽略 .db/缓存/日志)
         if (!/.\.(js|json)$/i.test(String(fname))) return;
         if (stopping) return;
-        log('检测到文件变动 ' + fname + ' → ' + RESTART_DELAY_MS + 'ms 后重启服务');
+        log("file change: " + fname + " -> restart service in " + RESTART_DELAY_MS + "ms");
         if (debounce) clearTimeout(debounce);
         debounce = setTimeout(restart, RESTART_DELAY_MS);
       });
@@ -72,7 +72,7 @@ function watchAll() {
 
 function restart() {
   if (!child || stopping) return;
-  log('文件变动触发热重载(优雅重启)…');
+  log("file change -> hot-reload (graceful restart)...");
   // 先发 SIGTERM 走 index.js 的优雅退出路径, 超时才强杀
   try { child.kill('SIGTERM'); } catch (_) {}
   setTimeout(() => {
@@ -82,11 +82,11 @@ function restart() {
   setTimeout(startChild, 1500);
 }
 
-process.on('SIGINT', () => { stopping = true; try { if (child) child.kill('SIGTERM'); } catch (_) {} log('收到 Ctrl+C, 停止守护'); });
+process.on('SIGINT', () => { stopping = true; try { if (child) child.kill('SIGTERM'); } catch (_) {} log("Ctrl+C received, stopping guard"); });
 process.on('SIGTERM', () => { stopping = true; try { if (child) child.kill('SIGTERM'); } catch (_) {} });
 
-log('Ai SAY 热重载守护启动');
-log('监听目录: ' + WATCH_DIRS.join(', '));
-log('前端 public/ 改动仍需 Ctrl+Shift+R(浏览器), 不触发服务重启');
+log("Ai SAY hot-reload guard started");
+log("watching: " + WATCH_DIRS.join(", "));
+log("public/ changes still need Ctrl+Shift+R in browser; no service restart");
 startChild();
 watchAll();

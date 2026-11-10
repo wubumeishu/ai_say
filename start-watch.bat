@@ -1,18 +1,18 @@
 @echo off
 setlocal
-title Ai SAY Console (热重载守护)
+title Ai SAY Console (hot-reload guard)
 cd /d "I:\deepseek\Ai SAY"
 
 echo ======================================
-echo   Ai SAY Console · 热重载守护
+echo   Ai SAY Console - hot-reload guard
 echo   http://127.0.0.1:8300/ichigo-console
-echo   server/ 代码改动 → 自动重载(不用手动重启)
-echo   前端 public/ 改动 → 仍需 Ctrl+Shift+R
-echo   崩溃 → 自动拉起(带退避)
-echo   Ctrl+C / 关窗口 = 停止
+echo   server/ code changed  -> auto reload (no manual restart)
+echo   public/ changed       -> still Ctrl+Shift+R in browser
+echo   crash                 -> auto restart (backoff)
+echo   Ctrl+C / close window = stop
 echo ======================================
 
-rem ---- 先停掉旧的 8300 实例 + pm2 守护(防端口占用/双跑) ----
+rem ---- stop old 8300 instance + pm2 guard (avoid port clash / double run) ----
 if exist "node_modules\.bin\pm2.cmd" (
   call node_modules\.bin\pm2.cmd stop ai-say >nul 2>&1
 )
@@ -21,9 +21,9 @@ for /f "tokens=5" %%a in '(netstat -ano ^| findstr :8300 ^| findstr LISTENING)' 
 )
 timeout /t 1 >nul
 
-rem ---- 启动热重载守护(前台, 日志可见, Ctrl+C 停) ----
+rem ---- start hot-reload guard (foreground, logs visible, Ctrl+C to stop) ----
 node server\watchguard.js
 
 echo.
-echo 守护已停止。
+echo Guard stopped.
 pause
