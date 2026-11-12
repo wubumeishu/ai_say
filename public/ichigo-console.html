@@ -967,18 +967,39 @@ document.addEventListener('DOMContentLoaded', function() { initMain(); });
 })();
 </script>
 <script type="module">
+// 卡片流 v2 · 独立注入(带版本号, 强制浏览器拉全新模块图, 绕顽固 ESM 缓存)
 (function() {
-  var _cfApplied = false;
-  function _apply(m) {
-    if (_cfApplied) return;
-    _cfApplied = true;
-    // 只挂 cardflow.js 真实存在的导出(从模块对象取, 不存在则跳过)
-    [["loadLeads","autoGenerateCurrent","refineCrawl","generateTalks","render","selectTalk","handleAction","confirmBlock","cancelBlock","doAdjust","cancelAdjust","nextCard","prevCard","isCardFlowBusy","startQueueTick","stopQueueTick","_idx"]].forEach(function(k) { if (m[k] !== undefined) window["__cf_" + k] = m[k]; });
+  var CF_V = '20261112b';
+  var cfLoaded = false, cfErr = '';
+  window.__cfStatus = { loaded: false, error: '' };
+  import('/ichigo-assets/cardflow.js?v=' + CF_V).then(function(m) {
     window.__cardflow = m;
-  }
-  import("/ichigo-assets/cardflow.js").then(_apply).catch(function(e) { window.__cardflowError = String((e && e.message) || e); });
-  // 兜底: 60s 还没挂上且没报错标记 → 记为 unknown-timeout(可能浏览器 module 缓存顽固)
-  setTimeout(function() { if (!_cfApplied && !window.__cardflowError) { window.__cardflowError = "unknown-timeout(模块 60s 未就绪)"; } }, 60000);
+    window.__cfStatus = { loaded: true, error: '' };
+    // 若卡片流页面已打开在等, 直接触发渲染
+    try { var cfRoot = document.getElementById('cardPage');
+      if (cfRoot && cfRoot.innerHTML.indexOf('cf-grid') === -1 && cfRoot.innerHTML.indexOf('加载中') !== -1) {
+        if (m.startQueueTick) m.startQueueTick();
+        if (m.loadLeads) m.loadLeads();
+      }
+    } catch (_) {}
+  }).catch(function(err) {
+    cfErr = String((err && err.message) || err);
+    window.__cfStatus = { loaded: false, error: cfErr };
+    var cfRoot = document.getElementById('cardPage');
+    if (cfRoot) cfRoot.innerHTML = '<div class="cf-main"><div style="text-align:center;padding:60px;color:#ef4444;font-size:13px">卡片流模块加载失败: ' + cfErr + '<br><span style="color:var(--muted,#8b8fa3);font-size:12px">原因可能是浏览器 ESM 缓存。按 Ctrl+Shift+R 强刷, 或 F12 勾 Disable cache 后刷新。</span></div></div>';
+  });
+  // overlay 按钮绑定(模块就绪后)
+  setTimeout(function() {
+    var m = window.__cardflow; if (!m) return;
+    var bc = document.getElementById('cfBlockCancel');
+    var bco = document.getElementById('cfBlockConfirm');
+    var ac = document.getElementById('cfAdjustCancel');
+    var ago = document.getElementById('cfAdjustGo');
+    if (bc && m.cancelBlock) bc.onclick = function() { m.cancelBlock(); };
+    if (bco && m.confirmBlock) bco.onclick = function() { m.confirmBlock(); };
+    if (ac && m.cancelAdjust) ac.onclick = function() { m.cancelAdjust(); };
+    if (ago && m.doAdjust) ago.onclick = function() { m.doAdjust(); };
+  }, 3000);
 })();
 </script>
 </body>

@@ -134,7 +134,7 @@ export function switchView(view) {
         if (_cfRetry === 0) {
           _cfRetry = 1;
           try {
-            import('/ichigo-assets/cardflow.js?t=' + Date.now()).then(function(m) {
+            import('/ichigo-assets/cardflow.js?v=' + '20261112b').then(function(m) {
               window.__cardflow = m;
               if (m.startQueueTick) m.startQueueTick();
               if (m.loadLeads) m.loadLeads();
@@ -151,7 +151,7 @@ export function switchView(view) {
         return;
       }
       setTimeout(function() { tryCf(n - 1); }, 500);
-    })(16); // 16 次 × 500ms = 8s
+    })(40); // 40 次 × 500ms = 20s(模块带版本号, 首拉稍慢)
     return;
   }
   var domainViews = ['domain', 'domain-ashiato', 'domain-faces', 'domain-search', 'domain-ignore', 'domain-calendar', 'domain-toolbox', 'domain-pool', 'domain-diary', 'domain-unified', 'domain-leads', 'domain-profiles', 'domain-persona'];
