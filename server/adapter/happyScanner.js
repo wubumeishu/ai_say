@@ -155,7 +155,7 @@ function createHappyScanner(deps = {}) {
    * @returns {Promise<{ok:boolean, reason?:string, window?:object}>} ok=true 表示窗口 running。
    */
   var _probeCache = {}; // { windowId: { at, result } }
-var _PROBE_TTL = 60 * 1000;
+var _PROBE_TTL = 300 * 1000; // 60s→300s: /browser/list 限频(比特浏览器 频繁调用强制退登);
 async function _probeCdpRaw() {
     if (closed) return { ok: false, reason: 'scanner-closed' };
     if (!windowId) return { ok: false, reason: 'no-happy-window-configured' };

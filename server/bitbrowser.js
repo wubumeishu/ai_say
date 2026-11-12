@@ -40,7 +40,18 @@ class BitBrowserClient {
   }
 
   health() { return this.call('/health'); }
-  listBrowsers(params = {}) { return this.call('/browser/list', params); }
+  listBrowsers(params = {}) {
+      try {
+        var fs0 = require('fs'); var p0 = require('path').join(__dirname, '..', 'data', 'bit-api-counter.json');
+        var c0 = { n: 0, lastAt: '', caller: '' };
+        try { c0 = JSON.parse(fs0.readFileSync(p0, 'utf8')); } catch (_) {}
+        c0.n = (c0.n || 0) + 1; c0.lastAt = new Date().toISOString();
+        var st = (new Error().stack || '').split('\n').slice(2, 6).join(' <- ');
+        c0.caller = st;
+        fs0.writeFileSync(p0, JSON.stringify(c0, null, 1));
+      } catch (_) {}
+      return this.call('/browser/list', params);
+    }
   openBrowser(body) { return this.call('/browser/open', body); }
   closeBrowser(id) { return this.call('/browser/close', { id }); }
   /** 批量修改窗口代理（IPDeep 池用）；需关-开窗口生效。 */

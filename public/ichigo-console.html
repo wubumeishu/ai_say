@@ -601,7 +601,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
         <div class="nav-item" data-view="domain-unified">📋 统一待办</div>
           <div class="nav-item" data-view="domain-leads">🎯 线索池</div>
           <div class="nav-item" data-view="domain-profiles">📇 资料池（第二阶段）</div>
-          <a class="nav-item" href="/ichigo-cardflow" style="color:inherit;text-decoration:none;display:block;padding:10px 14px;font-size:13px;line-height:1.4">⚡ 卡片流（批处理）<span style="color:var(--muted,#8b8fa3);font-size:10px;margin-left:6px">独立页</span></a>
+          <div class="nav-item" data-view="cards" id="navCardFlow">⚡ 卡片流（批处理）<span style="color:var(--muted,#8b8fa3);font-size:10px;margin-left:6px">独立页</span></div>
           <div class="nav-item" data-view="domain-persona">👤 账号人设（17098）</div>
           <div class="nav-item" data-view="domain-toolbox" title="工具箱：备忘 / 日历 / 模板">🧰 工具箱</div>
           <div class="nav-item" data-view="domain-pool">🖥 账号池/窗口池</div>
@@ -890,7 +890,8 @@ import { initMain } from '/ichigo-assets/main.js';
 document.addEventListener('DOMContentLoaded', function() { initMain(); });
 </script>
 
-  <div class="cf-page" id="cardPage" style="display:none"><div class="cf-main"></div></div>
+  <div id="cfIframe" style="display:none;position:fixed;top:48px;left:160px;right:0;bottom:0;z-index:99;border:none;background:var(--bg,#0f1117)"></div>
+<div class="cf-page" id="cardPage" style="display:none"><div class="cf-main"></div></div>
   <div class="cf-overlay" id="cfBlockOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;align-items:center;justify-content:center">    <div style="background:var(--panel,#1a1d27);border:2px solid #ef4444;border-radius:12px;padding:20px 28px;text-align:center;max-width:320px">      <h2 style="color:#ef4444;font-size:14px;margin:0 0 8px">⚠ 确认拉黑</h2>      <p style="color:var(--muted,#8b8fa3);font-size:11px;margin:0 0 12px">出会平台为强副作用，确认后不可立即撤销</p>      <div style="font-size:12px;margin-bottom:12px">目标：<strong id="cfBlockName"></strong></div>      <div style="display:flex;gap:8px;justify-content:center">        <button id="cfBlockCancel" style="background:var(--panel2,#22252f);color:var(--muted,#8b8fa3);border:none;border-radius:6px;padding:6px 14px;font-size:11px;cursor:pointer">取消 (Esc)</button>        <button id="cfBlockConfirm" style="background:#ef4444;color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:11px;cursor:pointer">确认拉黑 (Y)</button>      </div>    </div>  </div>
   <div class="cf-overlay" id="cfAdjustOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;align-items:center;justify-content:center">    <div style="background:var(--panel,#1a1d27);border:2px solid #4f8cff;border-radius:12px;padding:20px 28px;max-width:420px">      <h2 style="color:#4f8cff;font-size:14px;margin:0 0 8px">🤖 AI 对话微调话术</h2>      <p style="color:var(--muted,#8b8fa3);font-size:11px;margin:0 0 8px">给个指令（如「从温泉切入、更温和一点」），AI 重写 A~D</p>      <textarea id="cfAdjustNote" style="width:100%;background:var(--panel2,#22252f);color:var(--text,#e8eaed);border:1px solid var(--border,#2d3140);border-radius:6px;padding:7px;font-size:12px;resize:vertical;min-height:44px;box-sizing:border-box"></textarea>      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">        <button id="cfAdjustCancel" style="background:var(--panel2,#22252f);color:var(--muted,#8b8fa3);border:none;border-radius:6px;padding:6px 14px;font-size:11px;cursor:pointer">取消</button>        <button id="cfAdjustGo" style="background:#4f8cff;color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:11px;cursor:pointer">重新生成</button>      </div>    </div>  </div>
   <div class="domain-page" id="domainPage" style="display:none;padding:20px;overflow-y:auto">
@@ -960,9 +961,9 @@ document.addEventListener('DOMContentLoaded', function() { initMain(); });
     document.getElementById('winToggle18595').addEventListener('click', function(e) { e.stopPropagation(); toggle('18595'); });
   }
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function() { bind(); refresh('17098'); refresh('18595'); setInterval(function(){ refresh('17098'); refresh('18595'); }, 90000); });
+    document.addEventListener('DOMContentLoaded', function() { bind(); refresh('17098'); refresh('18595'); setInterval(function(){ refresh('17098'); refresh('18595'); }, 300000); });
   } else {
-    bind(); refresh('17098'); refresh('18595'); setInterval(function(){ refresh('17098'); refresh('18595'); }, 90000);
+    bind(); refresh('17098'); refresh('18595'); setInterval(function(){ refresh('17098'); refresh('18595'); }, 300000);
   }
 })();
 </script>

@@ -321,7 +321,7 @@ try {
   breathEngine = null;
 }
 const unreadPoller = createUnreadPoller({
-  intervalMs: Number(process.env.POLL_INTERVAL_MS) || 30000,
+  intervalMs: Number(process.env.POLL_INTERVAL_MS) || 300000,
   platforms: [
     { label: 'ichigo', getScanner: () => liveScanner },
     { label: 'kairaku', getScanner: () => happyScanner },

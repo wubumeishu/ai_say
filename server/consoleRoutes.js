@@ -3740,7 +3740,7 @@ if (action === 'blacklist' && deepScrape && typeof deepScrape.blockContact === '
   }
   // 窗口状态缓存（TTL 90s）：前端 20s 轮询不再每次打 /browser/list（BitBrowser 有 API 频率限制，打爆会强制退出登录）
   var windowStatusCache = {}; // { [windowId]: { at, found } }
-  var WS_CACHE_TTL = 90 * 1000;
+  var WS_CACHE_TTL = 300 * 1000;
   register('GET', '/api/console/window/status', wrap(async (req, res) => {
     var qs0s = new URLSearchParams(String(req.url || '').split('?')[1] || '');
     const win = qs0s.get('windowId') ? String(qs0s.get('windowId')) : getWindowId();

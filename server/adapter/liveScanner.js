@@ -195,7 +195,7 @@ function createLiveScanner(deps = {}) {
    * 供 unreadPoller（autoOpenWindow=false）用：窗口没开 → 跳过该轮，不 /browser/open。
    */
   var _probeCache = {}; // { windowId: { at, result } }
-var _PROBE_TTL = 60 * 1000;
+var _PROBE_TTL = 300 * 1000; // 60s→300s: /browser/list 限频(比特浏览器 频繁调用强制退登);
 async function _probeCdpRaw() {
     if (closed) return { ok: false, reason: 'scanner-closed' };
     if (!windowId) return { ok: false, reason: 'no-window-configured' };
