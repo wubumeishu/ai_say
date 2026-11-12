@@ -8,9 +8,9 @@
 :root{--bg:#0f1117;--bg2:#151823;--panel:#1a1d27;--panel2:#22252f;--border:#2d3140;--text:#e8eaed;--muted:#8b8fa3;--accent:#4f8cff;--card:#1a1d27;--orange:#fb923c;--purple:#a78bfa;--yellow:#fbbf24}
 *{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:"Segoe UI","Hiragino Sans",system-ui,sans-serif;font-size:14px}
 #topbar{height:48px;display:flex;align-items:center;gap:12px;padding:0 16px;background:var(--bg2);border-bottom:1px solid var(--border)}
-#topbar a{color:var(--accent);text-decoration:none;font-size:13px}
+#topbar a{color:var(--accent);text-decoration:none;font-size:13px;display:inline-flex;align-items:center;padding:4px 8px;min-height:24px;min-width:24px}
 #topbar .title{font-weight:700;font-size:15px}
-#topbar .hint{font-size:11px;color:var(--muted);margin-left:auto}
+#topbar .hint{font-size:12px;color:var(--muted);margin-left:auto}
 #cardPage{position:fixed;top:48px;left:0;right:0;bottom:0;overflow:hidden;display:flex;flex-direction:column;background:var(--bg)}
 .cf-main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0}
 .cf-grid{flex:1;display:grid;grid-template-columns:280px 1fr 420px;overflow:hidden;min-height:0}

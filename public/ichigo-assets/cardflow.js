@@ -201,6 +201,7 @@ function MOCK_DEMO_CARD() {
 
 // ============ 渲染(挂 #cardPage) ============
 export function render() {
+  var _cfFilter = window.__cfFilter || 'profile'; // 当前来源筛选(按钮选中态)
   var root = document.getElementById('cardPage');
   if (!root || !leadsLoaded) return;
   var l = leads[currentIdx];
@@ -351,7 +352,7 @@ function loadQueueSnapshot() {
 // ============ 操作 ============
 function _bindCfFilter(root) {
   Array.prototype.forEach.call(root.querySelectorAll('.cfFilt'), function(b) {
-    b.onclick = function() { _cfFilter = b.getAttribute('data-f'); window.__cfFilter = _cfFilter; loadLeads(); };
+    b.onclick = function() { window.__cfFilter = b.getAttribute('data-f'); loadLeads(); };
   });
 }
 export function selectTalk(idx, talkKey) {
