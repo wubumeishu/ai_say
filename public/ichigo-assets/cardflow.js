@@ -213,11 +213,11 @@ export function render() {
   root.innerHTML =
     '<div class="cf-main">'
     +   '<div class="cf-filterbar">' +
-    +     '<span style="font-size:11px;color:var(--muted,#8b8fa3)">来源:</span>' +
-    +     '<button class="cfFilt" data-f="profile" style="font-size:12px;padding:3px 12px;border-radius:14px;cursor:pointer;margin:0;border:1px solid ' + (_cfFilter === 'profile' ? 'var(--accent,#4f8cff)' : 'var(--border,#2a3550)') + ';background:' + (_cfFilter === 'profile' ? 'var(--accent,#4f8cff)' : 'var(--card,#1a1d27)') + ';color:' + (_cfFilter === 'profile' ? '#fff' : 'var(--text)') + '>" 📇 已抓资料</button>' +
-    +     '<button class="cfFilt" data-f="lead" style="font-size:12px;padding:3px 12px;border-radius:14px;cursor:pointer;margin:0;border:1px solid ' + (_cfFilter === 'lead' ? 'var(--accent,#4f8cff)' : 'var(--border,#2a3550)') + ';background:' + (_cfFilter === 'lead' ? 'var(--accent,#4f8cff)' : 'var(--card,#1a1d27)') + ';color:' + (_cfFilter === 'lead' ? '#fff' : 'var(--text)') + '>" 互动线索</button>' +
-    +     '<button class="cfFilt" data-f="active" style="font-size:12px;padding:3px 12px;border-radius:14px;cursor:pointer;margin:0;border:1px solid ' + (_cfFilter === 'active' ? 'var(--accent,#4f8cff)' : 'var(--border,#2a3550)') + ';background:' + (_cfFilter === 'active' ? 'var(--accent,#4f8cff)' : 'var(--card,#1a1d27)') + ';color:' + (_cfFilter === 'active' ? '#fff' : 'var(--text)') + '>" 最近活跃</button>' +
-    +     '<button class="cfFilt" data-f="all" style="font-size:12px;padding:3px 12px;border-radius:14px;cursor:pointer;margin:0;border:1px solid ' + (_cfFilter === 'all' ? 'var(--accent,#4f8cff)' : 'var(--border,#2a3550)') + ';background:' + (_cfFilter === 'all' ? 'var(--accent,#4f8cff)' : 'var(--card,#1a1d27)') + ';color:' + (_cfFilter === 'all' ? '#fff' : 'var(--text)') + '>" 全部</button>' +
+    +     '<span style="font-size:12px;color:var(--muted,#8b8fa3)">来源:</span>' +
+    +     '<button class="cfFilt" data-f="profile" style="font-size:12px;padding:3px 12px;border-radius:14px;cursor:pointer;margin:0;border:1px solid ' + (_cfFilter === 'profile' ? 'var(--accent,#4f8cff)' : 'var(--border,#2a3550)') + ';background:' + (_cfFilter === 'profile' ? 'var(--accent,#4f8cff)' : 'var(--card,#1a1d27)') + ';color:' + (_cfFilter === 'profile' ? '#fff' : 'var(--text)') + '>已抓资料</button>' +
+    +     '<button class="cfFilt" data-f="lead" style="font-size:12px;padding:3px 12px;border-radius:14px;cursor:pointer;margin:0;border:1px solid ' + (_cfFilter === 'lead' ? 'var(--accent,#4f8cff)' : 'var(--border,#2a3550)') + ';background:' + (_cfFilter === 'lead' ? 'var(--accent,#4f8cff)' : 'var(--card,#1a1d27)') + ';color:' + (_cfFilter === 'lead' ? '#fff' : 'var(--text)') + '>互动线索</button>' +
+    +     '<button class="cfFilt" data-f="active" style="font-size:12px;padding:3px 12px;border-radius:14px;cursor:pointer;margin:0;border:1px solid ' + (_cfFilter === 'active' ? 'var(--accent,#4f8cff)' : 'var(--border,#2a3550)') + ';background:' + (_cfFilter === 'active' ? 'var(--accent,#4f8cff)' : 'var(--card,#1a1d27)') + ';color:' + (_cfFilter === 'active' ? '#fff' : 'var(--text)') + '>最近活跃</button>' +
+    +     '<button class="cfFilt" data-f="all" style="font-size:12px;padding:3px 12px;border-radius:14px;cursor:pointer;margin:0;border:1px solid ' + (_cfFilter === 'all' ? 'var(--accent,#4f8cff)' : 'var(--border,#2a3550)') + ';background:' + (_cfFilter === 'all' ? 'var(--accent,#4f8cff)' : 'var(--card,#1a1d27)') + ';color:' + (_cfFilter === 'all' ? '#fff' : 'var(--text)') + '>全部</button>' +
     +     '<span id="cfFilterNote" style="font-size:11px;color:var(--muted,#8b8fa3);margin-left:4px"></span>' +
     +   '</div>' +
     +   '<div class="cf-grid">'
@@ -246,7 +246,7 @@ function renderLeft(l) {
     + '<div class="cf-plate"><h4>客户</h4><div style="display:flex;gap:10px;align-items:center">' + avatar
     + '<div><div style="font-size:15px;font-weight:700">' + l.customer.name + '</div><div style="font-size:11px;color:var(--muted,#8b8fa3);margin-top:3px">'
     + (l.customer.age ? l.customer.age + ' · ' : '') + (l.customer.city || '') + '</div></div></div>'
-    + (l.onlineIcon ? '<div style="margin-top:6px;font-size:11px;color:var(--green,#34c38f)">● 在线(' + l.onlineIcon + ')</div>' : '') + '</div>'
+    + (l.onlineIcon ? '<div style="margin-top:6px;font-size:12px;color:var(--green,#34c38f)">● 在线(' + l.onlineIcon + ')</div>' : '') + '</div>'
     + '<div class="cf-plate"><h4>兴趣重合</h4><div>' + (interests || '<span style="color:var(--muted,#8b8fa3);font-size:11px">（无兴趣数据）</span>') + '</div></div>'
     + '<div class="cf-plate"><h4>我方人设（' + l.accountSelf.name + '）</h4>'
     + '<div style="font-size:11px;color:var(--muted,#8b8fa3)">' + l.accountSelf.age + '歳 · ' + l.accountSelf.city + '</div>'
