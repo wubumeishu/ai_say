@@ -2547,6 +2547,8 @@ if (action === 'blacklist' && deepScrape && typeof deepScrape.blockContact === '
   //   - toInbox 默认 true：发完把窗口切回收件箱，避免停在会话页中断后续操作
   //   - 参数缺失 / 客户不存在 / 文本为空 / 文本>500字 → 拒绝发送，返回 reason（不打 CDP）
   // 约束：不改 M0 schema；发送走 deepScrape（单一页面操作路径）。
+  // TODO(自动化引流准入条件)：本路由当前无合规闸门/无频控/无审计（AGENTS §1.1 裁定：现在不给 send-live 加闸门，
+  //   留待自动化引流阶段统一接入 talkEngine.checkGate / withinRateLimit / SentLog+GateBlock 审计，复用 006_send_queue 表落库）。
   register('POST', '/api/console/send-live', wrap(async (req, res, body) => {
     if (!deepScrape || typeof deepScrape.sendToContact !== 'function') {
       return json(res, 501, { ok: false, msg: 'deepScrape 未注入（出会窗口 CDP 不可用），无法真发' });
@@ -3062,6 +3064,16 @@ if (action === 'blacklist' && deepScrape && typeof deepScrape.blockContact === '
             platform: 'ichigo', noRevoke: true, fromInbox: true,
           }, extra || {}));
         };
+        // ③ 资料池已抓取资料卡的客户(用户 2026-11-11 裁定: 挪进卡片流)
+        let profileRows = [];
+        if (store && store.db) {
+          try {
+            profileRows = store.db.prepare(
+              "SELECT profileId, name, age, region, contactId, sourceDim, extras FROM Profile " +
+              "WHERE crawlStatus = 'done' AND name IS NOT NULL AND name != '' AND platform = 'ichigo' LIMIT 100"
+            ).all();
+          } catch (_) { profileRows = []; }
+        }
         (profileRows || []).forEach(function(pr) {
           var extra = {
             contactId: pr.contactId || null,
@@ -3124,16 +3136,6 @@ if (action === 'blacklist' && deepScrape && typeof deepScrape.blockContact === '
           interests: (ld.extras && Array.isArray(ld.extras.interests)) ? ld.extras.interests : [],
           avatarUrls: ld.avatarUrl ? [ld.avatarUrl] : [],
         }));
-        // ③ 资料池已抓取资料卡的客户(用户 2026-11-11 裁定: 挪进卡片流)
-        let profileRows = [];
-        if (store && store.db) {
-          try {
-            profileRows = store.db.prepare(
-              "SELECT profileId, name, age, region, contactId, sourceDim, extras FROM Profile " +
-              "WHERE crawlStatus = 'done' AND name IS NOT NULL AND name != '' AND platform = 'ichigo' LIMIT 100"
-            ).all();
-          } catch (_) { profileRows = []; }
-        }
         
         leadCount = cards.length;
       } catch (e) { leadErr = String((e && e.message) || e); }

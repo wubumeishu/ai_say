@@ -20,17 +20,35 @@ export async function loadLeads() {
     render();
     return;
   }
+  // 来源筛选(默认已抓资料) + 置顶(资料池「↗ 发起卡片流」发起的客户)
+  var _filter = window.__cfFilter || 'profile';
+  var _boost = window.__cfBoost || '';
+  var all = [];
+  var fetchErr = '';
   try {
-    var r = await fetch('/api/console/card-leads?inbox=1&maxLeads=60&maxLikes=20&maxChats=30');
+    var r = await fetch('/api/console/card-leads?inbox=1&maxLeads=60&maxLikes=20&maxChats=30', { cache: 'no-store' });
     var d = await r.json();
     if (d.ok && Array.isArray(d.cards) && d.cards.length) {
-      leads = d.cards.map(function(c, i) { return mapCard(c, i); });
+      all = d.cards.map(function(c, i) { return mapCard(c, i); });
+    } else if (!d.ok) {
+      fetchErr = d.reason || d.msg || '接口返回异常';
     }
-  } catch (e) { /* 网络失败 → 占位 */ }
+  } catch (e) { fetchErr = String((e && e.message) || e); }
+  // 筛选
+  if (_filter === 'profile') { var pf = all.filter(function(x) { return x.fromProfilePool; }); if (pf.length) all = pf; }
+  else if (_filter === 'lead') { var ld = all.filter(function(x) { return x.cat === 'lead'; }); if (ld.length) all = ld; }
+  else if (_filter === 'active') { var ac = all.filter(function(x) { return x.cat === 'active' || x.cat === 'inbox'; }); if (ac.length) all = ac; }
+  // 置顶: __cfBoost 对应 profileId → 找 name 匹配的卡排第一
+  if (_boost) {
+    var idx = all.findIndex(function(x) { return x.profileId === _boost || (x.customer && x.customer.name === _boost); });
+    if (idx > 0) { var first = all.splice(idx, 1)[0]; all.unshift(first); }
+  }
+  leads = all;
+  // 拉取失败 → 显式占位(带原因, 不再恒"拉取候选")
   if (!leads.length) {
     leads = [{
       id: 'ERR', platform: 'ichigo', platformName: '出会', noRevoke: true, cat: '', source: '',
-      customer: { name: '（拉取失败）', age: '', city: '', interests: [], selfIntro: 'CDP 窗口未开或线索池为空。请开 17098/18595 窗口后刷新。', avatarUrls: [] },
+      customer: { name: '（拉取失败）', age: '', city: '', interests: [], selfIntro: (fetchErr ? '原因: ' + fetchErr + '。' : '该筛选下无候选。') + ' 请开 17098/18595 窗口后刷新。', avatarUrls: [] },
       accountSelf: ACCOUNT_SELF, chatHistory: [], lastMsg: '', lastMsgZh: '', lastTime: '', ai: null,
       state: 'PENDING', selectedTalk: null, tags: [], opLog: []
     }];
@@ -38,7 +56,6 @@ export async function loadLeads() {
   leadsLoaded = true;
   loadQueueSnapshot();
   render();
-  // 需求5: 当前卡自动调真 AI(assistant B v1.1), 替换固定占位; 有 conversationId/资料卡才调
   autoGenerateCurrent();
 }
 

@@ -1102,17 +1102,14 @@ function bindProfileActions(el, data) {
     b.onclick = function () {
       var pid = b.getAttribute('data-id');
       try {
-        // 记录该客户为"卡片流置顶"(localStorage, cardflow 读), 然后切卡片流视图
-        window.__cfFilter = 'profile';  // 切到卡片流时默认"已抓资料"筛选
-        // 切卡片流视图(cardPage)
-        var cp = document.getElementById('cardPage');
-        var dp = document.getElementById('domainPage');
-        if (cp) cp.style.display = '';
-        if (dp) dp.style.display = 'none';
-        // 重新加载卡片流(带置顶)
-        var cfmod = window.__cfmod || null;
-        if (cfmod && typeof cfmod.loadLeads === 'function') { cfmod.loadLeads(); }
-        else { location.hash = 'card'; }
+        // 切到卡片流时默认"已抓资料"筛选 + 记住发起客户(卡片流可据此置顶)
+        window.__cfFilter = 'profile';
+        window.__cfBoost = pid;
+        // 走正规入口 view.js switchView('cards')(含 __cardflow 轮询/自愈/报错展示)
+        var sv = null;
+        try { sv = (window.__viewMod && window.__viewMod.switchView) || window.switchView; } catch (_) { sv = null; }
+        if (typeof sv === 'function') { sv('cards'); }
+        else { location.hash = 'cards'; }
       } catch (e) { /* ignore */ }
     };
   });
