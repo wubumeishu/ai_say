@@ -99,9 +99,22 @@ export function switchView(view) {
       i.classList.toggle('active', i.getAttribute('data-view') === view);
     });
     // cardflow ESM 异步 import 可能未就绪 → 轮询直到 window.__cardflow 存在(最多 8s)
+    // 自愈: 之前 import 失败(__cardflowError) 时, 切进来就清掉 error + 重新带缓存破坏参数 import 一次
+    if (!window.__cardflow && window.__cardflowError) {
+      try {
+        delete window.__cardflowError;
+        import('/ichigo-assets/cardflow.js?_t=' + Date.now()).then(function(m) {
+          window.__cardflow = m;
+          // 重新进入卡片流(触发已挂好的 __cardflow)
+          if (typeof switchView === 'function') switchView('cards');
+        }).catch(function(e) { window.__cardflowError = String((e && e.message) || e); });
+      } catch (_) { /* ignore */ }
+    }
     var cfRoot = document.getElementById('cardPage');
-    if (cfRoot) {
+    if (cfRoot && !window.__cardflowError) {
       cfRoot.innerHTML = '<div class="cf-main"><div style="text-align:center;padding:60px;color:var(--muted,#8b8fa3);font-size:13px">⏳ 卡片流加载中…（拉取候选）</div></div>';
+    } else if (cfRoot && window.__cardflowError) {
+      cfRoot.innerHTML = '<div class="cf-main"><div style="text-align:center;padding:50px;color:#ef4444;font-size:13px">卡片流模块加载失败: ' + window.__cardflowError + '<br><span style="color:var(--muted,#8b8fa3);font-size:12px">重新进入卡片流或 Ctrl+Shift+R 强刷可重试</span></div></div>';
     }
     var _cfRetry = 0;
     (function tryCf(n) {
