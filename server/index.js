@@ -508,7 +508,10 @@ try {
         return serveStatic(res, 'ichigo-assets' + pathname.slice('/ichigo-assets'.length), 'text/javascript; charset=utf-8');
       }
       switch (pathname) {
-        case '/ichigo-console':
+        case '/ichigo-cardflow':
+        case '/ichigo-cardflow.html':
+          return serveStatic(res, 'ichigo-cardflow.html', 'text/html; charset=utf-8');
+case '/ichigo-console':
         case '/ichigo-console.html':
           return serveStatic(res, 'ichigo-console.html', 'text/html; charset=utf-8');
         case '/console':
